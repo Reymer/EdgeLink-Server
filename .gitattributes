@@ -1,0 +1,2 @@
+MaskEditorApp/build/MaskEditor/MaskEditor.pkg filter=lfs diff=lfs merge=lfs -text
+MaskEditorApp/dist/MaskEditor.exe filter=lfs diff=lfs merge=lfs -text
