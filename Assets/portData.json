@@ -11,7 +11,7 @@
     },
     "TargetIP": "",
     "IsConnected": true,
-    "COMReceived": 48,
-    "NetReceived": 48
+    "COMReceived": 0,
+    "NetReceived": 0
   }
 ]

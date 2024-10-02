@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+
 using DevKit.Console;
 using DevKit.Tool;
 using Newtonsoft.Json;
@@ -23,13 +24,10 @@ public class NetworkPortManager
 
     public event Action<PortData> PortDataUpdated;
 
-    private NetworkPortManager()
+    private NetworkPortManager(string customFilePath = null)
     {
-        filePath = Path.Combine(Application.dataPath, "portData.json");
-        if (string.IsNullOrEmpty(filePath))
-        {
-            Debug.LogError("檔案路徑未設定！");
-        }
+        filePath = string.IsNullOrEmpty(customFilePath) ? Path.Combine(Application.dataPath, "portData.json") : customFilePath;
+        Debug.Log($"檔案路徑已設定為: {filePath}");
     }
 
     public void Init()
@@ -175,56 +173,34 @@ public class NetworkPortManager
 
         return resultPortData;
     }
-
-
     private void RemovePortFromDictionary(string netProtocol, string port)
     {
-        if (netProtocol.Equals("TCP Server", StringComparison.OrdinalIgnoreCase))
+        bool removed = netProtocol switch
         {
-            if (tcpServers.Remove(port))
-            {
-                Debug.Log($"Successfully removed TCP Server on Local Port: {port}");
-            }
-            else
-            {
-                Debug.LogWarning($"TCP Server Local Port: {port} not found for removal.");
-            }
+            "TCP Server" => tcpServers.Remove(port),
+            "TCP Client" => tcpClients.Remove(port),
+            "UDP" => udpPorts.Remove(port),
+            _ => false
+        };
+
+        if (removed)
+        {
+            Debug.Log($"Successfully removed {netProtocol} on Port: {port}");
         }
-        else if (netProtocol.Equals("TCP Client", StringComparison.OrdinalIgnoreCase))
+        else
         {
-            if (tcpClients.Remove(port))
-            {
-                Debug.Log($"Successfully removed TCP Client on Remote Port: {port}");
-            }
-            else
-            {
-                Debug.LogWarning($"TCP Client Remote Port: {port} not found for removal.");
-            }
-        }
-        else if (netProtocol.Equals("UDP", StringComparison.OrdinalIgnoreCase))
-        {
-            if (udpPorts.Remove(port))
-            {
-                Debug.Log($"Successfully removed UDP Port: {port}");
-            }
-            else
-            {
-                Debug.LogWarning($"UDP Port: {port} not found for removal.");
-            }
+            Debug.LogWarning($"{netProtocol} Port: {port} not found for removal.");
         }
     }
-
     public void OnUpdate(PortData data)
     {
         Debug.Log($"OnUpdate triggered for port: {data.RemotePortDetails.Port}, COMReceived: {data.COMReceived}, IsConnectting: {data.IsConnected}");
         PortDataUpdated?.Invoke(data);
     }
-
     public void RefreshAndRecreateTables(PortTablePrefabManager prefabManager, UICollector uiCollector)
     {
         InstantiateTables(prefabManager, uiCollector);
     }
-
     public void InstantiateTables(PortTablePrefabManager prefabManager, UICollector uiCollector)
     {
         foreach (var portData in portDataList)
@@ -232,7 +208,6 @@ public class NetworkPortManager
             prefabManager.InstantiatePortTable(uiCollector, portData);
         }
     }
-
     public void AddPortsToNetwork()
     {
         var allPorts = tcpServers.Values.Concat(udpPorts.Values).Concat(tcpClients.Values).ToList();
@@ -242,8 +217,6 @@ public class NetworkPortManager
             networkConnectorCore.AddPort(portData);
         }
     }
-
-
     public void LoadFromJson()
     {
         try
@@ -272,7 +245,6 @@ public class NetworkPortManager
             consoleUI?.AddLog("無法載入資料，請檢查文件的格式和路徑。" + ex);
         }
     }
-
     public void DeInit()
     {
         networkConnectorCore.DeInit();
