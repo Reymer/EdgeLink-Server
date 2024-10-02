@@ -10,9 +10,8 @@ using UnityEngine;
 using DevKit.Console;
 using System.IO;
 using static NetworkPortManager;
-using static NetworkConnector;
 
-public class NetworkConnector
+public class NetworkConnectorCore
 {
     #region 宣告
     private ConsoleUI consoleUI;

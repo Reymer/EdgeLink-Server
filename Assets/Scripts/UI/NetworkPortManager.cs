@@ -2,13 +2,10 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Net.Sockets;
-using System.Net;
 using DevKit.Console;
 using DevKit.Tool;
 using Newtonsoft.Json;
 using UnityEngine;
-using TMPro;
 
 public class NetworkPortManager
 {
@@ -18,7 +15,7 @@ public class NetworkPortManager
 
     private readonly string filePath;
     private ConsoleUI consoleUI;
-    private readonly NetworkConnector networkConnector = new();
+    private readonly NetworkConnectorCore networkConnectorCore = new();
     public readonly Dictionary<string, PortData> tcpServers = new();
     public readonly Dictionary<string, PortData> tcpClients = new();
     public readonly Dictionary<string, PortData> udpPorts = new();
@@ -38,7 +35,7 @@ public class NetworkPortManager
     public void Init()
     {
         consoleUI = GameObject.FindObjectOfType<ConsoleUI>(true);
-        networkConnector.Init(consoleUI);
+        networkConnectorCore.Init(consoleUI);
     }
 
     public class PortData
@@ -76,7 +73,7 @@ public class NetworkPortManager
 
         AddPortToDictionary(data);
         portDataList.Add(data);
-        networkConnector.AddPort(data);
+        networkConnectorCore.AddPort(data);
         SavePortDataToFile();
         return data;
     }
@@ -139,19 +136,19 @@ public class NetworkPortManager
         {
             Debug.LogWarning($"未能成功從清單中移除協定為 {portData.NetProtocol}，端口為 {portToRemove} 的資料。");
         }
-        networkConnector.StopClient(portToRemove, portData.NetProtocol);
+        networkConnectorCore.StopClient(portToRemove, portData.NetProtocol);
 
         SavePortDataToFile();
     }
 
     public void ConnectPort(PortData portData)
     {
-        networkConnector.AddPort(portData);
+        networkConnectorCore.AddPort(portData);
     }
 
     public void DisconnectedPort(PortData portData)
     {
-        networkConnector.Disconnected(portData);
+        networkConnectorCore.Disconnected(portData);
     }
 
     private PortData GetPortData(PortData portData)
@@ -242,7 +239,7 @@ public class NetworkPortManager
 
         foreach (var portData in allPorts)
         {
-            networkConnector.AddPort(portData);
+            networkConnectorCore.AddPort(portData);
         }
     }
 
@@ -278,7 +275,7 @@ public class NetworkPortManager
 
     public void DeInit()
     {
-        networkConnector.DeInit();
+        networkConnectorCore.DeInit();
         foreach (var portData in tcpServers.Values.Concat(udpPorts.Values).Concat(tcpClients.Values))
         {
             portData.OnUpdate -= OnUpdate;

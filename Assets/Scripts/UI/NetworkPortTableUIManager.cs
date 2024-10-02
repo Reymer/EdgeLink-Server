@@ -1,7 +1,6 @@
 ﻿using DevKit.Tool;
 using UnityEngine;
 using DevKit.Console;
-using System;
 using static NetworkPortManager;
 public class NetworkPortTableUIManager : MonoBehaviour
 {
