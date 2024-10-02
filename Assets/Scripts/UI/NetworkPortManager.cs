@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-
 using DevKit.Console;
 using DevKit.Tool;
 using Newtonsoft.Json;
@@ -11,7 +10,6 @@ using UnityEngine;
 public class NetworkPortManager
 {
     private static readonly Lazy<NetworkPortManager> instance = new(() => new NetworkPortManager());
-
     public static NetworkPortManager Instance => instance.Value;
 
     private readonly string filePath;
