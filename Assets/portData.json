@@ -1,32 +1,17 @@
 [
   {
-    "NetProtocol": "TCP Server",
+    "NetProtocol": "UDP",
     "LocalPortDetails": {
-      "Port": "7777",
-      "Description": null
-    },
-    "RemotePortDetails": {
-      "Port": "--",
-      "Description": null
-    },
-    "TargetIP": null,
-    "IsConnected": true,
-    "COMReceived": 0,
-    "NetReceived": 0
-  },
-  {
-    "NetProtocol": "TCP Client",
-    "LocalPortDetails": {
-      "Port": "--",
+      "Port": "1234",
       "Description": null
     },
     "RemotePortDetails": {
       "Port": "7777",
       "Description": null
     },
-    "TargetIP": "192.168.1.105",
+    "TargetIP": "",
     "IsConnected": true,
-    "COMReceived": 0,
-    "NetReceived": 0
+    "COMReceived": 48,
+    "NetReceived": 48
   }
 ]

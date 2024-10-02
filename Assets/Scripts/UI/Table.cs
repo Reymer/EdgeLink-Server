@@ -39,16 +39,9 @@ public class Table : MonoBehaviour
 
     private void Subscribe()
     {
-        if (uiCollector == null)
-        {
-            Debug.LogError("UICollector is not assigned.");
-            return;
-        }
-
         uiCollector.BindOnCheck(UIKey.table_Delete, () => HandleAction(OnDelete));
         uiCollector.BindOnCheck(UIKey.table_Connect, () => HandleAction(OnConnect));
-        uiCollector.BindOnCheck(UIKey.table_Disconnected, () => HandleAction(OnDisconnectedt));
-        
+        uiCollector.BindOnCheck(UIKey.table_Disconnected, () => HandleAction(OnDisconnectedt));       
     }
 
     private void HandleAction(Action<PortData> action)
@@ -58,11 +51,6 @@ public class Table : MonoBehaviour
 
     private void UpdateUI(PortData portData)
     {
-        if (uiCollector == null)
-        {
-            Debug.LogError("UICollector is not assigned.");
-            return;
-        }
         SetValue(UIKey.table_prococolText, protocolType);
         SetValue(UIKey.table_remoteText, remotePort);
         SetValue(UIKey.table_localPortText, localPort);
@@ -74,12 +62,7 @@ public class Table : MonoBehaviour
 
     private string GetIsConnecting(PortData portData)
     {
-        if (portData.NetProtocol.Equals("UDP"))
-        {
-            return "Connecting";
-        }
-
-        if (portData.NetProtocol.Equals("TCP Client") || portData.NetProtocol.Equals("TCP Server"))
+        if (portData.NetProtocol.Equals("TCP Client") || portData.NetProtocol.Equals("TCP Server") || portData.NetProtocol.Equals("UDP"))
         {
             if (portData.IsConnected)
             {
@@ -97,18 +80,9 @@ public class Table : MonoBehaviour
         return "Not Connecting";
     }
 
-
-
     private void SetValue(string uiKey, string content)
     {
-        if (uiCollector != null)
-        {
-            uiCollector.SetText(uiKey, content);
-        }
-        else
-        {
-            Debug.LogError("UICollector is not assigned.");
-        }
+        uiCollector.SetText(uiKey, content);
     }
 
     private PortData CreatePortData()
