@@ -31,8 +31,9 @@ public class PortTablePrefabManager : MonoBehaviour
         if (instance.TryGetComponent<Table>(out var table))
         {
             table.Init(portData);
-            table.OnDelete += (protocol, PortData) => DeletePort(protocol, portData);
-            table.OnConnect += (protocol, PortData) => ConnectPort(protocol, portData);
+            table.OnDelete += (PortData) => DeletePort(portData);
+            table.OnConnect += (PortData) => ConnectPort(portData);
+            table.OnDisconnectedt += (PortData) => DisconnectedPort(portData);
         }
     }
 
@@ -47,18 +48,26 @@ public class PortTablePrefabManager : MonoBehaviour
         }
     }
 
-    public void DeletePort(string protocolType, PortData portData)
+    public void DeletePort(PortData portData)
     {
         if (portTableUIManager != null)
         {
-            portTableUIManager.OnRemove(protocolType, portData);
+            portTableUIManager.OnRemove(portData);
         }
     }
-    private void ConnectPort(string protocolType, PortData portData)
+    private void ConnectPort(PortData portData)
     {
         if (portTableUIManager != null)
         {
-            portTableUIManager.OnConnect(protocolType, portData);
+            portTableUIManager.OnConnect(portData);
+        }
+    }
+
+    private void DisconnectedPort(PortData portData)
+    {
+        if (portTableUIManager != null)
+        {
+            portTableUIManager.OnDisconnectedPort(portData);
         }
     }
 }

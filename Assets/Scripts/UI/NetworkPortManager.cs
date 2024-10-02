@@ -115,42 +115,46 @@ public class NetworkPortManager
         return false;
     }
 
-    public void RemovePortData(string netProtocol, PortData portData)
+    public void RemovePortData(PortData portData)
     {
-        PortData dataToRemove = GetPortData(netProtocol, portData);
+        PortData dataToRemove = GetPortData(portData);
 
         if (dataToRemove == null)
         {
-            Debug.LogWarning($"未能找到協定為 {netProtocol} 的端口資料，無法移除。");
+            Debug.LogWarning($"未能找到協定為 {portData.NetProtocol} 的端口資料，無法移除。");
             return;
         }
 
-        string portToRemove = (netProtocol.Equals("TCP Server", StringComparison.OrdinalIgnoreCase))
+        string portToRemove = (portData.NetProtocol.Equals("TCP Server", StringComparison.OrdinalIgnoreCase))
             ? dataToRemove.LocalPortDetails.Port
             : dataToRemove.RemotePortDetails.Port;
 
 
-        Debug.Log($"Removing {netProtocol} Port: {portToRemove}");
+        Debug.Log($"Removing {portData.NetProtocol} Port: {portToRemove}");
         dataToRemove.OnUpdate -= OnUpdate;
-        RemovePortFromDictionary(netProtocol, portToRemove);
+        RemovePortFromDictionary(portData.NetProtocol, portToRemove);
 
         bool removedFromList = portDataList.Remove(dataToRemove);
         if (!removedFromList)
         {
-            Debug.LogWarning($"未能成功從清單中移除協定為 {netProtocol}，端口為 {portToRemove} 的資料。");
+            Debug.LogWarning($"未能成功從清單中移除協定為 {portData.NetProtocol}，端口為 {portToRemove} 的資料。");
         }
-        networkConnector.StopClient(portToRemove, netProtocol);
+        networkConnector.StopClient(portToRemove, portData.NetProtocol);
 
         SavePortDataToFile();
     }
 
-    public void ConnectPort(string netProtocol, PortData portData)
+    public void ConnectPort(PortData portData)
     {
         networkConnector.AddPort(portData);
     }
 
+    public void DisconnectedPort(PortData portData)
+    {
+        networkConnector.Disconnected(portData);
+    }
 
-    private PortData GetPortData(string netProtocol, PortData portData)
+    private PortData GetPortData(PortData portData)
     {
         if (portData == null)
         {
@@ -159,15 +163,15 @@ public class NetworkPortManager
 
         PortData resultPortData = null;
 
-        if (netProtocol.Equals("TCP Server", StringComparison.OrdinalIgnoreCase))
+        if (portData.NetProtocol.Equals("TCP Server", StringComparison.OrdinalIgnoreCase))
         {
             resultPortData = tcpServers.GetValueOrDefault(portData.LocalPortDetails.Port);
         }
-        else if (netProtocol.Equals("UDP", StringComparison.OrdinalIgnoreCase))
+        else if (portData.NetProtocol.Equals("UDP", StringComparison.OrdinalIgnoreCase))
         {
             resultPortData = udpPorts.GetValueOrDefault(portData.RemotePortDetails.Port);
         }
-        else if (netProtocol.Equals("TCP Client", StringComparison.OrdinalIgnoreCase))
+        else if (portData.NetProtocol.Equals("TCP Client", StringComparison.OrdinalIgnoreCase))
         {
             resultPortData = tcpClients.GetValueOrDefault(portData.RemotePortDetails.Port);
         }

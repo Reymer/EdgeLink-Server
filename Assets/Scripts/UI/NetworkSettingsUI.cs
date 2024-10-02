@@ -231,8 +231,8 @@ public class NetworkSettingsUI : MonoBehaviour
 
         while (true)
         {
-            port = random.Next(49152, 65535); // 随机选择一个动态端口范围
-            if (IsPortAvailable(port)) // 检查端口是否可用
+            port = random.Next(49152, 65535);
+            if (IsPortAvailable(port))
             {
                 break;
             }
@@ -253,7 +253,7 @@ public class NetworkSettingsUI : MonoBehaviour
         }
         catch (SocketException)
         {
-            isAvailable = false; // 如果抛出异常，表示端口被占用
+            isAvailable = false;
         }
 
         return isAvailable;

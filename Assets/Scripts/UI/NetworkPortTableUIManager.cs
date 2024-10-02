@@ -36,20 +36,25 @@ public class NetworkPortTableUIManager : MonoBehaviour
         }
     }
 
-    public void OnRemove(string netProtocol, PortData portData)
+    public void OnRemove(PortData portData)
     {
         prefabManager.RefreshAndRecreateTables(uiCollector);
-        NetworkPortManager.Instance.RemovePortData(netProtocol, portData);
+        NetworkPortManager.Instance.RemovePortData(portData);
         NetworkPortManager.Instance.RefreshAndRecreateTables(prefabManager, uiCollector);
     }
 
-    public void OnConnect(string netProtocol, PortData portData)
+    public void OnConnect(PortData portData)
     {
         prefabManager.RefreshAndRecreateTables(uiCollector);
-        NetworkPortManager.Instance.ConnectPort(netProtocol, portData);
+        NetworkPortManager.Instance.ConnectPort(portData);
         NetworkPortManager.Instance.RefreshAndRecreateTables(prefabManager, uiCollector);
     }
-
+    public void OnDisconnectedPort(PortData portData)
+    {
+        prefabManager.RefreshAndRecreateTables(uiCollector);
+        NetworkPortManager.Instance.DisconnectedPort(portData);
+        NetworkPortManager.Instance.RefreshAndRecreateTables(prefabManager, uiCollector);
+    }
 
     public void OnUpdate(PortData portData)
     {
@@ -59,10 +64,7 @@ public class NetworkPortTableUIManager : MonoBehaviour
 
     public void DeInit()
     {
-        if (networkSettingUI != null)
-        {
-            networkSettingUI.Confirm -= OnConfirm;
-            NetworkPortManager.Instance.PortDataUpdated -= OnUpdate;
-        }
+        networkSettingUI.Confirm -= OnConfirm;
+        NetworkPortManager.Instance.PortDataUpdated -= OnUpdate;
     }
 }

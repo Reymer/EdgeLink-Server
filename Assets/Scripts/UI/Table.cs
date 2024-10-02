@@ -12,13 +12,13 @@ public class Table : MonoBehaviour
     private string remotePort;
     private string localPort;
     private string targetIP;
-    private string IsConnectting;
     private bool receivedStatus;
     private int receivedCount;
     private int comReceivedCount;
 
-    public event Action<string, PortData> OnDelete;
-    public event Action<string, PortData> OnConnect;
+    public event Action<PortData> OnDelete;
+    public event Action<PortData> OnConnect;
+    public event Action<PortData> OnDisconnectedt;
 
     private void Start()
     {
@@ -47,11 +47,13 @@ public class Table : MonoBehaviour
 
         uiCollector.BindOnCheck(UIKey.table_Delete, () => HandleAction(OnDelete));
         uiCollector.BindOnCheck(UIKey.table_Connect, () => HandleAction(OnConnect));
+        uiCollector.BindOnCheck(UIKey.table_Disconnected, () => HandleAction(OnDisconnectedt));
+        
     }
 
-    private void HandleAction(Action<string, PortData> action)
+    private void HandleAction(Action<PortData> action)
     {
-        action?.Invoke(protocolType, CreatePortData());
+        action?.Invoke(CreatePortData());
     }
 
     private void UpdateUI(PortData portData)
@@ -67,29 +69,34 @@ public class Table : MonoBehaviour
         SetValue(UIKey.table_COMReceived, comReceivedCount.ToString());
         SetValue(UIKey.table_netReceived, receivedCount.ToString());
         SetValue(UIKey.table_ForwardTargetText, targetIP);
-        SetValue(UIKey.table_netReceivedStatus, GetIsConnectting(portData));
-        if (protocolType.Equals("TCP Server", StringComparison.OrdinalIgnoreCase))
-        {
-            uiCollector.Deactive(UIKey.table_ConnectRoot);
-        }
-        else
-        {
-            uiCollector.Active(UIKey.table_ConnectRoot);
-        }
+        SetValue(UIKey.table_netReceivedStatus, GetIsConnecting(portData));
     }
 
-    private string GetIsConnectting(PortData portData)
+    private string GetIsConnecting(PortData portData)
     {
-        if(portData.NetProtocol.Equals("UDP") || portData.NetProtocol.Equals("TCP Server"))
+        if (portData.NetProtocol.Equals("UDP"))
         {
-            return "Connectting";
+            return "Connecting";
         }
-        else if(portData.NetProtocol.Equals("TCP Client") && portData.IsConnected)
+
+        if (portData.NetProtocol.Equals("TCP Client") || portData.NetProtocol.Equals("TCP Server"))
         {
-            return "Connectting";
+            if (portData.IsConnected)
+            {
+                uiCollector.Deactive(UIKey.table_ConnectRoot);
+                uiCollector.Active(UIKey.table_DisconnectedRoot);
+                return "Connecting";
+            }
+            else
+            {
+                uiCollector.Active(UIKey.table_ConnectRoot);
+                uiCollector.Deactive(UIKey.table_DisconnectedRoot);
+                return "Not Connecting";
+            }
         }
-        return "No Connectting";
+        return "Not Connecting";
     }
+
 
 
     private void SetValue(string uiKey, string content)
@@ -112,6 +119,7 @@ public class Table : MonoBehaviour
             RemotePortDetails = new PortDetails { Port = remotePort },
             LocalPortDetails = new PortDetails { Port = localPort },
             TargetIP = targetIP,
+            IsConnected = receivedStatus,
             COMReceived = comReceivedCount,
             NetReceived = receivedCount,
             OnUpdate = null

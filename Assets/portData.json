@@ -2,7 +2,7 @@
   {
     "NetProtocol": "TCP Server",
     "LocalPortDetails": {
-      "Port": "7743",
+      "Port": "7777",
       "Description": null
     },
     "RemotePortDetails": {
@@ -10,7 +10,7 @@
       "Description": null
     },
     "TargetIP": null,
-    "IsConnected": false,
+    "IsConnected": true,
     "COMReceived": 0,
     "NetReceived": 0
   },
@@ -21,7 +21,7 @@
       "Description": null
     },
     "RemotePortDetails": {
-      "Port": "7743",
+      "Port": "7777",
       "Description": null
     },
     "TargetIP": "192.168.1.105",

@@ -59,6 +59,10 @@ namespace DevKit.Tool
         
         public const string table_Connect = "table_Connect";
         
+        public const string table_Disconnected = "table_Disconnected";
+        
         public const string table_ConnectRoot = "table_ConnectRoot";
+        
+        public const string table_DisconnectedRoot = "table_DisconnectedRoot";
     }
 }
