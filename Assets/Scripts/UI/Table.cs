@@ -6,8 +6,8 @@ using static NetworkPortManager;
 public class Table : MonoBehaviour
 {
     public UICollector uiCollector;
-
-    private string protocolType;
+    private string protocolName;
+    private string netProtocolType;
     private string remotePort;
     private string localPort;
     private string targetIP;
@@ -26,7 +26,8 @@ public class Table : MonoBehaviour
 
     public void Init(PortData portData)
     {
-        this.protocolType = portData.NetProtocol;
+        this.protocolName = portData.ProtocolName;
+        this.netProtocolType = portData.NetProtocol;
         this.remotePort = portData.RemotePortDetails.Port;
         this.localPort = portData.LocalPortDetails.Port;
         this.targetIP = portData.TargetIP;
@@ -50,7 +51,8 @@ public class Table : MonoBehaviour
 
     private void UpdateUI(PortData portData)
     {
-        SetValue(UIKey.table_prococolText, protocolType);
+        SetValue(UIKey.table_nameText, protocolName);
+        SetValue(UIKey.table_prococolText, netProtocolType);
         SetValue(UIKey.table_remoteText, remotePort);
         SetValue(UIKey.table_localPortText, localPort);
         SetValue(UIKey.table_COMReceived, comReceivedCount.ToString());
@@ -88,7 +90,8 @@ public class Table : MonoBehaviour
     {
         return new PortData
         {
-            NetProtocol = protocolType,
+            ProtocolName = protocolName,
+            NetProtocol = netProtocolType,
             RemotePortDetails = new PortDetails { Port = remotePort },
             LocalPortDetails = new PortDetails { Port = localPort },
             TargetIP = targetIP,

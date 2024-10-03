@@ -11,10 +11,9 @@ public class PortTablePrefabManager : MonoBehaviour
     {
         portTableUIManager = FindObjectOfType<NetworkPortTableUIManager>();
     }
-
     public void InstantiatePortTable(UICollector uiCollector, PortData portData)
     {
-        Transform parentTransform = uiCollector.GetAsset<GameObject>(UIKey.UI_Tables)?.transform;
+        Transform parentTransform = uiCollector.GetAsset<GameObject>(UIKey.UI_Tables).transform;
         if (parentTransform != null)
         {
             GameObject instance = Instantiate(prefab, parentTransform);
@@ -22,7 +21,6 @@ public class PortTablePrefabManager : MonoBehaviour
             InitializeTable(instance, portData);
         }
     }  
-
     private void InitializeTable(GameObject instance, PortData portData)
     {
         if (instance.TryGetComponent<Table>(out var table))
@@ -33,10 +31,9 @@ public class PortTablePrefabManager : MonoBehaviour
             table.OnDisconnectedt += (PortData) => DisconnectedPort(portData);
         }
     }
-
     public void RefreshAndRecreateTables(UICollector uiCollector)
     {
-        Transform parentTransform = uiCollector.GetAsset<GameObject>(UIKey.UI_Tables)?.transform;
+        Transform parentTransform = uiCollector.GetAsset<GameObject>(UIKey.UI_Tables).transform;
         int childCount = parentTransform.childCount;
         for (int i = childCount - 1; i > 0; i--)
         {
@@ -44,8 +41,7 @@ public class PortTablePrefabManager : MonoBehaviour
             Destroy(child.gameObject);
         }
     }
-
-    public void DeletePort(PortData portData)
+    private void DeletePort(PortData portData)
     {
         if (portTableUIManager != null)
         {
@@ -59,7 +55,6 @@ public class PortTablePrefabManager : MonoBehaviour
             portTableUIManager.OnConnect(portData);
         }
     }
-
     private void DisconnectedPort(PortData portData)
     {
         if (portTableUIManager != null)

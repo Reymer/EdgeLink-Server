@@ -6,13 +6,16 @@ using DevKit.Console;
 using System.Net.Sockets;
 using System.Net;
 using Random = System.Random;
+using DevKit;
+using UnityEngine.UI;
 
 public class NetworkSettingsUI : MonoBehaviour
 {
     private UICollector uiCollector;
     private ConsoleUI consoleUi;
-    public event Action<string, string, string, string> Confirm;
+    public event Action<string, string, string, string, string> Confirm;
     private string protocolType = "UDP";
+    private string protocolName = string.Empty;
     private int? remotePort;
     private int? localPort;
     private string targetIP;
@@ -45,11 +48,14 @@ public class NetworkSettingsUI : MonoBehaviour
         uiCollector.GetAsset<TMP_InputField>(UIKey.UI_RemotePortInput).onValueChanged.AddListener(OnRemotePortInput);
         uiCollector.GetAsset<TMP_InputField>(UIKey.UI_LocalPortInput).onValueChanged.AddListener(OnLocalPortInput);
         uiCollector.GetAsset<TMP_InputField>(UIKey.UI_TargetIPInput).onValueChanged.AddListener(OnTargetInput);
+        uiCollector.GetAsset<InputField>(UIKey.UI_NameInput).onValueChanged.AddListener(OnNameInput);
     }
+
+
 
     private void Update()
     {
-        Transform parentTransform = uiCollector.GetAsset<GameObject>(UIKey.UI_Consolelayout)?.transform;
+        Transform parentTransform = uiCollector.GetAsset<GameObject>(UIKey.UI_Consolelayout).transform;
         int childCount = parentTransform.childCount;
         if (childCount < 50)
         {
@@ -60,7 +66,7 @@ public class NetworkSettingsUI : MonoBehaviour
 
     private void OnClearConsole()
     {
-        Transform parentTransform = uiCollector.GetAsset<GameObject>(UIKey.UI_Consolelayout)?.transform;
+        Transform parentTransform = uiCollector.GetAsset<GameObject>(UIKey.UI_Consolelayout).transform;
 
         if (parentTransform == null) return;
         int childCount = parentTransform.childCount;
@@ -103,6 +109,10 @@ public class NetworkSettingsUI : MonoBehaviour
                 break;
         }
         Debug.Log(protocolType);
+    }
+    private void OnNameInput(string name)
+    {
+        protocolName = name;
     }
 
     private void OnRemotePortInput(string value)
@@ -149,33 +159,93 @@ public class NetworkSettingsUI : MonoBehaviour
 
     private void OnConfirm()
     {
-        if (protocolType.Equals("TCP Server", StringComparison.OrdinalIgnoreCase) && !remotePort.HasValue)
+        // 檢查是否所有輸入都是空的
+        bool isAllEmpty = string.IsNullOrWhiteSpace(protocolName) &&
+                          !remotePort.HasValue &&
+                          !localPort.HasValue &&
+                          (string.IsNullOrWhiteSpace(targetIP) || !IsValidIPv4(targetIP));
+
+        if (isAllEmpty)
         {
-            consoleUi.AddLog("遠程端口號碼無效。請檢查輸入");
+            consoleUi.AddLog("尚未輸入，請檢查所有欄位。");
             return;
         }
 
-        if (protocolType.Equals("TCP Client", StringComparison.OrdinalIgnoreCase) && !localPort.HasValue)
+        // 逐項檢查每一個欄位是否有輸入錯誤
+        bool hasError = false;
+
+        // 檢查 protocolName 是否為空
+        if (string.IsNullOrWhiteSpace(protocolName))
         {
-            consoleUi.AddLog("本地端口號碼無效。請檢查輸入");
-            return;
+            consoleUi.AddLog("名稱不能為空，請檢查輸入。");
+            hasError = true;
         }
 
-        if (protocolType.Equals("TCP Server", StringComparison.OrdinalIgnoreCase))
+        // 根據協議類型檢查對應的欄位
+        if (protocolType.Equals("UDP", StringComparison.OrdinalIgnoreCase))
         {
-            Confirm?.Invoke(protocolType, "--", localPort.ToString(), targetIP);
+            // 檢查 remotePort 是否已設置
+            if (!remotePort.HasValue)
+            {
+                consoleUi.AddLog("UDP 協議需要遠程端口號，請檢查輸入。");
+                hasError = true;
+            }
         }
-        else if(protocolType.Equals("TCP Client", StringComparison.OrdinalIgnoreCase))
+        else if (protocolType.Equals("TCP Client", StringComparison.OrdinalIgnoreCase))
         {
-            Confirm?.Invoke(protocolType, remotePort.ToString(), "--", targetIP);
+            // 檢查 remotePort 和 targetIP 是否已設置
+            if (!remotePort.HasValue)
+            {
+                consoleUi.AddLog("TCP Client 需要遠程端口號，請檢查輸入。");
+                hasError = true;
+            }
+
+            if (string.IsNullOrWhiteSpace(targetIP) || !IsValidIPv4(targetIP))
+            {
+                consoleUi.AddLog("TCP Client 需要有效的目標 IP 地址，請檢查輸入。");
+                hasError = true;
+            }
+        }
+        else if (protocolType.Equals("TCP Server", StringComparison.OrdinalIgnoreCase))
+        {
+            // 檢查 localPort 是否已設置
+            if (!localPort.HasValue)
+            {
+                consoleUi.AddLog("TCP Server 需要本地端口號，請檢查輸入。");
+                hasError = true;
+            }
         }
         else
         {
-            Confirm?.Invoke(protocolType, remotePort.ToString(), localPort.ToString(), targetIP = string.Empty);
+            consoleUi.AddLog("未知的協議類型，請檢查選擇。");
+            hasError = true;
         }
 
+        // 如果有錯誤，直接返回，不執行確認操作
+        if (hasError)
+        {
+            return;
+        }
+
+        // 如果通過所有檢查，執行 Confirm
+        if (protocolType.Equals("UDP", StringComparison.OrdinalIgnoreCase))
+        {
+            Confirm?.Invoke(protocolName, protocolType, remotePort.ToString(), localPort?.ToString(), string.Empty);
+        }
+        else if (protocolType.Equals("TCP Client", StringComparison.OrdinalIgnoreCase))
+        {
+            Confirm?.Invoke(protocolName, protocolType, remotePort.ToString(), "--", targetIP);
+        }
+        else if (protocolType.Equals("TCP Server", StringComparison.OrdinalIgnoreCase))
+        {
+            Confirm?.Invoke(protocolName, protocolType, "--", localPort.ToString(), targetIP);
+        }
+
+        // 成功後關閉菜單
         CloseMenu(UIKey.UI_MenuRoot);
     }
+
+
 
 
     private void OnConsole()
@@ -198,22 +268,20 @@ public class NetworkSettingsUI : MonoBehaviour
 
     private void Clear()
     {
-        var remoteInput = uiCollector.GetAsset<TMP_InputField>(UIKey.UI_RemotePortInput);
-        var localInput = uiCollector.GetAsset<TMP_InputField>(UIKey.UI_LocalPortInput);
-        var targetInput = uiCollector.GetAsset<TMP_InputField>(UIKey.UI_TargetIPInput);
-        var protocolDropdown = uiCollector.GetAsset<TMP_Dropdown>(UIKey.UI_NetProtocolDropdowm);
-        remoteInput.text = string.Empty;
-        localInput.text = string.Empty;
-        targetInput.text = string.Empty;
+        uiCollector.GetAsset<InputField>(UIKey.UI_NameInput).text = string.Empty;
+        uiCollector.GetAsset<TMP_InputField>(UIKey.UI_RemotePortInput).text = string.Empty;
+        uiCollector.GetAsset<TMP_InputField>(UIKey.UI_LocalPortInput).text = string.Empty;
+        uiCollector.GetAsset<TMP_InputField>(UIKey.UI_TargetIPInput).text = string.Empty;
+        uiCollector.GetAsset<TMP_Dropdown>(UIKey.UI_NetProtocolDropdowm).value = 0;
+        uiCollector.GetAsset<TMP_Dropdown>(UIKey.UI_NetProtocolDropdowm).RefreshShownValue();
         remotePort = null;
         localPort = null;
         targetIP = null;
+        protocolName = null;
         protocolType = "UDP";
         SetUiStatus(true, UIKey.UI_TargetIPMask);
         SetUiStatus(false, UIKey.UI_RemotePortsMask);
         SetUiStatus(false, UIKey.UI_LocalPortsMask);
-        protocolDropdown.value = 0;
-        protocolDropdown.RefreshShownValue();
     }
 
     private void SetUiStatus(bool status, string uiKey)

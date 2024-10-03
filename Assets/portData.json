@@ -1,15 +1,32 @@
 [
   {
-    "NetProtocol": "UDP",
+    "ProtocolName": "紅外線槍",
+    "NetProtocol": "TCP Server",
     "LocalPortDetails": {
-      "Port": "1234",
+      "Port": "8888",
       "Description": null
     },
     "RemotePortDetails": {
-      "Port": "7777",
+      "Port": "--",
       "Description": null
     },
-    "TargetIP": "",
+    "TargetIP": null,
+    "IsConnected": true,
+    "COMReceived": 0,
+    "NetReceived": 0
+  },
+  {
+    "ProtocolName": " 傳送到Extra電腦",
+    "NetProtocol": "TCP Client",
+    "LocalPortDetails": {
+      "Port": "--",
+      "Description": null
+    },
+    "RemotePortDetails": {
+      "Port": "8888",
+      "Description": null
+    },
+    "TargetIP": "192.168.1.105",
     "IsConnected": true,
     "COMReceived": 0,
     "NetReceived": 0

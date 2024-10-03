@@ -22,7 +22,7 @@ public class NetworkConnectorCore
     {
         public UdpClient udpClient;
         public CancellationTokenSource CancellationTokenSource = new();
-        PortData portData;
+        public PortData portData;
         public bool IsConnecting;
         public string SourceData = string.Empty;
         private bool disposed = false;
@@ -866,7 +866,7 @@ public class NetworkConnectorCore
 
         if (!string.IsNullOrEmpty(sourceData))
         {
-            return sourceData.Length > length ? sourceData.Substring(0, length) : sourceData;
+            return sourceData.Length > length ? sourceData[..length] : sourceData;
         }
 
         return string.Empty; 

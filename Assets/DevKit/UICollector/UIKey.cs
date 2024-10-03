@@ -39,7 +39,11 @@ namespace DevKit.Tool
         
         public const string UI_TargetIPInput = "UI_TargetIPInput";
         
+        public const string UI_Title = "UI_Title";
+        
         public const string UI_NetProtocolDropdowm = "UI_NetProtocolDropdowm";
+        
+        public const string UI_NameInput = "UI_NameInput";
         
         public const string table_prococolText = "table_prococolText";
         
@@ -64,5 +68,7 @@ namespace DevKit.Tool
         public const string table_ConnectRoot = "table_ConnectRoot";
         
         public const string table_DisconnectedRoot = "table_DisconnectedRoot";
+        
+        public const string table_nameText = "table_nameText";
     }
 }

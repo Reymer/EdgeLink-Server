@@ -36,6 +36,7 @@ public class NetworkPortManager
 
     public class PortData
     {
+        public string ProtocolName {  get; set; }
         public string NetProtocol { get; set; }
         public PortDetails LocalPortDetails { get; set; }
         public PortDetails RemotePortDetails { get; set; }
@@ -53,10 +54,11 @@ public class NetworkPortManager
         public string Description { get; set; }
     }
 
-    public PortData AddPortData(string protocolType, string remotePort, string localPort, string target)
+    public PortData AddPortData(string protocolName, string protocolType, string remotePort, string localPort, string target)
     {
         var data = new PortData
         {
+            ProtocolName = protocolName,
             NetProtocol = protocolType,
             LocalPortDetails = new PortDetails { Port = localPort },
             RemotePortDetails = new PortDetails { Port = remotePort},
@@ -222,7 +224,7 @@ public class NetworkPortManager
             var loadedData = JsonFileHandler.LoadFromJson<PortData>(filePath);
             if (loadedData == null || !loadedData.Any())
             {
-                consoleUI?.AddLog("載入的資料為空。");
+                consoleUI.AddLog("載入的資料為空。");
                 return;
             }
 
@@ -240,7 +242,7 @@ public class NetworkPortManager
         }
         catch (Exception ex)
         {
-            consoleUI?.AddLog("無法載入資料，請檢查文件的格式和路徑。" + ex);
+            consoleUI.AddLog("無法載入資料，請檢查文件的格式和路徑。" + ex);
         }
     }
     public void DeInit()

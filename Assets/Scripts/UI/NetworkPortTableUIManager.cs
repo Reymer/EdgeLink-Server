@@ -22,11 +22,11 @@ public class NetworkPortTableUIManager : MonoBehaviour
         NetworkPortManager.Instance.AddPortsToNetwork();
     }
 
-    private void OnConfirm(string protocolType, string remotePort, string localPort, string targetIP)
+    private void OnConfirm(string protocolName, string protocolType, string remotePort, string localPort, string targetIP)
     {
         if (NetworkPortManager.Instance.IsPortUnique(protocolType, remotePort, localPort))
         {
-            var portData = NetworkPortManager.Instance.AddPortData(protocolType, remotePort, localPort, targetIP);
+            var portData = NetworkPortManager.Instance.AddPortData(protocolName, protocolType, remotePort, localPort, targetIP);
             prefabManager.InstantiatePortTable(uiCollector, portData);
         }
         else
