@@ -1394,7 +1394,6 @@ GameObject:
   - component: {fileID: 332428666}
   - component: {fileID: 332428667}
   - component: {fileID: 332428668}
-  - component: {fileID: 332428669}
   m_Layer: 5
   m_Name: Tables
   m_TagString: Untagged
@@ -1463,19 +1462,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   m_HorizontalFit: 0
   m_VerticalFit: 1
---- !u!114 &332428669
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 332428665}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 2fafe2cfe61f6974895a912c3755e8f1, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  m_AllowSwitchOff: 0
 --- !u!1 &337097785
 GameObject:
   m_ObjectHideFlags: 0
@@ -7605,7 +7591,7 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 0
     m_LineSpacing: 1
-  m_Text: 
+  m_Text: 0
 --- !u!222 &1619305540
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -8521,7 +8507,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &1823059825
 RectTransform:
   m_ObjectHideFlags: 0
