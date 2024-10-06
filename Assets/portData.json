@@ -1,18 +1,1 @@
-[
-  {
-    "ProtocolName": "瞄子",
-    "NetProtocol": "UDP",
-    "LocalPortDetails": {
-      "Port": "1234",
-      "Description": null
-    },
-    "RemotePortDetails": {
-      "Port": "8888",
-      "Description": null
-    },
-    "TargetIP": "",
-    "IsConnected": true,
-    "COMReceived": 103,
-    "NetReceived": 103
-  }
-]
+[]
