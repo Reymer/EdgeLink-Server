@@ -457,7 +457,6 @@ public class NetworkConnectorCore
                 existingServerData.TcpListener?.Stop();
                 existingServerData.IsConnecting = false;
                 LogOnMainThread($"端口 {portData.LocalPortDetails.Port} 的 TCP 伺服器已停止，準備重新啟動。");
-                Task.Delay(100).Wait();
             }
             catch (Exception ex)
             {
@@ -668,13 +667,13 @@ public class NetworkConnectorCore
 
     private async Task ReceiveTcpMessages(PortData portData, TcpClient client, TCPServerData tcpServerData)
     {
-        IPEndPoint remoteEndPoint = client.Client.RemoteEndPoint as IPEndPoint; // 修正為 RemoteEndPoint
+        IPEndPoint remoteEndPoint = client.Client.RemoteEndPoint as IPEndPoint;
         string sourceIP = remoteEndPoint?.Address.ToString();
         int sourcePort = remoteEndPoint?.Port ?? 0;
 
         try
         {
-            var buffer = new byte[4096]; // 增加緩衝區大小
+            var buffer = new byte[4096];
             using NetworkStream stream = client.GetStream();
 
             while (!tcpServerData.CancellationTokenSource.Token.IsCancellationRequested)
@@ -716,18 +715,6 @@ public class NetworkConnectorCore
         {
             LogOnMainThread($"接收 TCP 訊息時出現錯誤: {ex.Message}", isError: true);
         }
-        finally
-        {
-            if (tcpClientdatas.ContainsKey(portData.LocalPortDetails.Port))
-            {
-                var tcpClinetData = tcpClientdatas[portData.LocalPortDetails.Port];
-                tcpClinetData.IsConnecting = false;
-                portData.IsConnected = false;
-                tcpClinetData.portData.IsConnected = tcpClinetData.IsConnecting;
-                LogOnMainThread($"來自 {remoteEndPoint} 的 TCP 客戶端已斷開連接。", isError: true);
-                UnityMainThreadDispatcher.Instance().Enqueue(() => tcpClinetData.portData.OnUpdate?.Invoke(tcpClinetData.portData));
-            }
-        }
     }
 
 
@@ -759,7 +746,7 @@ public class NetworkConnectorCore
                 memoryStream.Position = 0;
                 memoryStream.CopyTo(stream);
                 int packetSize = buffer.Length;
-
+                portData.IsConnected = true;
                 tcpClinetData.IsConnecting = true;
                 LogOnMainThread($"TCP 客戶端。傳送訊息到達: {tcpClinetData.tcpClient.Client.RemoteEndPoint}, 封包大小: {packetSize} bytes, 訊息: {tcpServerData.SourceData}");
             }
