@@ -215,10 +215,7 @@ public class NetworkConnectorCore
                 udpData.CancellationTokenSource = new CancellationTokenSource();
             }
         }
-        UnityMainThreadDispatcher.Instance().Enqueue(() =>
-        {
-            portData.OnUpdate?.Invoke(portData);
-        });
+        UnityMainThreadDispatcher.Instance().Enqueue(() => portData.OnUpdate?.Invoke(portData));
     }
 
     /// <summary>
@@ -260,11 +257,7 @@ public class NetworkConnectorCore
                 tcpServerData.CancellationTokenSource = new CancellationTokenSource();
             }
         }
-
-        UnityMainThreadDispatcher.Instance().Enqueue(() =>
-        {
-            portData.OnUpdate?.Invoke(portData);
-        });
+        UnityMainThreadDispatcher.Instance().Enqueue(() => portData.OnUpdate?.Invoke(portData));
     }
 
     /// <summary>
@@ -304,10 +297,7 @@ public class NetworkConnectorCore
                 tcpClientData.CancellationTokenSource = new CancellationTokenSource();
             }
         }
-        UnityMainThreadDispatcher.Instance().Enqueue(() =>
-        {
-            portData.OnUpdate?.Invoke(portData);
-        });
+        UnityMainThreadDispatcher.Instance().Enqueue(() => portData.OnUpdate?.Invoke(portData));
     }
 
     /// <summary>
@@ -369,10 +359,7 @@ public class NetworkConnectorCore
                 portData.IsConnected = false;
                 tcpClientData.IsConnecting = false;
                 LogOnMainThread($"TCP 客戶端連接失敗，端口 {portData.RemotePortDetails.Port}");
-                UnityMainThreadDispatcher.Instance().Enqueue(() =>
-                {
-                    portData.OnUpdate?.Invoke(portData);
-                });
+                UnityMainThreadDispatcher.Instance().Enqueue(() => portData.OnUpdate?.Invoke(portData));
                 return;
             }
 
@@ -401,11 +388,7 @@ public class NetworkConnectorCore
             tcpClientData.IsConnecting = false;
             LogOnMainThread($"TCP 客戶端 {portData.TargetIP}:{portData.RemotePortDetails.Port} 連接失敗: {ex.Message}。");
         }
-
-        UnityMainThreadDispatcher.Instance().Enqueue(() =>
-        {
-            portData.OnUpdate?.Invoke(portData);
-        });
+        UnityMainThreadDispatcher.Instance().Enqueue(() => portData.OnUpdate?.Invoke(portData));
     }
 
     /// <summary>
@@ -427,7 +410,7 @@ public class NetworkConnectorCore
 
                     if (tcpClientData.tcpClient == null || !tcpClientData.tcpClient.Connected)
                     {
-                        break; // 退出循环
+                        break;
                     }
 
                     if (tcpClientData.tcpClient.Client.Poll(0, SelectMode.SelectRead) && tcpClientData.tcpClient.Client.Available == 0)
@@ -437,11 +420,7 @@ public class NetworkConnectorCore
                         tcpClientData.tcpClient = null;
                         portData.IsConnected = false;
                         tcpClientData.IsConnecting = false;
-
-                        UnityMainThreadDispatcher.Instance().Enqueue(() =>
-                        {
-                            portData.OnUpdate?.Invoke(portData);
-                        });
+                        UnityMainThreadDispatcher.Instance().Enqueue(() => portData.OnUpdate?.Invoke(portData));
                         break;
                     }
                 }
@@ -451,10 +430,7 @@ public class NetworkConnectorCore
                 LogOnMainThread($"TCP 客戶端連接狀態檢測時發生異常: {ex.Message}");
                 portData.IsConnected = false;
                 tcpClientData.IsConnecting = false;
-                UnityMainThreadDispatcher.Instance().Enqueue(() =>
-                {
-                    portData.OnUpdate?.Invoke(portData);
-                });
+                UnityMainThreadDispatcher.Instance().Enqueue(() => portData.OnUpdate?.Invoke(portData));
             }
         });
     }
@@ -507,10 +483,7 @@ public class NetworkConnectorCore
 
             Task.Run(() => ListenForTcpClients(portData, existingServerData));
 
-            UnityMainThreadDispatcher.Instance().Enqueue(() =>
-            {
-                portData.OnUpdate?.Invoke(portData);
-            });
+            UnityMainThreadDispatcher.Instance().Enqueue(() => portData.OnUpdate?.Invoke(portData));
         }
         catch (SocketException ex) when (ex.SocketErrorCode == SocketError.AddressAlreadyInUse)
         {
@@ -563,10 +536,7 @@ public class NetworkConnectorCore
 
             Task.Run(() => ReceiveUdpMessages(portData, existingServerData));
 
-            UnityMainThreadDispatcher.Instance().Enqueue(() =>
-            {
-                portData.OnUpdate?.Invoke(portData);
-            });
+            UnityMainThreadDispatcher.Instance().Enqueue(() => portData.OnUpdate?.Invoke(portData));
         }
         catch (SocketException ex) when (ex.SocketErrorCode == SocketError.AddressAlreadyInUse)
         {
@@ -755,10 +725,7 @@ public class NetworkConnectorCore
                 portData.IsConnected = false;
                 tcpClinetData.portData.IsConnected = tcpClinetData.IsConnecting;
                 LogOnMainThread($"來自 {remoteEndPoint} 的 TCP 客戶端已斷開連接。", isError: true);
-                UnityMainThreadDispatcher.Instance().Enqueue(() =>
-                {
-                    tcpClinetData.portData.OnUpdate?.Invoke(tcpClinetData.portData);
-                });
+                UnityMainThreadDispatcher.Instance().Enqueue(() => tcpClinetData.portData.OnUpdate?.Invoke(tcpClinetData.portData));
             }
         }
     }
@@ -783,7 +750,7 @@ public class NetworkConnectorCore
         {
             try
             {
-                   using var memoryStream = new MemoryStream();
+                using var memoryStream = new MemoryStream();
                 var buffer = Encoding.UTF8.GetBytes(tcpServerData.SourceData);
                 memoryStream.Write(buffer, 0, buffer.Length);
 
@@ -807,10 +774,7 @@ public class NetworkConnectorCore
             portData.IsConnected = false;
             tcpClinetData.portData.IsConnected = tcpClinetData.IsConnecting;
             LogOnMainThread($"來自 {tcpClinetData.tcpClient.Client.RemoteEndPoint} TCP 客戶端已斷開連接: ", isError: true);
-            UnityMainThreadDispatcher.Instance().Enqueue(() =>
-            {
-                tcpClinetData.portData.OnUpdate?.Invoke(tcpClinetData.portData);
-            });
+            UnityMainThreadDispatcher.Instance().Enqueue(() => tcpClinetData.portData.OnUpdate?.Invoke(tcpClinetData.portData));
         }
     }
 

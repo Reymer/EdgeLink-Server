@@ -11,9 +11,9 @@
       "Description": null
     },
     "TargetIP": "",
-    "IsConnected": false,
-    "COMReceived": 90,
-    "NetReceived": 90
+    "IsConnected": true,
+    "COMReceived": 103,
+    "NetReceived": 103
   },
   {
     "ProtocolName": "監聽紅外線槍",
