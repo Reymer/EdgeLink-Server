@@ -18,6 +18,7 @@ public class Table : MonoBehaviour
     public event Action<PortData> OnDelete;
     public event Action<PortData> OnConnect;
     public event Action<PortData> OnDisconnectedt;
+    public event Action<PortData> OnMonitor;
 
     private void Start()
     {
@@ -41,7 +42,8 @@ public class Table : MonoBehaviour
     {
         uiCollector.BindOnCheck(UIKey.table_Delete, () => HandleAction(OnDelete));
         uiCollector.BindOnCheck(UIKey.table_Connect, () => HandleAction(OnConnect));
-        uiCollector.BindOnCheck(UIKey.table_Disconnected, () => HandleAction(OnDisconnectedt));       
+        uiCollector.BindOnCheck(UIKey.table_Disconnected, () => HandleAction(OnDisconnectedt));
+        uiCollector.BindOnCheck(UIKey.table_Monitor, () => HandleAction(OnMonitor));
     }
 
     private void HandleAction(Action<PortData> action)

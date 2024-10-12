@@ -1,4 +1,8 @@
+using DevKit.Console;
 using DevKit.Tool;
+using System;
+using System.Threading;
+using UnityEditor.PackageManager;
 using UnityEngine;
 using static NetworkPortManager;
 
@@ -29,8 +33,10 @@ public class PortTablePrefabManager : MonoBehaviour
             table.OnDelete += (PortData) => DeletePort(portData);
             table.OnConnect += (PortData) => ConnectPort(portData);
             table.OnDisconnectedt += (PortData) => DisconnectedPort(portData);
+            table.OnMonitor += (PortData) => Monitor(portData);
         }
     }
+
     public void RefreshAndRecreateTables(UICollector uiCollector)
     {
         Transform parentTransform = uiCollector.GetAsset<GameObject>(UIKey.UI_Tables).transform;
@@ -61,5 +67,17 @@ public class PortTablePrefabManager : MonoBehaviour
         {
             portTableUIManager.OnDisconnectedPort(portData);
         }
+    }
+    private void Monitor(PortData portData)
+    {
+        var ui = GameObject.FindObjectOfType<Monitor>(true);
+        ui.SetStatus(UIKey.Monitor_Monitor, true);
+        var monitorConsole = GameObject.FindObjectOfType<MonitorConsole>(true);
+        UnityMainThreadDispatcher.Instance().Enqueue(() =>
+        {
+            monitorConsole.RemoveAll();
+        });
+        portTableUIManager.OnMonitorConsole(portData);
+
     }
 }

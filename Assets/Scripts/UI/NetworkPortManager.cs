@@ -14,6 +14,7 @@ public class NetworkPortManager
 
     private readonly string filePath;
     private ConsoleUI consoleUI;
+    private MonitorConsole monitorConsole;
     private readonly NetworkConnectorCore networkConnectorCore = new();
     public readonly Dictionary<string, PortData> tcpServers = new();
     public readonly Dictionary<string, PortData> tcpClients = new();
@@ -31,7 +32,8 @@ public class NetworkPortManager
     public void Init()
     {
         consoleUI = GameObject.FindObjectOfType<ConsoleUI>(true);
-        networkConnectorCore.Init(consoleUI);
+        monitorConsole = GameObject.FindObjectOfType<MonitorConsole>(true);
+        networkConnectorCore.Init(consoleUI, monitorConsole);
     }
 
     public class PortData
@@ -134,7 +136,7 @@ public class NetworkPortManager
         {
             Debug.LogWarning($"未能成功從清單中移除協定為 {portData.NetProtocol}，端口為 {portToRemove} 的資料。");
         }
-        networkConnectorCore.StopClient(portToRemove, portData.NetProtocol);
+        networkConnectorCore.StopClient(portData);
 
         SavePortDataToFile();
     }
@@ -192,6 +194,11 @@ public class NetworkPortManager
             Debug.LogWarning($"{netProtocol} Port: {port} not found for removal.");
         }
     }
+    public void OnMonitorConsole(PortData portData)
+    {
+        networkConnectorCore.MonitorConsole(portData);
+    }
+
     public void OnUpdate(PortData data)
     {
         Debug.Log($"OnUpdate triggered for port: {data.RemotePortDetails.Port}, COMReceived: {data.COMReceived}, IsConnectting: {data.IsConnected}");
@@ -267,4 +274,5 @@ public class NetworkPortManager
             Debug.Log("無法保存端口資料。" + ex);
         }
     }
+
 }

@@ -65,10 +65,16 @@ namespace DevKit.Tool
         
         public const string table_Disconnected = "table_Disconnected";
         
+        public const string table_Monitor = "table_Monitor";
+        
         public const string table_ConnectRoot = "table_ConnectRoot";
         
         public const string table_DisconnectedRoot = "table_DisconnectedRoot";
         
         public const string table_nameText = "table_nameText";
+        
+        public const string Monitor_Close = "Monitor_Close";
+        
+        public const string Monitor_Monitor = "Monitor_Monitor";
     }
 }

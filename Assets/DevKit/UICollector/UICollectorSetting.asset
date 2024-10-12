@@ -15,6 +15,7 @@ MonoBehaviour:
   groupNames:
   - UI
   - table
+  - Monitor
   keys:
   - UI_DeleteButton
   - UI_Menu
@@ -47,9 +48,12 @@ MonoBehaviour:
   - table_Delete
   - table_Connect
   - table_Disconnected
+  - table_Monitor
   - table_ConnectRoot
   - table_DisconnectedRoot
   - table_nameText
+  - Monitor_Close
+  - Monitor_Monitor
   IncreaseCollectorID: 0
   collectorKeys:
   - id: -1
@@ -112,6 +116,16 @@ MonoBehaviour:
     - table_Delete
     - table_Connect
     - table_Disconnected
+    - table_Monitor
     - table_ConnectRoot
     - table_DisconnectedRoot
     - table_nameText
+  - id: -1
+    guid: 7639347123f1f534db883fbf21df1a64
+    keys:
+    - Monitor_Close
+  - id: -1
+    guid: da0b39ccfe518eb46a97f41324ccdad4
+    keys:
+    - Monitor_Close
+    - Monitor_Monitor

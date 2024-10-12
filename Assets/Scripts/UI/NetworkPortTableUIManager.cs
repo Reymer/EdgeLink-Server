@@ -2,6 +2,7 @@
 using UnityEngine;
 using DevKit.Console;
 using static NetworkPortManager;
+using System;
 public class NetworkPortTableUIManager : MonoBehaviour
 {
     private PortTablePrefabManager prefabManager;
@@ -60,7 +61,10 @@ public class NetworkPortTableUIManager : MonoBehaviour
         prefabManager.RefreshAndRecreateTables(uiCollector);
         NetworkPortManager.Instance.RefreshAndRecreateTables(prefabManager, uiCollector);
     }
-
+    public void OnMonitorConsole(PortData portData)
+    {
+        NetworkPortManager.Instance.OnMonitorConsole(portData);
+    }
     public void DeInit()
     {
         networkSettingUI.Confirm -= OnConfirm;

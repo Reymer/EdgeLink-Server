@@ -17,6 +17,8 @@ public class NetworkConnectorCore
 {
     #region 宣告
     private ConsoleUI consoleUI;
+    private MonitorConsole monitorConsole;
+    private PortData portData;
     #endregion
 
     #region 資料結構 TCP Client、TCP Server、UDP
@@ -49,6 +51,7 @@ public class NetworkConnectorCore
     {
         public TcpListener TcpListener;
         public CancellationTokenSource CancellationTokenSource = new();
+        public PortData portData;
         public string SourceData = string.Empty;
         private bool disposed = false;
         private readonly object lockObj = new();
@@ -100,9 +103,10 @@ public class NetworkConnectorCore
             }
         }
     }
-    public void Init(ConsoleUI consoleUI)
+    public void Init(ConsoleUI consoleUI, MonitorConsole monitorConsole)
     {
         this.consoleUI = consoleUI;
+        this.monitorConsole = monitorConsole;
     }   
 
     #endregion
@@ -470,6 +474,7 @@ public class NetworkConnectorCore
             portData.IsConnected = true;
             existingServerData = new TCPServerData
             {
+                portData = portData,
                 TcpListener = tcpListener,
                 CancellationTokenSource = new CancellationTokenSource(),
             };
@@ -505,8 +510,8 @@ public class NetworkConnectorCore
             try
             {
                 existingServerData.CancellationTokenSource?.Cancel();
-
                 existingServerData.udpClient?.Dispose();
+                existingServerData.udpClient = null;
                 existingServerData.IsConnecting = false;
                 LogOnMainThread($"端口 {portData.RemotePortDetails.Port} 的 UDP 伺服器已停止，準備重新啟動。");
                 Task.Delay(100).Wait();
@@ -519,10 +524,12 @@ public class NetworkConnectorCore
 
         try
         {
-            var udpClient = new UdpClient(new IPEndPoint(IPAddress.Any, int.Parse(portData.RemotePortDetails.Port)));
+            // 綁定到特定的端口來接收數據
+            var udpClient = new UdpClient(int.Parse(portData.RemotePortDetails.Port));
             portData.IsConnected = true;
             existingServerData = new UdpData
             {
+                portData = portData,
                 udpClient = udpClient,
                 CancellationTokenSource = new CancellationTokenSource(),
             };
@@ -531,6 +538,7 @@ public class NetworkConnectorCore
 
             LogOnMainThread($"在端口 {portData.RemotePortDetails.Port} 上啟動了 UDP 伺服器端。");
 
+            // 開始接收 UDP 數據
             Task.Run(() => ReceiveUdpMessages(portData, existingServerData));
 
             UnityMainThreadDispatcher.Instance().Enqueue(() => portData.OnUpdate?.Invoke(portData));
@@ -543,7 +551,8 @@ public class NetworkConnectorCore
         {
             LogOnMainThread($"初始化端口 {portData.RemotePortDetails.Port} 的 UDP  監聽器時發生錯誤: {ex.Message}", isError: true);
         }
-    }  
+    }
+
 
     #endregion
 
@@ -554,21 +563,21 @@ public class NetworkConnectorCore
     /// </summary>
     /// <param name="port">端口號</param>
     /// <param name="connectionType">連接類型，"TCP" 或 "UDP"</param>
-    public void StopClient(string port, string connectionType)
+    public void StopClient(PortData portData)
     {
         try
         {
-            if (connectionType.Equals("UDP", StringComparison.OrdinalIgnoreCase))
+            if (portData.NetProtocol.Equals("UDP", StringComparison.OrdinalIgnoreCase))
             {
-                DisposeClientResources(port, udpClients, "UDP");
+                DisconnectedUdp(portData);
             }
-            else if (connectionType.Equals("TCP Server", StringComparison.OrdinalIgnoreCase))
+            else if (portData.NetProtocol.Equals("TCP Server", StringComparison.OrdinalIgnoreCase))
             {
-                DisposeClientResources(port, tcpServerdatas, "TCP");
+                DisconnectTcpServer(portData);
             }
-            else if (connectionType.Equals("TCP Client", StringComparison.OrdinalIgnoreCase))
+            else if (portData.NetProtocol.Equals("TCP Client", StringComparison.OrdinalIgnoreCase))
             {
-                DisposeClientResources(port, tcpClientdatas, "TCP");
+                DisconnectedTcpClient(portData);
             }
         }
         catch (Exception ex)
@@ -685,8 +694,11 @@ public class NetworkConnectorCore
                         string message = Encoding.UTF8.GetString(buffer, 0, bytesRead);
                         tcpServerData.SourceData = message;
                         int packetSize = bytesRead;
-                        LogOnMainThread($"TCP 伺服器。收到訊息來自: {remoteEndPoint}, 封包大小: {packetSize} bytes, 訊息: {message}");
-
+                        //LogOnMainThread($"TCP 伺服器。收到訊息來自: {remoteEndPoint}, 封包大小: {packetSize} bytes, 訊息: {message}");
+                        if(tcpServerData.portData == this.portData)
+                        {
+                            LogMonitorMainThread($"TCP 伺服器。收到訊息來自: {remoteEndPoint}, 封包大小: {packetSize} bytes, 訊息: {message}");
+                        }
                         if (tcpClientdatas.ContainsKey(portData.LocalPortDetails.Port))
                         {
                             var tcpClinetData = tcpClientdatas[portData.LocalPortDetails.Port];
@@ -739,14 +751,18 @@ public class NetworkConnectorCore
                 var buffer = Encoding.UTF8.GetBytes(tcpServerData.SourceData);
                 memoryStream.Write(buffer, 0, buffer.Length);
 
-
                 NetworkStream stream = tcpClinetData.tcpClient.GetStream();
                 memoryStream.Position = 0;
                 memoryStream.CopyTo(stream);
                 int packetSize = buffer.Length;
                 portData.IsConnected = true;
                 tcpClinetData.IsConnecting = true;
-                LogOnMainThread($"TCP 客戶端。傳送訊息到達: {tcpClinetData.tcpClient.Client.RemoteEndPoint}, 封包大小: {packetSize} bytes, 訊息: {tcpServerData.SourceData}");
+                if(tcpClinetData.portData == this.portData)
+                {
+                    LogMonitorMainThread($"TCP 客戶端。傳送訊息到達: {tcpClinetData.tcpClient.Client.RemoteEndPoint}, 封包大小: {packetSize} bytes, 訊息: {tcpServerData.SourceData}");
+                }
+
+                //LogOnMainThread($"TCP 客戶端。傳送訊息到達: {tcpClinetData.tcpClient.Client.RemoteEndPoint}, 封包大小: {packetSize} bytes, 訊息: {tcpServerData.SourceData}");
             }
             catch (Exception ex)
             {
@@ -775,9 +791,11 @@ public class NetworkConnectorCore
     /// <param name="port">端口</param>
     private async Task ReceiveUdpMessages(PortData portData, UdpData udpData)
     {
+        // 創建一個 UDP 用來發送廣播訊息
         using (var sendClient = new UdpClient())
         {
-            IPEndPoint sendEndPoint = new(IPAddress.Loopback, int.Parse(portData.LocalPortDetails.Port));
+            sendClient.EnableBroadcast = true; // 啟用廣播
+            IPEndPoint sendEndPoint = new IPEndPoint(IPAddress.Broadcast, int.Parse(portData.LocalPortDetails.Port));
 
             long totalReceivedBytes = 0;
             long totalSentBytes = 0;
@@ -790,32 +808,47 @@ public class NetworkConnectorCore
                 {
                     try
                     {
+                        // 接收 UDP 數據
                         var result = await udpData.udpClient.ReceiveAsync().WithCancellation(udpData.CancellationTokenSource.Token);
 
                         int messageLength = result.Buffer.Length;
 
+                        // 動態調整緩衝區大小
                         if (messageLength > buffer.Length)
                         {
                             ArrayPool<byte>.Shared.Return(buffer);
                             buffer = ArrayPool<byte>.Shared.Rent(messageLength);
                         }
 
+                        // 複製收到的數據到緩衝區
                         Array.Copy(result.Buffer, buffer, messageLength);
 
+                        // 轉換收到的數據為字串
                         string message = Encoding.UTF8.GetString(buffer, 0, messageLength);
                         portData.COMReceived += messageLength;
                         totalReceivedBytes += messageLength;
 
                         udpData.SourceData = message;
-                        LogOnMainThread($"UDP 伺服器。收到訊息來自: {result.RemoteEndPoint}, 封包大小: {messageLength}, bytes, 訊息: {message}");
 
+                        // 如果是對應的 portData，記錄日誌
+                        if (udpData.portData == this.portData)
+                        {
+                            LogMonitorMainThread($"UDP 伺服器。收到來自: {result.RemoteEndPoint} 的訊息，封包大小: {messageLength} bytes, 訊息: {message}");
+                        }
+
+                        // 將接收到的訊息廣播回去
                         await sendClient.SendAsync(result.Buffer, messageLength, sendEndPoint);
 
                         portData.NetReceived += messageLength;
                         totalSentBytes += messageLength;
 
-                        LogOnMainThread($"UDP 客戶端。傳送訊息到達: {portData.LocalPortDetails.Port}, 封包大小: {messageLength}, bytes, 訊息: {message}");
+                        // 日誌廣播訊息
+                        if (udpData.portData == this.portData)
+                        {
+                            LogMonitorMainThread($"UDP 客戶端。傳送訊息到: {sendEndPoint}, 封包大小: {messageLength} bytes, 訊息: {message}");
+                        }
 
+                        // 在主線程上調用更新函數
                         UnityMainThreadDispatcher.Instance().Enqueue(() => portData.OnUpdate?.Invoke(portData));
                     }
                     catch (SocketException ex) when (ex.SocketErrorCode == SocketError.Interrupted)
@@ -834,13 +867,14 @@ public class NetworkConnectorCore
             }
             finally
             {
-                ArrayPool<byte>.Shared.Return(buffer);
+                ArrayPool<byte>.Shared.Return(buffer); // 釋放緩衝區
             }
         }
 
-        udpData.Dispose();
+        udpData.Dispose(); // 釋放 udpData 資源
         Debug.Log($"端口 {portData.RemotePortDetails.Port} 上的 UDP 接收器已經關閉。");
     }
+
 
     #endregion
 
@@ -924,6 +958,43 @@ public class NetworkConnectorCore
     }
     #endregion
 
+    #region MonitorConsole
+    public void MonitorConsole(PortData portData)
+    {
+        this.portData = portData;
+    }
+
+    private void LogMonitorMainThread(string message, bool isError = false)
+    {
+        string formattedMessage = FormatLogMessage(message, isError);
+
+        UnityMainThreadDispatcher.Instance().Enqueue(() =>
+        {
+            // 輸出錯誤或日誌訊息到 Unity Console
+            if (isError)
+            {
+                Debug.LogError(formattedMessage);
+            }
+            else
+            {
+                Debug.Log(formattedMessage);
+            }
+
+            // 檢查 monitorConsole 是否可用，然後添加日誌
+            if (monitorConsole != null)
+            {
+                monitorConsole.AddLog(formattedMessage);
+            }
+            else
+            {
+                Debug.LogWarning("MonitorConsole is null, cannot add log.");
+            }
+        });
+    }
+
+
+    #endregion
+
     #region 日誌封裝
     private void LogOnMainThread(string message, bool isError = false)
     {
@@ -969,6 +1040,8 @@ public class NetworkConnectorCore
     {
         await ShutdownClientsAsync();
     }
+
+
     #endregion
 }
 
