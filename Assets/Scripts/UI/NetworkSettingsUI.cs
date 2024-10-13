@@ -7,6 +7,8 @@ using System.Net.Sockets;
 using System.Net;
 using Random = System.Random;
 using UnityEngine.UI;
+using static DataPacketController;
+using static UnityEngine.UI.Dropdown;
 
 public class NetworkSettingsUI : MonoBehaviour
 {
@@ -19,7 +21,12 @@ public class NetworkSettingsUI : MonoBehaviour
     private int? localPort;
     private string targetIP;
     private bool isOpenConsole = true;
-
+    private string packetStartMarker = string.Empty;
+    private string packetEndMarker = string.Empty;
+    private string packetDataName = string.Empty;
+    private int maxPacketSize;
+    private bool useMask = false;
+    private DataPacketController packetController;
     private void Start()
     {
         Init();
@@ -30,27 +37,175 @@ public class NetworkSettingsUI : MonoBehaviour
     {
         consoleUi = GameObject.FindObjectOfType<ConsoleUI>(true);
         uiCollector = GetComponent<UICollector>();
-        CloseMenu(UIKey.UI_MenuRoot);
+        packetController = new DataPacketController();
+        InitMenu();
+        InitMaskEvent();
+
+    }
+
+    private void InitMenu()
+    {
+        CloseUi(UIKey.UI_MenuRoot);
+    }
+
+    private void InitMaskEvent()
+    {
+        CloseUi(UIKey.UI_MaskRoot);
+        CloseUi(UIKey.UI_MaskDropdown);
+        uiCollector.GetAsset<Toggle>(UIKey.UI_MaskToggle).isOn = false;
     }
 
     private void Subscribe()
     {
         if (uiCollector == null) return;
 
-        uiCollector.BindOnCheck(UIKey.UI_DeleteButton, () => CloseMenu(UIKey.UI_MenuRoot));
-        uiCollector.BindOnCheck(UIKey.UI_MenuCancel, () => CloseMenu(UIKey.UI_MenuRoot));
+        uiCollector.BindOnCheck(UIKey.UI_DeleteButton, () => CloseUi(UIKey.UI_MenuRoot));
+        uiCollector.BindOnCheck(UIKey.UI_MaskDeleteButton, () => CloseUi(UIKey.UI_MaskRoot));
+        uiCollector.BindOnCheck(UIKey.UI_MenuCancel, () => CloseUi(UIKey.UI_MenuRoot));
+        uiCollector.BindOnCheck(UIKey.UI_MaskCancel, () => CloseUi(UIKey.UI_MaskRoot));
+        uiCollector.BindOnCheck(UIKey.UI_Mask, () => OpenMenu(UIKey.UI_MaskRoot));
         uiCollector.BindOnCheck(UIKey.UI_AddPort, () => OpenMenu(UIKey.UI_MenuRoot));
+        uiCollector.BindOnCheck(UIKey.UI_MaskOK, OnMaskSetting);
         uiCollector.BindOnCheck(UIKey.UI_OK, OnConfirm);
         uiCollector.BindOnCheck(UIKey.UI_Console, OnConsole);
         uiCollector.BindOnCheck(UIKey.UI_clear, OnClearConsole);
         uiCollector.GetAsset<TMP_Dropdown>(UIKey.UI_NetProtocolDropdowm).onValueChanged.AddListener(OnDropdownValueChanged);
+        uiCollector.GetAsset<TMP_Dropdown>(UIKey.UI_MaskDropdown).onValueChanged.AddListener(OnDropdownValueChanged);
         uiCollector.GetAsset<TMP_InputField>(UIKey.UI_RemotePortInput).onValueChanged.AddListener(OnRemotePortInput);
         uiCollector.GetAsset<TMP_InputField>(UIKey.UI_LocalPortInput).onValueChanged.AddListener(OnLocalPortInput);
         uiCollector.GetAsset<TMP_InputField>(UIKey.UI_TargetIPInput).onValueChanged.AddListener(OnTargetInput);
+
+        uiCollector.GetAsset<InputField>(UIKey.UI_PacketDataNameInput).onValueChanged.AddListener(OnPacketDataNameInput);
+        uiCollector.GetAsset<InputField>(UIKey.UI_PacketStartMarkerInput).onValueChanged.AddListener(OnPacketStartMarkerInput);
+        uiCollector.GetAsset<InputField>(UIKey.UI_PacketEndMarkerInput).onValueChanged.AddListener(OnPacketEndMarkerInput);
+        uiCollector.GetAsset<InputField>(UIKey.UI_MaxPacketSizeInput).onValueChanged.AddListener(OnMaxPacketSizeInput);
+
+
+
         uiCollector.GetAsset<InputField>(UIKey.UI_NameInput).onValueChanged.AddListener(OnNameInput);
+        uiCollector.GetAsset<Toggle>(UIKey.UI_MaskToggle).onValueChanged.AddListener(OnMaskDrodown);
+    }
+
+    private void OnMaxPacketSizeInput(string value)
+    {
+        if (int.TryParse(value, out int size) && size > 0)
+        {
+            maxPacketSize = size;
+        }
+        else
+        {
+            consoleUi.AddLog("最大封包大小必須是正整數。");
+        }
+    }
+
+    private void OnPacketEndMarkerInput(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            consoleUi.AddLog("結束標記不能為空。");
+        }
+        else
+        {
+            packetEndMarker = value;
+        }
+    }
+
+    private void OnPacketStartMarkerInput(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            consoleUi.AddLog("開始標記不能為空。");
+        }
+        else
+        {
+            packetStartMarker = value;
+        }
+    }
+
+    private void OnPacketDataNameInput(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            consoleUi.AddLog("數據包名稱不能為空。");
+        }
+        else
+        {
+            packetDataName = value;
+        }
+    }
+
+    private void OnMaskSetting()
+    {
+        var dropdown = uiCollector.GetAsset<TMP_Dropdown>(UIKey.UI_MaskDropdown);
+
+        // 確保在創建數據包之前所有屬性都合法
+        if (string.IsNullOrWhiteSpace(packetDataName))
+        {
+            consoleUi.AddLog("數據包名稱不能為空，請檢查輸入。");
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(packetStartMarker))
+        {
+            consoleUi.AddLog("開始標記不能為空，請檢查輸入。");
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(packetEndMarker))
+        {
+            consoleUi.AddLog("結束標記不能為空，請檢查輸入。");
+            return;
+        }
+
+        if (maxPacketSize <= 0)
+        {
+            consoleUi.AddLog("最大封包大小必須是正整數，請檢查輸入。");
+            return;
+        }
+
+        // 創建數據包並更新下拉選單
+        var dataPacket = new DataPacket
+        {
+            dataPacketName = this.packetDataName,
+            packetStartMarker = this.packetStartMarker,
+            packetEndMarker = this.packetEndMarker,
+            maxPacketSize = maxPacketSize
+        };
+
+        packetController.CreateDataPacket(dataPacket);
+        Debug.Log($"dataPacketName: {dataPacket.dataPacketName}, packetStartMarker: {dataPacket.packetStartMarker}, packetEndMarker: {dataPacket.packetEndMarker}, maxPacketSize: {dataPacket.maxPacketSize}");
+
+        var optionData = new TMP_Dropdown.OptionData
+        {
+            text = this.packetDataName
+        };
+
+        dropdown.options.Add(optionData);
+        dropdown.value = dropdown.options.Count - 1;
+        dropdown.RefreshShownValue();
+        CloseUi(UIKey.UI_MaskRoot);
     }
 
 
+    private void OnMaskDropdownValueChanged(int index)
+    {
+
+    }
+
+
+    private void OnMaskDrodown(bool status)
+    {
+        if (status) 
+        {
+            uiCollector.SetActive(UIKey.UI_MaskDropdown, true);
+            useMask = true;
+        }
+        else
+        {
+            uiCollector.SetActive(UIKey.UI_MaskDropdown, false);
+            useMask = false;
+        }
+    }
 
     private void Update()
     {
@@ -158,7 +313,6 @@ public class NetworkSettingsUI : MonoBehaviour
 
     private void OnConfirm()
     {
-        // 檢查是否所有輸入都是空的
         bool isAllEmpty = string.IsNullOrWhiteSpace(protocolName) &&
                           !remotePort.HasValue &&
                           !localPort.HasValue &&
@@ -170,20 +324,16 @@ public class NetworkSettingsUI : MonoBehaviour
             return;
         }
 
-        // 逐項檢查每一個欄位是否有輸入錯誤
         bool hasError = false;
 
-        // 檢查 protocolName 是否為空
         if (string.IsNullOrWhiteSpace(protocolName))
         {
             consoleUi.AddLog("名稱不能為空，請檢查輸入。");
             hasError = true;
         }
 
-        // 根據協議類型檢查對應的欄位
         if (protocolType.Equals("UDP", StringComparison.OrdinalIgnoreCase))
         {
-            // 檢查 remotePort 是否已設置
             if (!remotePort.HasValue)
             {
                 consoleUi.AddLog("UDP 協議需要遠程端口號，請檢查輸入。");
@@ -192,7 +342,6 @@ public class NetworkSettingsUI : MonoBehaviour
         }
         else if (protocolType.Equals("TCP Client", StringComparison.OrdinalIgnoreCase))
         {
-            // 檢查 remotePort 和 targetIP 是否已設置
             if (!remotePort.HasValue)
             {
                 consoleUi.AddLog("TCP Client 需要遠程端口號，請檢查輸入。");
@@ -207,7 +356,6 @@ public class NetworkSettingsUI : MonoBehaviour
         }
         else if (protocolType.Equals("TCP Server", StringComparison.OrdinalIgnoreCase))
         {
-            // 檢查 localPort 是否已設置
             if (!localPort.HasValue)
             {
                 consoleUi.AddLog("TCP Server 需要本地端口號，請檢查輸入。");
@@ -219,14 +367,17 @@ public class NetworkSettingsUI : MonoBehaviour
             consoleUi.AddLog("未知的協議類型，請檢查選擇。");
             hasError = true;
         }
-
-        // 如果有錯誤，直接返回，不執行確認操作
         if (hasError)
         {
             return;
         }
 
-        // 如果通過所有檢查，執行 Confirm
+        if (useMask)
+        {
+
+        }
+
+
         if (protocolType.Equals("UDP", StringComparison.OrdinalIgnoreCase))
         {
             Confirm?.Invoke(protocolName, protocolType, remotePort.ToString(), localPort?.ToString(), string.Empty);
@@ -239,9 +390,7 @@ public class NetworkSettingsUI : MonoBehaviour
         {
             Confirm?.Invoke(protocolName, protocolType, "--", localPort.ToString(), targetIP);
         }
-
-        // 成功後關閉菜單
-        CloseMenu(UIKey.UI_MenuRoot);
+        CloseUi(UIKey.UI_MenuRoot);
     }
 
 
@@ -253,16 +402,16 @@ public class NetworkSettingsUI : MonoBehaviour
         SetUiStatus(isOpenConsole, UIKey.UI_ConsoleUI);
     }
 
-    private void CloseMenu(string uiKey)
+    private void CloseUi(string uiKey)
     {
         SetUiStatus(false, uiKey);
     }
 
-    private void OpenMenu(string uiKey)
+    private void OpenMenu(string Key)
     {
-        if (uiCollector.GetAsset<GameObject>(UIKey.UI_MenuRoot).activeSelf) { return; }
+        if (uiCollector.GetAsset<GameObject>(Key).activeSelf) { return; }
         Clear();
-        SetUiStatus(true, uiKey);
+        SetUiStatus(true, Key);
     }
 
     private void Clear()
@@ -281,6 +430,7 @@ public class NetworkSettingsUI : MonoBehaviour
         SetUiStatus(true, UIKey.UI_TargetIPMask);
         SetUiStatus(false, UIKey.UI_RemotePortsMask);
         SetUiStatus(false, UIKey.UI_LocalPortsMask);
+        InitMaskEvent();
     }
 
     private void SetUiStatus(bool status, string uiKey)

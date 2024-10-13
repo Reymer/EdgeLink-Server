@@ -17,6 +17,8 @@ namespace DevKit.Tool
         
         public const string UI_clear = "UI_clear";
         
+        public const string UI_Mask = "UI_Mask";
+        
         public const string UI_Tables = "UI_Tables";
         
         public const string UI_MenuRoot = "UI_MenuRoot";
@@ -31,6 +33,10 @@ namespace DevKit.Tool
         
         public const string UI_LocalPortsMask = "UI_LocalPortsMask";
         
+        public const string UI_DropdownRoot = "UI_DropdownRoot";
+        
+        public const string UI_MaskRoot = "UI_MaskRoot";
+        
         public const string UI_NetProtrocolTitle = "UI_NetProtrocolTitle";
         
         public const string UI_RemotePortInput = "UI_RemotePortInput";
@@ -43,7 +49,25 @@ namespace DevKit.Tool
         
         public const string UI_NetProtocolDropdowm = "UI_NetProtocolDropdowm";
         
+        public const string UI_MaskDropdown = "UI_MaskDropdown";
+        
         public const string UI_NameInput = "UI_NameInput";
+        
+        public const string UI_MaskToggle = "UI_MaskToggle";
+        
+        public const string UI_MaskOK = "UI_MaskOK";
+        
+        public const string UI_MaskDeleteButton = "UI_MaskDeleteButton";
+        
+        public const string UI_MaskCancel = "UI_MaskCancel";
+        
+        public const string UI_PacketDataNameInput = "UI_PacketDataNameInput";
+        
+        public const string UI_PacketStartMarkerInput = "UI_PacketStartMarkerInput";
+        
+        public const string UI_PacketEndMarkerInput = "UI_PacketEndMarkerInput";
+        
+        public const string UI_MaxPacketSizeInput = "UI_MaxPacketSizeInput";
         
         public const string table_prococolText = "table_prococolText";
         

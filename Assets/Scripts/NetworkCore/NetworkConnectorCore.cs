@@ -659,7 +659,7 @@ public class NetworkConnectorCore
                 memoryStream.Position = 0;
                 memoryStream.CopyTo(stream);
                 int packetSize = buffer.Length;
-                tcpServerData.portData.IsConnected = true;
+                tcpClinetData.portData.IsConnected = true;
                 if(tcpClinetData.portData == this.portData)
                 {
                     LogMonitorMainThread($"TCP 客戶端。傳送訊息到達: {tcpClinetData.tcpClient.Client.RemoteEndPoint}, 封包大小: {packetSize} bytes, 訊息: {tcpServerData.sourceData}");
@@ -672,7 +672,7 @@ public class NetworkConnectorCore
         }
         else
         {
-            tcpServerData.portData.IsConnected = false;
+            tcpClinetData.portData.IsConnected = false;
             LogOnMainThread($"來自 {tcpClinetData.tcpClient.Client.RemoteEndPoint} TCP 客戶端已斷開連接: ", isError: true);
             UnityMainThreadDispatcher.Instance().Enqueue(() => tcpClinetData.portData.OnUpdate?.Invoke(tcpClinetData.portData));
         }
