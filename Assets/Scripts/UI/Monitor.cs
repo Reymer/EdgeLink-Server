@@ -1,5 +1,4 @@
 using DevKit.Tool;
-using UnityEditor;
 using UnityEngine;
 
 public class Monitor : MonoBehaviour

@@ -2,7 +2,7 @@
 using UnityEngine;
 using DevKit.Console;
 using static NetworkPortManager;
-using System;
+
 public class NetworkPortTableUIManager : MonoBehaviour
 {
     private PortTablePrefabManager prefabManager;

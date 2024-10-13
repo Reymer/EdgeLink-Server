@@ -20,8 +20,7 @@ public class MonitorConsole : MonoBehaviour
         }
 
         GameObject logObj = Instantiate(logUIPrefab, logRoot);
-        var logUI = logObj.GetComponent<LogUI>();
-        if (logUI != null)
+        if (logObj.TryGetComponent<LogUI>(out var logUI))
         {
             logUI.Log(log);
             objects.Add(logObj);

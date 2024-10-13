@@ -6,7 +6,6 @@ using DevKit.Console;
 using System.Net.Sockets;
 using System.Net;
 using Random = System.Random;
-using DevKit;
 using UnityEngine.UI;
 
 public class NetworkSettingsUI : MonoBehaviour
