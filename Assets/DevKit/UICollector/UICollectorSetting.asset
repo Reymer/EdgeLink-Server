@@ -24,7 +24,6 @@ MonoBehaviour:
   - UI_OK
   - UI_Console
   - UI_clear
-  - UI_Mask
   - UI_Tables
   - UI_MenuRoot
   - UI_ConsoleUI
@@ -32,24 +31,14 @@ MonoBehaviour:
   - UI_TargetIPMask
   - UI_RemotePortsMask
   - UI_LocalPortsMask
-  - UI_DropdownRoot
-  - UI_MaskRoot
   - UI_NetProtrocolTitle
   - UI_RemotePortInput
   - UI_LocalPortInput
   - UI_TargetIPInput
   - UI_Title
   - UI_NetProtocolDropdowm
-  - UI_MaskDropdown
   - UI_NameInput
-  - UI_MaskToggle
-  - UI_MaskOK
-  - UI_MaskDeleteButton
-  - UI_MaskCancel
-  - UI_PacketDataNameInput
-  - UI_PacketStartMarkerInput
-  - UI_PacketEndMarkerInput
-  - UI_MaxPacketSizeInput
+  - UI_DropdownMask
   - table_prococolText
   - table_remoteText
   - table_netReceived
@@ -57,6 +46,7 @@ MonoBehaviour:
   - table_COMReceived
   - table_ForwardTargetText
   - table_netReceivedStatus
+  - table_DropdownMask
   - table_Delete
   - table_Connect
   - table_Disconnected
@@ -97,7 +87,6 @@ MonoBehaviour:
     - UI_OK
     - UI_Console
     - UI_clear
-    - UI_Mask
     - UI_Tables
     - UI_MenuRoot
     - UI_ConsoleUI
@@ -105,24 +94,14 @@ MonoBehaviour:
     - UI_TargetIPMask
     - UI_RemotePortsMask
     - UI_LocalPortsMask
-    - UI_DropdownRoot
-    - UI_MaskRoot
     - UI_NetProtrocolTitle
     - UI_RemotePortInput
     - UI_LocalPortInput
     - UI_TargetIPInput
     - UI_Title
     - UI_NetProtocolDropdowm
-    - UI_MaskDropdown
     - UI_NameInput
-    - UI_MaskToggle
-    - UI_MaskOK
-    - UI_MaskDeleteButton
-    - UI_MaskCancel
-    - UI_PacketDataNameInput
-    - UI_PacketStartMarkerInput
-    - UI_PacketEndMarkerInput
-    - UI_MaxPacketSizeInput
+    - UI_DropdownMask
   - id: -1
     guid: ead97c791377951419dc7f025be1c6f9
     keys:
@@ -137,6 +116,7 @@ MonoBehaviour:
     - table_COMReceived
     - table_ForwardTargetText
     - table_netReceivedStatus
+    - table_DropdownMask
     - table_Delete
     - table_Connect
     - table_Disconnected
