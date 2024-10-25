@@ -48,6 +48,7 @@ public class NetworkPortManager
         public int NetReceived { get; set; } = 0;
         [JsonIgnore]
         public Action<PortData> OnUpdate { get; set; }
+        public string MaskType { get; set; }
     }
 
     public class PortDetails
@@ -56,19 +57,20 @@ public class NetworkPortManager
         public string Description { get; set; }
     }
 
-    public PortData AddPortData(string protocolName, string protocolType, string remotePort, string localPort, string target)
+    public PortData AddPortData(string protocolName, string protocolType, string remotePort, string localPort, string target, string maskType)
     {
         var data = new PortData
         {
             ProtocolName = protocolName,
             NetProtocol = protocolType,
             LocalPortDetails = new PortDetails { Port = localPort },
-            RemotePortDetails = new PortDetails { Port = remotePort},
+            RemotePortDetails = new PortDetails { Port = remotePort },
             IsConnected = false,
             TargetIP = target,
             COMReceived = 0,
             NetReceived = 0,
-            OnUpdate = OnUpdate
+            OnUpdate = OnUpdate,
+            MaskType = maskType,
         };
 
         AddPortToDictionary(data);
@@ -149,6 +151,11 @@ public class NetworkPortManager
     public void DisconnectedPort(PortData portData)
     {
         networkConnectorCore.Disconnected(portData);
+    }
+
+    public void MaskSwitch(PortData portData)
+    {
+        networkConnectorCore.AddPort(portData);
     }
 
     private PortData GetPortData(PortData portData)

@@ -23,11 +23,11 @@ public class NetworkPortTableUIManager : MonoBehaviour
         NetworkPortManager.Instance.AddPortsToNetwork();
     }
 
-    private void OnConfirm(string protocolName, string protocolType, string remotePort, string localPort, string targetIP)
+    private void OnConfirm(string protocolName, string protocolType, string remotePort, string localPort, string targetIP, string maskType)
     {
         if (NetworkPortManager.Instance.IsPortUnique(protocolType, remotePort, localPort))
         {
-            var portData = NetworkPortManager.Instance.AddPortData(protocolName, protocolType, remotePort, localPort, targetIP);
+            var portData = NetworkPortManager.Instance.AddPortData(protocolName, protocolType, remotePort, localPort, targetIP, maskType);
             prefabManager.InstantiatePortTable(uiCollector, portData);
         }
         else
@@ -53,6 +53,13 @@ public class NetworkPortTableUIManager : MonoBehaviour
     {
         prefabManager.RefreshAndRecreateTables(uiCollector);
         NetworkPortManager.Instance.DisconnectedPort(portData);
+        NetworkPortManager.Instance.RefreshAndRecreateTables(prefabManager, uiCollector);
+    }
+
+    public void OnMaskType(PortData portData)
+    {
+        prefabManager.RefreshAndRecreateTables(uiCollector);
+        NetworkPortManager.Instance.MaskSwitch(portData);
         NetworkPortManager.Instance.RefreshAndRecreateTables(prefabManager, uiCollector);
     }
 

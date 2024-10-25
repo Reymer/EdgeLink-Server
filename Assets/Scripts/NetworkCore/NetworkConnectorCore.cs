@@ -532,6 +532,8 @@ public class NetworkConnectorCore
         {
             tcpServerData.cancellationTokenSource.Cancel();
             tcpServerData.cancellationTokenSource.Dispose();
+            tcpServerData.tcpListener.Stop();
+            tcpServerData.tcpListener = null;
             tcpServerData.Dispose();
         }
     }
@@ -595,14 +597,29 @@ public class NetworkConnectorCore
                 if (bytesRead > 0)
                 {
                     string message = Encoding.UTF8.GetString(buffer, 0, bytesRead);
-                    tcpServerData.sourceData = message;
+                    string outputMessage;
+                    string debugPrefix;
+
+                    if (message.StartsWith("0x") && tcpServerData.portData.MaskType == "16 to 10")
+                    {
+                        int decimalValue = Convert.ToInt32(message, 16);
+                        outputMessage = decimalValue.ToString();
+                        debugPrefix = "[十進制]"; // 標記轉換過的消息
+                    }
+                    else
+                    {
+                        outputMessage = message;
+                        debugPrefix = "[原始]"; // 標記為原始消息
+                    }
+
+                    tcpServerData.sourceData = outputMessage;
                     int packetSize = bytesRead;
 
-                    if(tcpServerData.portData == this.portData)
+                    if (tcpServerData.portData == this.portData)
                     {
-                        LogMonitorMainThread($"TCP 伺服器。收到消息來自: {remoteEndPoint}, 包大小: {packetSize} bytes, 消息: {message}");
+                        LogMonitorMainThread($"TCP 伺服器。收到消息來自: {remoteEndPoint}, 原始資料大小: {packetSize}, 進制: {debugPrefix} 消息: {outputMessage}");
                     }
-                    
+
                     if (tcpClientdatas.ContainsKey(tcpServerData.portData.LocalPortDetails.Port))
                     {
                         var tcpClinetData = tcpClientdatas[tcpServerData.portData.LocalPortDetails.Port];
@@ -694,7 +711,7 @@ public class NetworkConnectorCore
         using (var sendClient = new UdpClient())
         {
             sendClient.EnableBroadcast = true; // 啟用廣播
-            IPEndPoint sendEndPoint = new IPEndPoint(IPAddress.Broadcast, int.Parse(portData.LocalPortDetails.Port));
+            IPEndPoint sendEndPoint = new(IPAddress.Broadcast, int.Parse(portData.LocalPortDetails.Port));
 
             long totalReceivedBytes = 0;
             long totalSentBytes = 0;

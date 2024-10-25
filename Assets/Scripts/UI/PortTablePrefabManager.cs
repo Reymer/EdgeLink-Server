@@ -1,5 +1,9 @@
 using DevKit.Tool;
+using System;
+using System.Threading;
+using TMPro;
 using UnityEngine;
+using UnityEngine.UI;
 using static NetworkPortManager;
 
 public class PortTablePrefabManager : MonoBehaviour
@@ -20,16 +24,34 @@ public class PortTablePrefabManager : MonoBehaviour
             instance.SetActive(true);
             InitializeTable(instance, portData);
         }
-    }  
+    }
     private void InitializeTable(GameObject instance, PortData portData)
     {
         if (instance.TryGetComponent<Table>(out var table))
         {
             table.Init(portData);
-            table.OnDelete += (PortData) => DeletePort(portData);
-            table.OnConnect += (PortData) => ConnectPort(portData);
-            table.OnDisconnectedt += (PortData) => DisconnectedPort(portData);
-            table.OnMonitor += (PortData) => Monitor(portData);
+            SubscribeToTableEvents(table, portData);
+        }
+        else
+        {
+            Debug.LogWarning("Table component not found on the instance.");
+        }
+    }
+
+    private void SubscribeToTableEvents(Table table, PortData portData)
+    {
+        table.OnDelete += (PortData) => DeletePort(portData);
+        table.OnConnect += (PortData) => ConnectPort(portData);
+        table.OnDisconnectedt += (PortData) => DisconnectedPort(portData);
+        table.OnMonitor += (PortData) => Monitor(portData);
+        table.OnMask += (PortData) => SetMaskType(portData);
+    }
+
+    private void SetMaskType(PortData portData)
+    {
+        if (portTableUIManager != null)
+        {
+            portTableUIManager.OnMaskType(portData);
         }
     }
 

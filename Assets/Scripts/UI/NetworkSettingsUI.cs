@@ -7,26 +7,20 @@ using System.Net.Sockets;
 using System.Net;
 using Random = System.Random;
 using UnityEngine.UI;
-using static DataPacketController;
-using static UnityEngine.UI.Dropdown;
+using System.Collections.Generic;
 
 public class NetworkSettingsUI : MonoBehaviour
 {
     private UICollector uiCollector;
     private ConsoleUI consoleUi;
-    public event Action<string, string, string, string, string> Confirm;
+    public event Action<string, string, string, string, string, string> Confirm;
     private string protocolType = "UDP";
     private string protocolName = string.Empty;
     private int? remotePort;
     private int? localPort;
     private string targetIP;
     private bool isOpenConsole = true;
-    private string packetStartMarker = string.Empty;
-    private string packetEndMarker = string.Empty;
-    private string packetDataName = string.Empty;
-    private int maxPacketSize;
-    private bool useMask = false;
-    private DataPacketController packetController;
+    private string maskType = "original data";
     private void Start()
     {
         Init();
@@ -37,10 +31,7 @@ public class NetworkSettingsUI : MonoBehaviour
     {
         consoleUi = GameObject.FindObjectOfType<ConsoleUI>(true);
         uiCollector = GetComponent<UICollector>();
-        packetController = new DataPacketController();
         InitMenu();
-        InitMaskEvent();
-
     }
 
     private void InitMenu()
@@ -48,164 +39,23 @@ public class NetworkSettingsUI : MonoBehaviour
         CloseUi(UIKey.UI_MenuRoot);
     }
 
-    private void InitMaskEvent()
-    {
-        CloseUi(UIKey.UI_MaskRoot);
-        CloseUi(UIKey.UI_MaskDropdown);
-        uiCollector.GetAsset<Toggle>(UIKey.UI_MaskToggle).isOn = false;
-    }
-
     private void Subscribe()
     {
         if (uiCollector == null) return;
 
         uiCollector.BindOnCheck(UIKey.UI_DeleteButton, () => CloseUi(UIKey.UI_MenuRoot));
-        uiCollector.BindOnCheck(UIKey.UI_MaskDeleteButton, () => CloseUi(UIKey.UI_MaskRoot));
         uiCollector.BindOnCheck(UIKey.UI_MenuCancel, () => CloseUi(UIKey.UI_MenuRoot));
-        uiCollector.BindOnCheck(UIKey.UI_MaskCancel, () => CloseUi(UIKey.UI_MaskRoot));
-        uiCollector.BindOnCheck(UIKey.UI_Mask, () => OpenMenu(UIKey.UI_MaskRoot));
         uiCollector.BindOnCheck(UIKey.UI_AddPort, () => OpenMenu(UIKey.UI_MenuRoot));
-        uiCollector.BindOnCheck(UIKey.UI_MaskOK, OnMaskSetting);
         uiCollector.BindOnCheck(UIKey.UI_OK, OnConfirm);
         uiCollector.BindOnCheck(UIKey.UI_Console, OnConsole);
         uiCollector.BindOnCheck(UIKey.UI_clear, OnClearConsole);
         uiCollector.GetAsset<TMP_Dropdown>(UIKey.UI_NetProtocolDropdowm).onValueChanged.AddListener(OnDropdownValueChanged);
-        uiCollector.GetAsset<TMP_Dropdown>(UIKey.UI_MaskDropdown).onValueChanged.AddListener(OnDropdownValueChanged);
         uiCollector.GetAsset<TMP_InputField>(UIKey.UI_RemotePortInput).onValueChanged.AddListener(OnRemotePortInput);
         uiCollector.GetAsset<TMP_InputField>(UIKey.UI_LocalPortInput).onValueChanged.AddListener(OnLocalPortInput);
         uiCollector.GetAsset<TMP_InputField>(UIKey.UI_TargetIPInput).onValueChanged.AddListener(OnTargetInput);
-
-        uiCollector.GetAsset<InputField>(UIKey.UI_PacketDataNameInput).onValueChanged.AddListener(OnPacketDataNameInput);
-        uiCollector.GetAsset<InputField>(UIKey.UI_PacketStartMarkerInput).onValueChanged.AddListener(OnPacketStartMarkerInput);
-        uiCollector.GetAsset<InputField>(UIKey.UI_PacketEndMarkerInput).onValueChanged.AddListener(OnPacketEndMarkerInput);
-        uiCollector.GetAsset<InputField>(UIKey.UI_MaxPacketSizeInput).onValueChanged.AddListener(OnMaxPacketSizeInput);
-
-
-
         uiCollector.GetAsset<InputField>(UIKey.UI_NameInput).onValueChanged.AddListener(OnNameInput);
-        uiCollector.GetAsset<Toggle>(UIKey.UI_MaskToggle).onValueChanged.AddListener(OnMaskDrodown);
-    }
-
-    private void OnMaxPacketSizeInput(string value)
-    {
-        if (int.TryParse(value, out int size) && size > 0)
-        {
-            maxPacketSize = size;
-        }
-        else
-        {
-            consoleUi.AddLog("最大封包大小必須是正整數。");
-        }
-    }
-
-    private void OnPacketEndMarkerInput(string value)
-    {
-        if (string.IsNullOrWhiteSpace(value))
-        {
-            consoleUi.AddLog("結束標記不能為空。");
-        }
-        else
-        {
-            packetEndMarker = value;
-        }
-    }
-
-    private void OnPacketStartMarkerInput(string value)
-    {
-        if (string.IsNullOrWhiteSpace(value))
-        {
-            consoleUi.AddLog("開始標記不能為空。");
-        }
-        else
-        {
-            packetStartMarker = value;
-        }
-    }
-
-    private void OnPacketDataNameInput(string value)
-    {
-        if (string.IsNullOrWhiteSpace(value))
-        {
-            consoleUi.AddLog("數據包名稱不能為空。");
-        }
-        else
-        {
-            packetDataName = value;
-        }
-    }
-
-    private void OnMaskSetting()
-    {
-        var dropdown = uiCollector.GetAsset<TMP_Dropdown>(UIKey.UI_MaskDropdown);
-
-        // 確保在創建數據包之前所有屬性都合法
-        if (string.IsNullOrWhiteSpace(packetDataName))
-        {
-            consoleUi.AddLog("數據包名稱不能為空，請檢查輸入。");
-            return;
-        }
-
-        if (string.IsNullOrWhiteSpace(packetStartMarker))
-        {
-            consoleUi.AddLog("開始標記不能為空，請檢查輸入。");
-            return;
-        }
-
-        if (string.IsNullOrWhiteSpace(packetEndMarker))
-        {
-            consoleUi.AddLog("結束標記不能為空，請檢查輸入。");
-            return;
-        }
-
-        if (maxPacketSize <= 0)
-        {
-            consoleUi.AddLog("最大封包大小必須是正整數，請檢查輸入。");
-            return;
-        }
-
-        // 創建數據包並更新下拉選單
-        var dataPacket = new DataPacket
-        {
-            dataPacketName = this.packetDataName,
-            packetStartMarker = this.packetStartMarker,
-            packetEndMarker = this.packetEndMarker,
-            maxPacketSize = maxPacketSize
-        };
-
-        packetController.CreateDataPacket(dataPacket);
-        Debug.Log($"dataPacketName: {dataPacket.dataPacketName}, packetStartMarker: {dataPacket.packetStartMarker}, packetEndMarker: {dataPacket.packetEndMarker}, maxPacketSize: {dataPacket.maxPacketSize}");
-
-        var optionData = new TMP_Dropdown.OptionData
-        {
-            text = this.packetDataName
-        };
-
-        dropdown.options.Add(optionData);
-        dropdown.value = dropdown.options.Count - 1;
-        dropdown.RefreshShownValue();
-        CloseUi(UIKey.UI_MaskRoot);
-    }
-
-
-    private void OnMaskDropdownValueChanged(int index)
-    {
-
-    }
-
-
-    private void OnMaskDrodown(bool status)
-    {
-        if (status) 
-        {
-            uiCollector.SetActive(UIKey.UI_MaskDropdown, true);
-            useMask = true;
-        }
-        else
-        {
-            uiCollector.SetActive(UIKey.UI_MaskDropdown, false);
-            useMask = false;
-        }
-    }
+        uiCollector.GetAsset<TMP_Dropdown>(UIKey.UI_DropdownMask).onValueChanged.AddListener(OnMaskDropdownValueChanged);
+    } 
 
     private void Update()
     {
@@ -216,6 +66,12 @@ public class NetworkSettingsUI : MonoBehaviour
             return;
         }
         OnClearConsole();
+    }
+    public List<TMP_Dropdown.OptionData> GetAllOptions()
+    {
+        var dropdown = uiCollector.GetAsset<TMP_Dropdown>(UIKey.UI_DropdownMask);
+
+        return dropdown.options;
     }
 
     private void OnClearConsole()
@@ -282,6 +138,20 @@ public class NetworkSettingsUI : MonoBehaviour
     private void OnLocalPortInput(string value)
     {
         localPort = ParsePort(value);
+    }
+
+    private void OnMaskDropdownValueChanged(int index)
+    {
+        switch (index)
+        {
+            case 0:
+                maskType = "original data";
+                break;
+            case 1:
+                maskType = "16 to 10";
+                break;          
+        }
+        Debug.Log(maskType);
     }
 
     private int? ParsePort(string portString)
@@ -372,29 +242,20 @@ public class NetworkSettingsUI : MonoBehaviour
             return;
         }
 
-        if (useMask)
-        {
-
-        }
-
-
         if (protocolType.Equals("UDP", StringComparison.OrdinalIgnoreCase))
         {
-            Confirm?.Invoke(protocolName, protocolType, remotePort.ToString(), localPort?.ToString(), string.Empty);
+            Confirm?.Invoke(protocolName, protocolType, remotePort.ToString(), localPort?.ToString(), string.Empty, maskType);
         }
         else if (protocolType.Equals("TCP Client", StringComparison.OrdinalIgnoreCase))
         {
-            Confirm?.Invoke(protocolName, protocolType, remotePort.ToString(), "--", targetIP);
+            Confirm?.Invoke(protocolName, protocolType, remotePort.ToString(), "--", targetIP, maskType);
         }
         else if (protocolType.Equals("TCP Server", StringComparison.OrdinalIgnoreCase))
         {
-            Confirm?.Invoke(protocolName, protocolType, "--", localPort.ToString(), targetIP);
+            Confirm?.Invoke(protocolName, protocolType, "--", localPort.ToString(), targetIP, maskType);
         }
         CloseUi(UIKey.UI_MenuRoot);
     }
-
-
-
 
     private void OnConsole()
     {
@@ -422,6 +283,8 @@ public class NetworkSettingsUI : MonoBehaviour
         uiCollector.GetAsset<TMP_InputField>(UIKey.UI_TargetIPInput).text = string.Empty;
         uiCollector.GetAsset<TMP_Dropdown>(UIKey.UI_NetProtocolDropdowm).value = 0;
         uiCollector.GetAsset<TMP_Dropdown>(UIKey.UI_NetProtocolDropdowm).RefreshShownValue();
+        uiCollector.GetAsset<TMP_Dropdown>(UIKey.UI_DropdownMask).value = 0;
+        uiCollector.GetAsset<TMP_Dropdown>(UIKey.UI_DropdownMask).RefreshShownValue();
         remotePort = null;
         localPort = null;
         targetIP = null;
@@ -430,7 +293,6 @@ public class NetworkSettingsUI : MonoBehaviour
         SetUiStatus(true, UIKey.UI_TargetIPMask);
         SetUiStatus(false, UIKey.UI_RemotePortsMask);
         SetUiStatus(false, UIKey.UI_LocalPortsMask);
-        InitMaskEvent();
     }
 
     private void SetUiStatus(bool status, string uiKey)
