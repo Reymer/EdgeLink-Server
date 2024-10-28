@@ -599,73 +599,19 @@ public class NetworkConnectorCore
                 {
                     string data = Encoding.UTF8.GetString(buffer, 0, bytesRead);
 
-                    if (tcpServerData.portData.MaskType.Equals("Robot to 10"))
+                    switch (tcpServerData.portData.MaskType)
                     {
-                        List<string> datas = SplitDataIntoGroups(data, 4);
+                        case "Robot to 10":
+                            ProcessRobotTo10Data(data, tcpServerData, client);
+                            break;
 
-                        if (IsValidMessage(datas))
-                        {
-                            ProcessMessage(tcpServerData, client, datas);
-                        }
-                        else
-                        {
-                            if (tcpServerData.portData != this.portData)
-                                return;
+                        case "Robot to 16":
+                            await ProcessRobotTo16Data(data, tcpServerData, client);
+                            break;
 
-                            LogMonitorMainThread($"Received message does not start with 0xDD or end with 0x77. Message: {data}");
-                        }
-                    }
-                    else if (tcpServerData.portData.MaskType.Equals("Robot to 16"))
-                    {
-                        List<string> datas = data.Split(':').ToList();
-
-                        if (IsValidMessage10To16(datas))
-                        {
-                            // Parse the message into hex format with 0x prefix
-                            string formatHex = $"0x{Convert.ToInt32(datas[0]):X2}";
-                            string functionHex = $"0x{Convert.ToInt32(datas[1]):X2}";
-                            string lengthHex = $"0x{Convert.ToInt32(datas[2]):X2}";
-
-                            int dataGroupCount = Convert.ToInt32(datas[2]);
-                            string sourceData = string.Join("", datas.Skip(3).Take(dataGroupCount)
-                                                                      .Select(d => $"0x{Convert.ToInt32(d):X2}"));
-
-                            int checksumIndex = 3 + dataGroupCount;
-                            string checksumHex = $"0x{Convert.ToInt32(datas[checksumIndex], 10):X2}0x{Convert.ToInt32(datas[checksumIndex + 1], 10):X2}";
-                            List<byte> bytesToCheck = new()
-                            {
-                                Convert.ToByte(functionHex.Replace("0x", ""), 16),
-                                Convert.ToByte(lengthHex.Replace("0x", ""), 16)
-                            };
-                            bytesToCheck.AddRange(datas.Skip(3).Take(dataGroupCount).Select(d => Convert.ToByte(d, 10)));
-                            ushort calculatedCrc = CalculateCrc16(bytesToCheck.ToArray());
-                            string calculatedCrcHex = $"{(calculatedCrc & 0xFF):X2}{(calculatedCrc >> 8):X2}";
-                            string checksum = $"{Convert.ToInt32(datas[checksumIndex], 10):X2}{Convert.ToInt32(datas[checksumIndex + 1], 10):X2}";
-                            Debug.Log(calculatedCrcHex + checksum);
-                            if(calculatedCrcHex == checksum)
-                            {
-                                string source = "0xDD" + formatHex + functionHex + lengthHex + sourceData + checksumHex + "0x77";
-                                Debug.Log(source);
-                                if (tcpClientdatas.TryGetValue(tcpServerData.portData.LocalPortDetails.Port, out var tcpClinetData) && tcpClinetData.IsConnecting)
-                                {
-                                    SendMessage(tcpServerData, source);
-                                }
-                            }
-                        }
-                    }
-                    else if (tcpServerData.portData.MaskType.Equals("original data"))
-                    {
-                        int packetSize = bytesRead;
-
-                        if (tcpServerData.portData == this.portData)
-                        {
-                            LogMonitorMainThread($"TCP 伺服器。收到訊息來自: {remoteEndPoint}, 資料大小: {packetSize}, 資料: {data}");
-                        }
-
-                        if (tcpClientdatas.TryGetValue(tcpServerData.portData.LocalPortDetails.Port, out var tcpClinetData) && tcpClinetData.IsConnecting)
-                        {
-                            SendMessage(tcpServerData, data);
-                        }
+                        case "original data":
+                            ProcessOriginalData(data, tcpServerData, remoteEndPoint);
+                            break;
                     }
                 }
                 else
@@ -686,6 +632,90 @@ public class NetworkConnectorCore
             UnityMainThreadDispatcher.Instance().Enqueue(() => tcpServerData.portData.OnUpdate?.Invoke(tcpServerData.portData));
         }
     }
+
+    private void ProcessRobotTo10Data(string data, TCPServerData tcpServerData, TcpClient client)
+    {
+        List<string> datas = SplitDataIntoGroups(data, 4);
+
+        if (IsValidMessage(datas))
+        {
+            ProcessMessage(tcpServerData, client, datas);
+        }
+        else if (tcpServerData.portData == this.portData)
+        {
+            LogMonitorMainThread($"Received message does not start with 0xDD or end with 0x77. Message: {data}");
+        }
+    }
+
+    private async Task ProcessRobotTo16Data(string data, TCPServerData tcpServerData, TcpClient client)
+    {
+        List<string> datas = data.Split(':').ToList();
+
+        try
+        {
+            string formatHex = $"0x{Convert.ToInt32(datas[0]):X2}";
+            string functionHex = $"0x{Convert.ToInt32(datas[1]):X2}";
+            string lengthHex = $"0x{Convert.ToInt32(datas[2]):X2}";
+            int dataGroupCount = Convert.ToInt32(datas[2]);
+            string sourceData = string.Join(":", datas.Skip(3).Take(dataGroupCount).Select(d => $"0x{Convert.ToInt32(d):X2}"));
+
+            int checksumIndex = 3 + dataGroupCount;
+            string checksumHex = $"0x{Convert.ToInt32(datas[checksumIndex], 10):X2}:0x{Convert.ToInt32(datas[checksumIndex + 1], 10):X2}";
+            string dataTemp = string.Join(":", datas.Skip(3).Take(dataGroupCount));
+            string checksumTemp = $":{datas[checksumIndex]}:{datas[checksumIndex + 1]}";
+
+            List<byte> bytesToCheck = new()
+                {
+                    Convert.ToByte(functionHex.Replace("0x", ""), 16),
+                    Convert.ToByte(lengthHex.Replace("0x", ""), 16)
+                };
+            bytesToCheck.AddRange(datas.Skip(3).Take(dataGroupCount).Select(d => Convert.ToByte(d, 10)));
+
+            ushort calculatedCrc = CalculateCrc16(bytesToCheck.ToArray());
+            string calculatedCrcHex = $"{(calculatedCrc & 0xFF):X2}{(calculatedCrc >> 8):X2}";
+            string checksum = $"{Convert.ToInt32(datas[checksumIndex], 10):X2}{Convert.ToInt32(datas[checksumIndex + 1], 10):X2}";
+            bool isCrcValid = calculatedCrcHex == checksum;
+
+            string ackMessage = $"[ACK]:{datas[0]}:{datas[1]}:{(isCrcValid ? "1" : "2")}:{datas[checksumIndex]}:{datas[checksumIndex + 1]}";
+            await SendAckToClient(client, ackMessage);
+
+            string responseMessage = "[Response]:" + datas[0] + ":" + datas[1] + ":" + (isCrcValid ? "1" : "2") + ":" + datas[2] + ":" + dataTemp + checksumTemp;
+            await SendResponseToClient(client, responseMessage);
+
+            if (isCrcValid)
+            {
+                string source = $"0xDD{formatHex}{functionHex}{lengthHex}{sourceData}{checksumHex}0x77";
+
+                if (tcpClientdatas.TryGetValue(tcpServerData.portData.LocalPortDetails.Port, out var tcpClientData) && tcpClientData.IsConnecting)
+                {
+                    SendMessage(tcpServerData, source);
+                }
+            }
+
+            if (tcpServerData.portData == this.portData)
+            {
+                LogMonitorMainThread($"[Request]: {data}");
+            }
+        }
+        catch (Exception ex)
+        {
+            LogOnMainThread($"Error processing 'Robot to 16' data: {ex.Message}");
+        }
+    }
+
+    private void ProcessOriginalData(string data, TCPServerData tcpServerData, IPEndPoint remoteEndPoint)
+    {
+        if (tcpServerData.portData == this.portData)
+        {
+            LogMonitorMainThread($"TCP server received message from: {remoteEndPoint}, Data: {data}");
+        }
+
+        if (tcpClientdatas.TryGetValue(tcpServerData.portData.LocalPortDetails.Port, out var tcpClientData) && tcpClientData.IsConnecting)
+        {
+            SendMessage(tcpServerData, data);
+        }
+    }
+
 
 
     private List<string> SplitDataIntoGroups(string data, int groupSize)

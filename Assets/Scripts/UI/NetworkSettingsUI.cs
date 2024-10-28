@@ -148,8 +148,11 @@ public class NetworkSettingsUI : MonoBehaviour
                 maskType = "original data";
                 break;
             case 1:
-                maskType = "16 to 10";
-                break;          
+                maskType = "Robot to 10";
+                break;
+            case 2:
+                maskType = "Robot to 16";
+                break;
         }
         Debug.Log(maskType);
     }

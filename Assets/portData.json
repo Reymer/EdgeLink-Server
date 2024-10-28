@@ -15,22 +15,5 @@
     "COMReceived": 0,
     "NetReceived": 0,
     "MaskType": "Robot to 16"
-  },
-  {
-    "ProtocolName": "132",
-    "NetProtocol": "TCP Client",
-    "LocalPortDetails": {
-      "Port": "--",
-      "Description": null
-    },
-    "RemotePortDetails": {
-      "Port": "7777",
-      "Description": null
-    },
-    "TargetIP": "192.168.50.73",
-    "IsConnected": true,
-    "COMReceived": 0,
-    "NetReceived": 0,
-    "MaskType": "original data"
   }
 ]
