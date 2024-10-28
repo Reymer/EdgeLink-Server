@@ -11804,7 +11804,9 @@ MonoBehaviour:
     m_Options:
     - m_Text: original data
       m_Image: {fileID: 0}
-    - m_Text: 16 to 10
+    - m_Text: Robot to 10
+      m_Image: {fileID: 0}
+    - m_Text: Robot to 16
       m_Image: {fileID: 0}
   m_OnValueChanged:
     m_PersistentCalls:

@@ -1,0 +1,19 @@
+[
+  {
+    "ProtocolName": "123",
+    "NetProtocol": "TCP Server",
+    "LocalPortDetails": {
+      "Port": "48763",
+      "Description": null
+    },
+    "RemotePortDetails": {
+      "Port": "--",
+      "Description": null
+    },
+    "TargetIP": null,
+    "IsConnected": true,
+    "COMReceived": 0,
+    "NetReceived": 0,
+    "MaskType": "16 to 10"
+  }
+]
