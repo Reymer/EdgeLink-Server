@@ -6,7 +6,7 @@ using static NetworkPortManager;
 
 public class Table : MonoBehaviour
 {
-    public UICollector uiCollector;
+    private UICollector uiCollector;
     private PortData currentPortData;
     private string maskType;
     public event Action<PortData> OnDelete;
@@ -23,10 +23,11 @@ public class Table : MonoBehaviour
 
     public void Init(PortData portData)
     {
+        uiCollector = GetComponent<UICollector>();
         networkSettingsUi = FindObjectOfType<NetworkSettingsUI>(true);
-        currentPortData = portData; // 保存傳入的 portData
-        maskType = portData.MaskType; // 記錄當前的 maskType
-        UpdateUI(currentPortData); // 更新 UI
+        currentPortData = portData;
+        maskType = portData.MaskType; 
+        UpdateUI(currentPortData); 
     }
 
     private void Subscribe()
@@ -56,14 +57,12 @@ public class Table : MonoBehaviour
         SetValue(UIKey.table_ForwardTargetText, portData.TargetIP);
         SetValue(UIKey.table_netReceivedStatus, GetIsConnecting(portData));
 
-        // 更新下拉選單選項
         CreateMaskData();
 
-        // 根據當前的 maskType 設置下拉選單的顯示值
         var dropdown = uiCollector.GetAsset<TMP_Dropdown>(UIKey.table_DropdownMask);
         int index = GetIndexOfMaskType(maskType);
-        dropdown.value = index; // 設置當前選擇的 maskType
-        dropdown.RefreshShownValue(); // 更新顯示值
+        dropdown.value = index; 
+        dropdown.RefreshShownValue(); 
     }
 
     private void CreateMaskData()
@@ -71,8 +70,8 @@ public class Table : MonoBehaviour
         var data = networkSettingsUi.GetAllOptions();
         var dropdown = uiCollector.GetAsset<TMP_Dropdown>(UIKey.table_DropdownMask);
 
-        dropdown.ClearOptions(); // 清除現有選項
-        dropdown.AddOptions(data); // 添加新選項
+        dropdown.ClearOptions();
+        dropdown.AddOptions(data);
     }
 
     private int GetIndexOfMaskType(string maskType)
@@ -82,10 +81,10 @@ public class Table : MonoBehaviour
         {
             if (data[i].text == maskType)
             {
-                return i; // 返回 maskType 的索引
+                return i;
             }
         }
-        return 0; // 默認返回 0 索引
+        return 0;
     }
 
     private string GetIsConnecting(PortData portData)
@@ -121,7 +120,7 @@ public class Table : MonoBehaviour
         maskType = data[index].text;
         Debug.Log($"Mask type set to: {maskType}");
 
-        currentPortData.MaskType = maskType; // 更新 currentPortData 的 MaskType
+        currentPortData.MaskType = maskType;
         HandleAction(OnMask);
     }
 

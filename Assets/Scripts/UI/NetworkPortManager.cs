@@ -266,6 +266,7 @@ public class NetworkPortManager
             portData.OnUpdate -= OnUpdate;
         }
 
+
         PortDataUpdated = null;
         SavePortDataToFile();
     }

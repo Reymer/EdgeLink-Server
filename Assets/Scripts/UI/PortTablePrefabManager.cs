@@ -10,10 +10,14 @@ public class PortTablePrefabManager : MonoBehaviour
 {
     [SerializeField] private GameObject prefab;
     private NetworkPortTableUIManager portTableUIManager;
+    private Monitor monitor;
+    private MonitorConsole monitorConsole;
 
     private void Start()
     {
         portTableUIManager = FindObjectOfType<NetworkPortTableUIManager>();
+        monitor = FindObjectOfType<Monitor>(true);
+        monitorConsole = FindObjectOfType<MonitorConsole>(true);
     }
     public void InstantiatePortTable(UICollector uiCollector, PortData portData)
     {
@@ -88,14 +92,11 @@ public class PortTablePrefabManager : MonoBehaviour
     }
     private void Monitor(PortData portData)
     {
-        var ui = GameObject.FindObjectOfType<Monitor>(true);
-        ui.SetStatus(UIKey.Monitor_Monitor, true);
-        var monitorConsole = GameObject.FindObjectOfType<MonitorConsole>(true);
+        monitor.SetStatus(UIKey.Monitor_Monitor, true);
         UnityMainThreadDispatcher.Instance().Enqueue(() =>
         {
             monitorConsole.RemoveAll();
         });
         portTableUIManager.OnMonitorConsole(portData);
-
     }
 }
