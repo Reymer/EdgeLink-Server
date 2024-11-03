@@ -12,7 +12,6 @@ using System.IO;
 using static NetworkPortManager;
 using System.Buffers;
 using System.Linq;
-using UnityEngine.UIElements;
 
 public class NetworkConnectorCore
 {
@@ -34,43 +33,38 @@ public class NetworkConnectorCore
         private bool disposed = false;
         public void Dispose()
         {
-            lock (lockObj)
+            DisposeResources(ref disposed, lockObj, () =>
             {
-                if (disposed) return;
-                disposed = true;
-
                 CancellationTokenSource?.Cancel();
                 CancellationTokenSource?.Dispose();
+                CancellationTokenSource = null;
 
-                udpClient?.Close();
-                udpClient?.Dispose();
-            }
+                udpClient.Close();
+                udpClient.Dispose();
+                udpClient = null;
+            });
         }
     }
 
     public class TCPServerData : IDisposable
     {
         public TcpListener tcpListener;
-        public CancellationTokenSource cancellationTokenSource = new();
+        public CancellationTokenSource CancellationTokenSource = new();
         public PortData portData;
         public string sourceData = string.Empty;
         public bool disposed = false;
         private readonly object lockObj = new();
         public void Dispose()
         {
-            lock (lockObj)
+            DisposeResources(ref disposed, lockObj, () =>
             {
-                if (disposed) return;
-                disposed = true;
-
-                cancellationTokenSource?.Cancel();
+                CancellationTokenSource?.Cancel();
+                CancellationTokenSource?.Dispose();
+                CancellationTokenSource = null;
 
                 tcpListener?.Stop();
                 tcpListener = null;
-
-                cancellationTokenSource?.Dispose();
-                cancellationTokenSource = null;
-            }
+            });
         }
     }
 
@@ -80,19 +74,12 @@ public class NetworkConnectorCore
         public CancellationTokenSource CancellationTokenSource = new();
         private bool disposed = false;
         private readonly object lockObj = new();
-        public string remotePort = string.Empty;
-        public string localPort = string.Empty;
-        public string remoteIP = string.Empty;
-        public string netProtocol = string.Empty;
         public PortData portData;
         public bool IsConnecting;
         public void Dispose()
         {
-            lock (lockObj)
+            DisposeResources(ref disposed, lockObj, () =>
             {
-                if (disposed) return;
-                disposed = true;
-
                 CancellationTokenSource?.Cancel();
                 CancellationTokenSource?.Dispose();
                 CancellationTokenSource = null;
@@ -100,9 +87,24 @@ public class NetworkConnectorCore
                 tcpClient?.Close();
                 tcpClient?.Dispose();
                 tcpClient = null;
-            }
+            });
         }
     }
+
+    #region 私有幫助方法
+
+    private static void DisposeResources(ref bool disposed, object lockObj, Action disposeAction)
+    {
+        lock (lockObj)
+        {
+            if (disposed) return;
+            disposed = true;
+            disposeAction();
+        }
+    }
+
+    #endregion
+
     public void Init(ConsoleUI consoleUI, MonitorConsole monitorConsole)
     {
         this.consoleUI = consoleUI;
@@ -112,6 +114,7 @@ public class NetworkConnectorCore
     #endregion
 
     #region 資料字典存取
+
     public enum ConnectionType { UDP, TCP }
     private readonly ConcurrentDictionary<string, UdpData> udpClients = new();
     private readonly ConcurrentDictionary<string, TCPServerData> tcpServerdatas = new();
@@ -120,6 +123,7 @@ public class NetworkConnectorCore
     #endregion
 
     #region 新增 TCP 或 UDP 連線邏輯
+
     /// <summary>
     /// 單獨新增 TCP Server、TCP Client 或 UDP 服務
     /// </summary>
@@ -492,7 +496,7 @@ public class NetworkConnectorCore
 
     #endregion
 
-    #region TCP Methods
+    #region TCP 方法
 
     /// <summary>
     /// Adds or restarts a TCP listener for the specified port.
@@ -521,7 +525,7 @@ public class NetworkConnectorCore
         {
             portData = portData,
             tcpListener = tcpListener,
-            cancellationTokenSource = new CancellationTokenSource(),           
+            CancellationTokenSource = new CancellationTokenSource(),           
         };
         tcpListener.Start();
         tcpServerdatas.TryAdd(portData.LocalPortDetails.Port, tcpServerData);
@@ -535,13 +539,13 @@ public class NetworkConnectorCore
     /// <param name="tcpServerData">The TCP server data to restart.</param>
     private void RestartTcpListener(TCPServerData tcpServerData)
     {
-        if (tcpServerData.cancellationTokenSource != null && !tcpServerData.cancellationTokenSource.IsCancellationRequested)
+        if (tcpServerData.CancellationTokenSource != null && !tcpServerData.CancellationTokenSource.IsCancellationRequested)
         {
-            tcpServerData.cancellationTokenSource.Cancel();
-            tcpServerData.cancellationTokenSource.Dispose();
+            tcpServerData.CancellationTokenSource.Cancel();
+            tcpServerData.CancellationTokenSource.Dispose();
         }
 
-        tcpServerData.cancellationTokenSource = new CancellationTokenSource();
+        tcpServerData.CancellationTokenSource = new CancellationTokenSource();
         tcpServerData.portData.IsConnected = true;
 
         UnityMainThreadDispatcher.Instance().Enqueue(() => tcpServerData.portData.OnUpdate?.Invoke(tcpServerData.portData));
@@ -556,10 +560,10 @@ public class NetworkConnectorCore
     {
         if (tcpServerdatas.TryRemove(portData.LocalPortDetails.Port, out TCPServerData tcpServerData))
         {
-            if (tcpServerData.cancellationTokenSource != null && !tcpServerData.cancellationTokenSource.IsCancellationRequested)
+            if (tcpServerData.CancellationTokenSource != null && !tcpServerData.CancellationTokenSource.IsCancellationRequested)
             {
-                tcpServerData.cancellationTokenSource.Cancel();
-                tcpServerData.cancellationTokenSource.Dispose();
+                tcpServerData.CancellationTokenSource.Cancel();
+                tcpServerData.CancellationTokenSource.Dispose();
             }
 
             if (tcpServerData.tcpListener != null)
@@ -580,20 +584,18 @@ public class NetworkConnectorCore
     {
         if (tcpServerdatas.TryGetValue(portData.LocalPortDetails.Port, out TCPServerData tcpServerData))
         {
-            tcpServerData.cancellationTokenSource.Cancel();
+            tcpServerData.CancellationTokenSource.Cancel();
             tcpServerData.portData.IsConnected = false;
 
             UnityMainThreadDispatcher.Instance().Enqueue(() => portData.OnUpdate?.Invoke(portData));
         }
     }
 
-    #endregion
-
     private async Task ListenForTcpClients(TCPServerData tcpServerData)
     {
         try
         {
-            while (!tcpServerData.cancellationTokenSource.Token.IsCancellationRequested)
+            while (!tcpServerData.CancellationTokenSource.Token.IsCancellationRequested)
             {
                 try
                 {
@@ -627,77 +629,103 @@ public class NetworkConnectorCore
 
     private async Task ReceiveTcpMessages(TcpClient client, TCPServerData tcpServerData)
     {
+        IPEndPoint remoteEndPoint = client.Client.RemoteEndPoint as IPEndPoint;
+        var buffer = new byte[1024];
+        NetworkStream stream = client.GetStream();
+
         try
         {
-            IPEndPoint remoteEndPoint = client.Client.RemoteEndPoint as IPEndPoint;
-            var buffer = new byte[1024];
-            NetworkStream stream = client.GetStream();
-
-            while (!tcpServerData.cancellationTokenSource.Token.IsCancellationRequested)
+            while (true)
             {
-                int bytesRead = await stream.ReadAsync(buffer, 0, buffer.Length, tcpServerData.cancellationTokenSource.Token);
+                tcpServerData.CancellationTokenSource.Token.ThrowIfCancellationRequested();
 
-                if (bytesRead > 0)
+                int bytesRead = await stream.ReadAsync(buffer, 0, buffer.Length, tcpServerData.CancellationTokenSource.Token);
+                if (bytesRead <= 0)
                 {
-                    string data = Encoding.UTF8.GetString(buffer, 0, bytesRead);
-                    string currentMaskType;
-
-                    lock (maskTypeLock)
-                    {
-                        currentMaskType = tcpServerData.portData.MaskType;
-                    }
-
-                    if (currentMaskType.Equals("Robot to 10"))
-                    {
-                        List<string> datas = SplitDataIntoGroups(data, 4);
-                        if (IsValidMessage(datas))
-                        {
-                            await ProcessMessage(tcpServerData, client, datas);
-                        }
-                        else
-                        {
-                            if (tcpServerData.portData == this.portData)
-                            {
-                                LogMonitorMainThread($"錯誤：收到的資料不以 0xDD 開頭或以 0x77 結尾。資料: {data}");
-                            }
-                        }
-                    }
-                    else if (currentMaskType.Equals("Robot to 16"))
-                    {
-                        ProcessRobotTo16Message(data, client, tcpServerData);
-                    }
-                    else if (currentMaskType.Equals("original data"))
-                    {
-                        int packetSize = bytesRead;
-                        if (tcpServerData.portData == this.portData)
-                        {
-                            LogMonitorMainThread($"收到訊息，資料大小: {packetSize}，資料: {data}");
-                        }
-
-                        if (tcpClientdatas.TryGetValue(tcpServerData.portData.LocalPortDetails.Port, out var tcpClientData) && tcpClientData.IsConnecting)
-                        {
-                            SendMessage(tcpServerData, data);
-                        }
-                    }
-                }
-                else
-                {
-                    LogOnMainThread($"客戶端 {remoteEndPoint} 已斷開連接。");
+                    LogDisconnection(remoteEndPoint);
                     break;
+                }
+
+                string data = Encoding.UTF8.GetString(buffer, 0, bytesRead);
+                string currentMaskType;
+
+                lock (maskTypeLock)
+                {
+                    currentMaskType = tcpServerData.portData.MaskType;
+                }
+
+                switch (currentMaskType)
+                {
+                    case "Robot to 10":
+                        await HandleRobotTo10Message(tcpServerData, client, data);
+                        break;
+
+                    case "Robot to 16":
+                        ProcessRobotTo16Message(data, client, tcpServerData);
+                        break;
+
+                    case "original data":
+                        HandleOriginalDataMessage(tcpServerData, data, bytesRead);
+                        break;
+
+                    default:
+                        LogOnMainThread($"未識別的 MaskType: {currentMaskType}");
+                        break;
                 }
             }
         }
+        catch (OperationCanceledException)
+        {
+            LogOnMainThread($"接收訊息已被取消: {remoteEndPoint}");
+        }
         catch (Exception ex)
         {
-            LogOnMainThread($"接收來自 {client.Client.RemoteEndPoint} 的訊息時發生錯誤: {ex.Message}");
+            LogOnMainThread($"接收來自 {remoteEndPoint} 的訊息時發生錯誤: {ex.Message}");
         }
         finally
         {
-            client.Close();
-            tcpServerData.portData.IsConnected = false;
-            UnityMainThreadDispatcher.Instance().Enqueue(() => tcpServerData.portData.OnUpdate?.Invoke(tcpServerData.portData));
+            CleanupClientConnection(client, tcpServerData);
         }
     }
+
+    private void LogDisconnection(IPEndPoint remoteEndPoint)
+    {
+        LogOnMainThread($"客戶端 {remoteEndPoint} 已斷開連接。");
+    }
+
+    private async Task HandleRobotTo10Message(TCPServerData tcpServerData, TcpClient client, string data)
+    {
+        List<string> datas = SplitDataIntoGroups(data, 4);
+        if (IsValidMessage(datas))
+        {
+            await ProcessMessage(tcpServerData, client, datas);
+        }
+        else if (tcpServerData.portData == this.portData)
+        {
+            LogMonitorMainThread($"錯誤：收到的資料不以 0xDD 開頭或以 0x77 結尾。資料: {data}");
+        }
+    }
+
+    private void HandleOriginalDataMessage(TCPServerData tcpServerData, string data, int packetSize)
+    {
+        if (tcpServerData.portData == this.portData)
+        {
+            LogMonitorMainThread($"收到訊息，資料大小: {packetSize}，資料: {data}");
+        }
+
+        if (tcpClientdatas.TryGetValue(tcpServerData.portData.LocalPortDetails.Port, out var tcpClientData) && tcpClientData.IsConnecting)
+        {
+            SendMessage(tcpServerData, data);
+        }
+    }
+
+    private void CleanupClientConnection(TcpClient client, TCPServerData tcpServerData)
+    {
+        client.Close();
+        tcpServerData.portData.IsConnected = false;
+        UnityMainThreadDispatcher.Instance().Enqueue(() => tcpServerData.portData.OnUpdate?.Invoke(tcpServerData.portData));
+    }
+
     private bool IsValidMessage(List<string> datas)
     {
         return datas.Count >= 7 && datas[0] == "0xDD" && datas[^1] == "0x77";
@@ -882,6 +910,11 @@ public class NetworkConnectorCore
 
     }
 
+    /// <summary>
+    /// CRC-16 驗證
+    /// </summary>
+    /// <param name="data"></param>
+    /// <returns></returns>
     private ushort CalculateCrc16(byte[] data)
     {
         ushort crc = 0xFFFF;
@@ -903,6 +936,12 @@ public class NetworkConnectorCore
         return crc;
     }
 
+    /// <summary>
+    /// 傳送 ACK、Response 訊息
+    /// </summary>
+    /// <param name="client"></param>
+    /// <param name="message"></param>
+    /// <returns></returns>
     private async Task SendAckOrResponse(TcpClient client, string message)
     {
         NetworkStream stream = client.GetStream();
@@ -917,7 +956,6 @@ public class NetworkConnectorCore
             LogOnMainThread("Network stream is not writable.");
         }
     }
-
 
     /// <summary>
     /// 發送訊息到指定 IP、Port
@@ -966,6 +1004,8 @@ public class NetworkConnectorCore
         }
     }
 
+    #endregion
+
     #region UDP 方法
 
     /// <summary>
@@ -983,7 +1023,7 @@ public class NetworkConnectorCore
             long totalReceivedBytes = 0;
             long totalSentBytes = 0;
 
-            byte[] buffer = ArrayPool<byte>.Shared.Rent(16 * 1024); // 16 KB 的緩衝區
+            byte[] buffer = ArrayPool<byte>.Shared.Rent(16 * 1024);
 
             try
             {
@@ -1133,7 +1173,8 @@ public class NetworkConnectorCore
     }
     #endregion
 
-    #region MonitorConsole
+    #region 監控控制台
+
     public void MonitorConsole(PortData portData)
     {
         this.portData = portData;
@@ -1211,7 +1252,6 @@ public class NetworkConnectorCore
     {
         await ShutdownClientsAsync();
     }
-
 
     #endregion
 }

@@ -9,8 +9,14 @@ using UnityEngine;
 
 public class NetworkPortManager
 {
+    #region 單例模式
+
     private static readonly Lazy<NetworkPortManager> instance = new(() => new NetworkPortManager());
     public static NetworkPortManager Instance => instance.Value;
+
+    #endregion
+
+    #region 欄位
 
     private readonly string filePath;
     private ConsoleUI consoleUI;
@@ -20,14 +26,21 @@ public class NetworkPortManager
     public readonly Dictionary<string, PortData> tcpClients = new();
     public readonly Dictionary<string, PortData> udpPorts = new();
     private readonly List<PortData> portDataList = new();
-
     public event Action<PortData> PortDataUpdated;
+
+    #endregion
+
+    #region 建構函式
 
     private NetworkPortManager(string customFilePath = null)
     {
         filePath = string.IsNullOrEmpty(customFilePath) ? Path.Combine(Application.dataPath, "portData.json") : customFilePath;
         Debug.Log($"檔案路徑已設定為: {filePath}");
     }
+
+    #endregion
+
+    #region 初始化
 
     public void Init()
     {
@@ -36,9 +49,13 @@ public class NetworkPortManager
         networkConnectorCore.Init(consoleUI, monitorConsole);
     }
 
+    #endregion
+
+    #region PortData 類別
+
     public class PortData
     {
-        public string ProtocolName {  get; set; }
+        public string ProtocolName { get; set; }
         public string NetProtocol { get; set; }
         public PortDetails LocalPortDetails { get; set; }
         public PortDetails RemotePortDetails { get; set; }
@@ -56,6 +73,10 @@ public class NetworkPortManager
         public string Port { get; set; }
         public string Description { get; set; }
     }
+
+    #endregion
+
+    #region 端口管理
 
     public PortData AddPortData(string protocolName, string protocolType, string remotePort, string localPort, string target, string maskType)
     {
@@ -100,7 +121,7 @@ public class NetworkPortManager
     {
         if (protocolType.Equals("TCP Server", StringComparison.OrdinalIgnoreCase))
         {
-            return !tcpServers.ContainsKey(localPort); 
+            return !tcpServers.ContainsKey(localPort);
         }
         else if (protocolType.Equals("TCP Client", StringComparison.OrdinalIgnoreCase))
         {
@@ -128,7 +149,6 @@ public class NetworkPortManager
             ? dataToRemove.LocalPortDetails.Port
             : dataToRemove.RemotePortDetails.Port;
 
-
         Debug.Log($"Removing {portData.NetProtocol} Port: {portToRemove}");
         dataToRemove.OnUpdate -= OnUpdate;
         RemovePortFromDictionary(portData.NetProtocol, portToRemove);
@@ -142,6 +162,10 @@ public class NetworkPortManager
 
         SavePortDataToFile();
     }
+
+    #endregion
+
+    #region 連線管理
 
     public void ConnectPort(PortData portData)
     {
@@ -157,6 +181,10 @@ public class NetworkPortManager
     {
         networkConnectorCore.AddPort(portData);
     }
+
+    #endregion
+
+    #region 輔助方法
 
     private PortData GetPortData(PortData portData)
     {
@@ -182,6 +210,7 @@ public class NetworkPortManager
 
         return resultPortData;
     }
+
     private void RemovePortFromDictionary(string netProtocol, string port)
     {
         bool removed = netProtocol switch
@@ -201,6 +230,11 @@ public class NetworkPortManager
             Debug.LogWarning($"{netProtocol} Port: {port} not found for removal.");
         }
     }
+
+    #endregion
+
+    #region UI 及事件管理
+
     public void OnMonitorConsole(PortData portData)
     {
         networkConnectorCore.MonitorConsole(portData);
@@ -210,10 +244,12 @@ public class NetworkPortManager
     {
         PortDataUpdated?.Invoke(data);
     }
+
     public void RefreshAndRecreateTables(PortTablePrefabManager prefabManager, UICollector uiCollector)
     {
         InstantiateTables(prefabManager, uiCollector);
     }
+
     public void InstantiateTables(PortTablePrefabManager prefabManager, UICollector uiCollector)
     {
         foreach (var portData in portDataList)
@@ -221,6 +257,11 @@ public class NetworkPortManager
             prefabManager.InstantiatePortTable(uiCollector, portData);
         }
     }
+
+    #endregion
+
+    #region 儲存與載入
+
     public void AddPortsToNetwork()
     {
         var allPorts = tcpServers.Values.Concat(udpPorts.Values).Concat(tcpClients.Values).ToList();
@@ -230,6 +271,7 @@ public class NetworkPortManager
             networkConnectorCore.AddPort(portData);
         }
     }
+
     public void LoadFromJson()
     {
         try
@@ -258,6 +300,7 @@ public class NetworkPortManager
             consoleUI.AddLog("無法載入資料，請檢查文件的格式和路徑。" + ex);
         }
     }
+
     public void DeInit()
     {
         networkConnectorCore.DeInit();
@@ -266,10 +309,10 @@ public class NetworkPortManager
             portData.OnUpdate -= OnUpdate;
         }
 
-
         PortDataUpdated = null;
         SavePortDataToFile();
     }
+
     private void SavePortDataToFile()
     {
         try
@@ -282,4 +325,5 @@ public class NetworkPortManager
         }
     }
 
+    #endregion
 }

@@ -8,10 +8,16 @@ using static NetworkPortManager;
 
 public class PortTablePrefabManager : MonoBehaviour
 {
+    #region 欄位
+
     [SerializeField] private GameObject prefab;
     private NetworkPortTableUIManager portTableUIManager;
     private Monitor monitor;
     private MonitorConsole monitorConsole;
+
+    #endregion
+
+    #region Unity 生命週期方法
 
     private void Start()
     {
@@ -19,6 +25,11 @@ public class PortTablePrefabManager : MonoBehaviour
         monitor = FindObjectOfType<Monitor>(true);
         monitorConsole = FindObjectOfType<MonitorConsole>(true);
     }
+
+    #endregion
+
+    #region 端口表格實例化與管理方法
+
     public void InstantiatePortTable(UICollector uiCollector, PortData portData)
     {
         Transform parentTransform = uiCollector.GetAsset<GameObject>(UIKey.UI_Tables).transform;
@@ -29,6 +40,22 @@ public class PortTablePrefabManager : MonoBehaviour
             InitializeTable(instance, portData);
         }
     }
+
+    public void RefreshAndRecreateTables(UICollector uiCollector)
+    {
+        Transform parentTransform = uiCollector.GetAsset<GameObject>(UIKey.UI_Tables).transform;
+        int childCount = parentTransform.childCount;
+        for (int i = childCount - 1; i > 0; i--)
+        {
+            Transform child = parentTransform.GetChild(i);
+            Destroy(child.gameObject);
+        }
+    }
+
+    #endregion
+
+    #region 表格事件訂閱與處理方法
+
     private void InitializeTable(GameObject instance, PortData portData)
     {
         if (instance.TryGetComponent<Table>(out var table))
@@ -59,16 +86,10 @@ public class PortTablePrefabManager : MonoBehaviour
         }
     }
 
-    public void RefreshAndRecreateTables(UICollector uiCollector)
-    {
-        Transform parentTransform = uiCollector.GetAsset<GameObject>(UIKey.UI_Tables).transform;
-        int childCount = parentTransform.childCount;
-        for (int i = childCount - 1; i > 0; i--)
-        {
-            Transform child = parentTransform.GetChild(i);
-            Destroy(child.gameObject);
-        }
-    }
+    #endregion
+
+    #region 端口操作方法
+
     private void DeletePort(PortData portData)
     {
         if (portTableUIManager != null)
@@ -76,6 +97,7 @@ public class PortTablePrefabManager : MonoBehaviour
             portTableUIManager.OnRemove(portData);
         }
     }
+
     private void ConnectPort(PortData portData)
     {
         if (portTableUIManager != null)
@@ -83,6 +105,7 @@ public class PortTablePrefabManager : MonoBehaviour
             portTableUIManager.OnConnect(portData);
         }
     }
+
     private void DisconnectedPort(PortData portData)
     {
         if (portTableUIManager != null)
@@ -90,6 +113,7 @@ public class PortTablePrefabManager : MonoBehaviour
             portTableUIManager.OnDisconnectedPort(portData);
         }
     }
+
     private void Monitor(PortData portData)
     {
         monitor.SetStatus(UIKey.Monitor_Monitor, true);
@@ -99,4 +123,6 @@ public class PortTablePrefabManager : MonoBehaviour
         });
         portTableUIManager.OnMonitorConsole(portData);
     }
+
+    #endregion
 }

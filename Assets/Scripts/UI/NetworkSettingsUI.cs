@@ -12,6 +12,8 @@ using static NetworkPortManager;
 
 public class NetworkSettingsUI : MonoBehaviour
 {
+    #region 欄位
+
     private UICollector uiCollector;
     private ConsoleUI consoleUi;
     public event Action<PortData> Confirm;
@@ -22,11 +24,30 @@ public class NetworkSettingsUI : MonoBehaviour
     private string targetIP;
     private bool isOpenConsole = true;
     private string maskType = "original data";
+
+    #endregion
+
+    #region Unity 生命週期
+
     private void Start()
     {
         Init();
         Subscribe();
     }
+
+    private void Update()
+    {
+        Transform parentTransform = uiCollector.GetAsset<GameObject>(UIKey.UI_Consolelayout).transform;
+        int childCount = parentTransform.childCount;
+        if (childCount >= 50)
+        {
+            OnClearConsole();
+        }
+    }
+
+    #endregion
+
+    #region 初始化
 
     private void Init()
     {
@@ -56,22 +77,65 @@ public class NetworkSettingsUI : MonoBehaviour
         uiCollector.GetAsset<TMP_InputField>(UIKey.UI_TargetIPInput).onValueChanged.AddListener(OnTargetInput);
         uiCollector.GetAsset<InputField>(UIKey.UI_NameInput).onValueChanged.AddListener(OnNameInput);
         uiCollector.GetAsset<TMP_Dropdown>(UIKey.UI_DropdownMask).onValueChanged.AddListener(OnMaskDropdownValueChanged);
-    } 
-
-    private void Update()
-    {
-        Transform parentTransform = uiCollector.GetAsset<GameObject>(UIKey.UI_Consolelayout).transform;
-        int childCount = parentTransform.childCount;
-        if (childCount < 50)
-        {
-            return;
-        }
-        OnClearConsole();
     }
+
+    #endregion
+
+    #region UI 管理
+
+    private void CloseUi(string uiKey)
+    {
+        SetUiStatus(false, uiKey);
+    }
+
+    private void OpenMenu(string key)
+    {
+        if (uiCollector.GetAsset<GameObject>(key).activeSelf) return;
+        Clear();
+        SetUiStatus(true, key);
+    }
+
+    private void Clear()
+    {
+        uiCollector.GetAsset<InputField>(UIKey.UI_NameInput).text = string.Empty;
+        uiCollector.GetAsset<TMP_InputField>(UIKey.UI_RemotePortInput).text = string.Empty;
+        uiCollector.GetAsset<TMP_InputField>(UIKey.UI_LocalPortInput).text = string.Empty;
+        uiCollector.GetAsset<TMP_InputField>(UIKey.UI_TargetIPInput).text = string.Empty;
+        uiCollector.GetAsset<TMP_Dropdown>(UIKey.UI_NetProtocolDropdowm).value = 0;
+        uiCollector.GetAsset<TMP_Dropdown>(UIKey.UI_NetProtocolDropdowm).RefreshShownValue();
+        uiCollector.GetAsset<TMP_Dropdown>(UIKey.UI_DropdownMask).value = 0;
+        uiCollector.GetAsset<TMP_Dropdown>(UIKey.UI_DropdownMask).RefreshShownValue();
+        remotePort = null;
+        localPort = null;
+        targetIP = null;
+        protocolName = null;
+        protocolType = "UDP";
+        SetUiStatus(true, UIKey.UI_TargetIPMask);
+        SetUiStatus(false, UIKey.UI_RemotePortsMask);
+        SetUiStatus(false, UIKey.UI_LocalPortsMask);
+    }
+
+    private void OnConsole()
+    {
+        isOpenConsole = !isOpenConsole;
+        SetUiStatus(isOpenConsole, UIKey.UI_ConsoleUI);
+    }
+
+    private void SetUiStatus(bool status, string uiKey)
+    {
+        if (uiCollector != null)
+        {
+            uiCollector.SetActive(uiKey, status);
+        }
+    }
+
+    #endregion
+
+    #region 端口和 IP 管理
+
     public List<TMP_Dropdown.OptionData> GetAllOptions()
     {
         var dropdown = uiCollector.GetAsset<TMP_Dropdown>(UIKey.UI_DropdownMask);
-
         return dropdown.options;
     }
 
@@ -80,6 +144,7 @@ public class NetworkSettingsUI : MonoBehaviour
         Transform parentTransform = uiCollector.GetAsset<GameObject>(UIKey.UI_Consolelayout).transform;
 
         if (parentTransform == null) return;
+
         int childCount = parentTransform.childCount;
         for (int i = childCount - 1; i >= 0; i--)
         {
@@ -87,6 +152,72 @@ public class NetworkSettingsUI : MonoBehaviour
             Destroy(child.gameObject);
         }
     }
+
+    private int? ParsePort(string portString)
+    {
+        if (int.TryParse(portString, out int port) && port > 0 && port <= 65535)
+        {
+            return port;
+        }
+        return null;
+    }
+
+    private bool IsValidIPv4(string ipString)
+    {
+        if (string.IsNullOrWhiteSpace(ipString)) return false;
+
+        string[] parts = ipString.Split('.');
+        if (parts.Length != 4) return false;
+
+        foreach (var part in parts)
+        {
+            if (!int.TryParse(part, out int number) || number < 0 || number > 255)
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private int GetRandomAvailablePort()
+    {
+        var random = new Random();
+        int port;
+
+        while (true)
+        {
+            port = random.Next(49152, 65535);
+            if (IsPortAvailable(port))
+            {
+                break;
+            }
+        }
+
+        return port;
+    }
+
+    private bool IsPortAvailable(int port)
+    {
+        bool isAvailable = true;
+
+        try
+        {
+            TcpListener listener = new(IPAddress.Any, port);
+            listener.Start();
+            listener.Stop();
+        }
+        catch (SocketException)
+        {
+            isAvailable = false;
+        }
+
+        return isAvailable;
+    }
+
+    #endregion
+
+    #region 事件處理程序
 
     private void OnDropdownValueChanged(int index)
     {
@@ -102,8 +233,8 @@ public class NetworkSettingsUI : MonoBehaviour
                 break;
             case 1:
                 protocolType = "TCP Server";
-                var remotePort = GetRandomAvailablePort().ToString();
-                uiCollector.GetAsset<TMP_InputField>(UIKey.UI_RemotePortInput).text = remotePort;
+                var randomRemotePort = GetRandomAvailablePort().ToString();
+                uiCollector.GetAsset<TMP_InputField>(UIKey.UI_RemotePortInput).text = randomRemotePort;
                 uiCollector.GetAsset<TMP_InputField>(UIKey.UI_LocalPortInput).text = string.Empty;
                 SetUiStatus(true, UIKey.UI_TargetIPMask);
                 SetUiStatus(true, UIKey.UI_RemotePortsMask);
@@ -111,8 +242,8 @@ public class NetworkSettingsUI : MonoBehaviour
                 break;
             case 2:
                 protocolType = "TCP Client";
-                var localPort = GetRandomAvailablePort().ToString();
-                uiCollector.GetAsset<TMP_InputField>(UIKey.UI_LocalPortInput).text = localPort;
+                var randomLocalPort = GetRandomAvailablePort().ToString();
+                uiCollector.GetAsset<TMP_InputField>(UIKey.UI_LocalPortInput).text = randomLocalPort;
                 uiCollector.GetAsset<TMP_InputField>(UIKey.UI_RemotePortInput).text = string.Empty;
                 SetUiStatus(false, UIKey.UI_TargetIPMask);
                 SetUiStatus(false, UIKey.UI_RemotePortsMask);
@@ -121,6 +252,7 @@ public class NetworkSettingsUI : MonoBehaviour
         }
         Debug.Log(protocolType);
     }
+
     private void OnNameInput(string name)
     {
         protocolName = name;
@@ -156,33 +288,6 @@ public class NetworkSettingsUI : MonoBehaviour
                 break;
         }
         Debug.Log(maskType);
-    }
-
-    private int? ParsePort(string portString)
-    {
-        if (int.TryParse(portString, out int port) && port > 0 && port <= 65535)
-        {
-            return port;
-        }
-        return null;
-    }
-
-    private bool IsValidIPv4(string ipString)
-    {
-        if (string.IsNullOrWhiteSpace(ipString)) return false;
-
-        string[] parts = ipString.Split('.');
-        if (parts.Length != 4) return false;
-
-        foreach (var part in parts)
-        {
-            if (!int.TryParse(part, out int number) || number < 0 || number > 255)
-            {
-                return false;
-            }
-        }
-
-        return true;
     }
 
     private void OnConfirm()
@@ -261,86 +366,5 @@ public class NetworkSettingsUI : MonoBehaviour
         CloseUi(UIKey.UI_MenuRoot);
     }
 
-
-
-    private void OnConsole()
-    {
-        isOpenConsole = !isOpenConsole;
-        SetUiStatus(isOpenConsole, UIKey.UI_ConsoleUI);
-    }
-
-    private void CloseUi(string uiKey)
-    {
-        SetUiStatus(false, uiKey);
-    }
-
-    private void OpenMenu(string Key)
-    {
-        if (uiCollector.GetAsset<GameObject>(Key).activeSelf) { return; }
-        Clear();
-        SetUiStatus(true, Key);
-    }
-
-    private void Clear()
-    {
-        uiCollector.GetAsset<InputField>(UIKey.UI_NameInput).text = string.Empty;
-        uiCollector.GetAsset<TMP_InputField>(UIKey.UI_RemotePortInput).text = string.Empty;
-        uiCollector.GetAsset<TMP_InputField>(UIKey.UI_LocalPortInput).text = string.Empty;
-        uiCollector.GetAsset<TMP_InputField>(UIKey.UI_TargetIPInput).text = string.Empty;
-        uiCollector.GetAsset<TMP_Dropdown>(UIKey.UI_NetProtocolDropdowm).value = 0;
-        uiCollector.GetAsset<TMP_Dropdown>(UIKey.UI_NetProtocolDropdowm).RefreshShownValue();
-        uiCollector.GetAsset<TMP_Dropdown>(UIKey.UI_DropdownMask).value = 0;
-        uiCollector.GetAsset<TMP_Dropdown>(UIKey.UI_DropdownMask).RefreshShownValue();
-        remotePort = null;
-        localPort = null;
-        targetIP = null;
-        protocolName = null;
-        protocolType = "UDP";
-        SetUiStatus(true, UIKey.UI_TargetIPMask);
-        SetUiStatus(false, UIKey.UI_RemotePortsMask);
-        SetUiStatus(false, UIKey.UI_LocalPortsMask);
-    }
-
-    private void SetUiStatus(bool status, string uiKey)
-    {
-        if (uiCollector != null)
-        {
-            uiCollector.SetActive(uiKey, status);
-        }
-    }
-
-    private int GetRandomAvailablePort()
-    {
-        var random = new Random();
-        int port;
-
-        while (true)
-        {
-            port = random.Next(49152, 65535);
-            if (IsPortAvailable(port))
-            {
-                break;
-            }
-        }
-
-        return port;
-    }
-
-    private bool IsPortAvailable(int port)
-    {
-        bool isAvailable = true;
-
-        try
-        {
-            TcpListener listener = new(IPAddress.Any, port);
-            listener.Start();
-            listener.Stop();
-        }
-        catch (SocketException)
-        {
-            isAvailable = false;
-        }
-
-        return isAvailable;
-    }
+    #endregion
 }

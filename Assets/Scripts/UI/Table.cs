@@ -6,6 +6,8 @@ using static NetworkPortManager;
 
 public class Table : MonoBehaviour
 {
+    #region 欄位
+
     private UICollector uiCollector;
     private PortData currentPortData;
     private string maskType;
@@ -16,19 +18,31 @@ public class Table : MonoBehaviour
     public event Action<PortData> OnMask;
     private NetworkSettingsUI networkSettingsUi;
 
+    #endregion
+
+    #region Unity 生命週期
+
     private void Start()
     {
         Subscribe();
     }
+
+    #endregion
+
+    #region 初始化
 
     public void Init(PortData portData)
     {
         uiCollector = GetComponent<UICollector>();
         networkSettingsUi = FindObjectOfType<NetworkSettingsUI>(true);
         currentPortData = portData;
-        maskType = portData.MaskType; 
-        UpdateUI(currentPortData); 
+        maskType = portData.MaskType;
+        UpdateUI(currentPortData);
     }
+
+    #endregion
+
+    #region 訂閱事件
 
     private void Subscribe()
     {
@@ -46,6 +60,10 @@ public class Table : MonoBehaviour
         action?.Invoke(currentPortData);
     }
 
+    #endregion
+
+    #region UI 更新
+
     private void UpdateUI(PortData portData)
     {
         SetValue(UIKey.table_nameText, portData.ProtocolName);
@@ -61,8 +79,8 @@ public class Table : MonoBehaviour
 
         var dropdown = uiCollector.GetAsset<TMP_Dropdown>(UIKey.table_DropdownMask);
         int index = GetIndexOfMaskType(maskType);
-        dropdown.value = index; 
-        dropdown.RefreshShownValue(); 
+        dropdown.value = index;
+        dropdown.RefreshShownValue();
     }
 
     private void CreateMaskData()
@@ -107,6 +125,10 @@ public class Table : MonoBehaviour
         return "Not Connecting";
     }
 
+    #endregion
+
+    #region 設定面具類型
+
     private void SetMaskType(int index)
     {
         var data = networkSettingsUi.GetAllOptions();
@@ -124,8 +146,14 @@ public class Table : MonoBehaviour
         HandleAction(OnMask);
     }
 
+    #endregion
+
+    #region 設定值
+
     private void SetValue(string uiKey, string content)
     {
         uiCollector.SetText(uiKey, content);
     }
+
+    #endregion
 }
