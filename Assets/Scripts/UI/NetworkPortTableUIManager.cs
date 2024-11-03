@@ -23,18 +23,28 @@ public class NetworkPortTableUIManager : MonoBehaviour
         NetworkPortManager.Instance.AddPortsToNetwork();
     }
 
-    private void OnConfirm(string protocolName, string protocolType, string remotePort, string localPort, string targetIP, string maskType)
+    private void OnConfirm(PortData portData)
     {
-        if (NetworkPortManager.Instance.IsPortUnique(protocolType, remotePort, localPort))
+        if (NetworkPortManager.Instance.IsPortUnique(portData.NetProtocol,
+                                                     portData.RemotePortDetails.Port,
+                                                     portData.LocalPortDetails.Port))
         {
-            var portData = NetworkPortManager.Instance.AddPortData(protocolName, protocolType, remotePort, localPort, targetIP, maskType);
-            prefabManager.InstantiatePortTable(uiCollector, portData);
+            var addedPortData = NetworkPortManager.Instance.AddPortData(
+                portData.ProtocolName,
+                portData.NetProtocol,
+                portData.RemotePortDetails.Port,
+                portData.LocalPortDetails.Port,
+                portData.TargetIP,
+                portData.MaskType
+            );
+            prefabManager.InstantiatePortTable(uiCollector, addedPortData);
         }
         else
         {
-            consoleUI.AddLog($"端口號: {remotePort} 已經存在，請選擇另一個端口號。");
+            consoleUI.AddLog($"端口號: {portData.RemotePortDetails.Port} 已經存在，請選擇另一個端口號。");
         }
     }
+
 
     public void OnRemove(PortData portData)
     {

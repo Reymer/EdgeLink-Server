@@ -8,12 +8,13 @@ using System.Net;
 using Random = System.Random;
 using UnityEngine.UI;
 using System.Collections.Generic;
+using static NetworkPortManager;
 
 public class NetworkSettingsUI : MonoBehaviour
 {
     private UICollector uiCollector;
     private ConsoleUI consoleUi;
-    public event Action<string, string, string, string, string, string> Confirm;
+    public event Action<PortData> Confirm;
     private string protocolType = "UDP";
     private string protocolName = string.Empty;
     private int? remotePort;
@@ -240,25 +241,27 @@ public class NetworkSettingsUI : MonoBehaviour
             consoleUi.AddLog("未知的協議類型，請檢查選擇。");
             hasError = true;
         }
+
         if (hasError)
         {
             return;
         }
 
-        if (protocolType.Equals("UDP", StringComparison.OrdinalIgnoreCase))
+        var portData = new PortData
         {
-            Confirm?.Invoke(protocolName, protocolType, remotePort.ToString(), localPort?.ToString(), string.Empty, maskType);
-        }
-        else if (protocolType.Equals("TCP Client", StringComparison.OrdinalIgnoreCase))
-        {
-            Confirm?.Invoke(protocolName, protocolType, remotePort.ToString(), "--", targetIP, maskType);
-        }
-        else if (protocolType.Equals("TCP Server", StringComparison.OrdinalIgnoreCase))
-        {
-            Confirm?.Invoke(protocolName, protocolType, "--", localPort.ToString(), targetIP, maskType);
-        }
+            ProtocolName = protocolName,
+            NetProtocol = protocolType,
+            MaskType = maskType,
+            LocalPortDetails = new PortDetails { Port = protocolType.Equals("TCP Client", StringComparison.OrdinalIgnoreCase) ? "--" : localPort?.ToString() },
+            RemotePortDetails = new PortDetails { Port = protocolType.Equals("TCP Server", StringComparison.OrdinalIgnoreCase) ? "--" : remotePort?.ToString() },
+            TargetIP = targetIP
+        };
+
+        Confirm?.Invoke(portData);
         CloseUi(UIKey.UI_MenuRoot);
     }
+
+
 
     private void OnConsole()
     {

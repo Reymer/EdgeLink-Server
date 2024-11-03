@@ -1,6 +1,6 @@
 [
   {
-    "ProtocolName": "123",
+    "ProtocolName": "1234",
     "NetProtocol": "TCP Server",
     "LocalPortDetails": {
       "Port": "7777",
@@ -14,6 +14,23 @@
     "IsConnected": true,
     "COMReceived": 0,
     "NetReceived": 0,
-    "MaskType": "Robot to 16"
+    "MaskType": "Robot to 10"
+  },
+  {
+    "ProtocolName": "1234",
+    "NetProtocol": "TCP Client",
+    "LocalPortDetails": {
+      "Port": "--",
+      "Description": null
+    },
+    "RemotePortDetails": {
+      "Port": "7777",
+      "Description": null
+    },
+    "TargetIP": "192.168.1.105",
+    "IsConnected": false,
+    "COMReceived": 0,
+    "NetReceived": 0,
+    "MaskType": "original data"
   }
 ]

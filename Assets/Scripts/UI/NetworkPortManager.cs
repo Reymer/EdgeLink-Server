@@ -65,7 +65,7 @@ public class NetworkPortManager
             NetProtocol = protocolType,
             LocalPortDetails = new PortDetails { Port = localPort },
             RemotePortDetails = new PortDetails { Port = remotePort },
-            IsConnected = false,
+            IsConnected = true,
             TargetIP = target,
             COMReceived = 0,
             NetReceived = 0,
@@ -208,7 +208,6 @@ public class NetworkPortManager
 
     public void OnUpdate(PortData data)
     {
-        Debug.Log($"OnUpdate triggered for port: {data.RemotePortDetails.Port}, COMReceived: {data.COMReceived}, IsConnectting: {data.IsConnected}");
         PortDataUpdated?.Invoke(data);
     }
     public void RefreshAndRecreateTables(PortTablePrefabManager prefabManager, UICollector uiCollector)
