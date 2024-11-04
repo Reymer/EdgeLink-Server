@@ -12,6 +12,7 @@ using System.IO;
 using static NetworkPortManager;
 using System.Buffers;
 using System.Linq;
+using System.Runtime.InteropServices;
 
 public class NetworkConnectorCore
 {
@@ -733,95 +734,139 @@ public class NetworkConnectorCore
 
     private void ProcessRobotTo16Message(string data, TcpClient client, TCPServerData tcpServerData)
     {
-        if (data.Contains("::"))
+        if (data.Contains("U�U") || data.Contains("::"))
         {
             LogMonitorMainThread("[錯誤]: 收到的資料包含空白段落，無法正確分割");
             return;
         }
+
         List<string> datas = data.Split(':').ToList();
-
-        if (datas.Count < 5 || !int.TryParse(datas[0], out _) || !int.TryParse(datas[1], out _) || !int.TryParse(datas[2], out _))
-        {
-            LogMonitorMainThread("[錯誤]: 收到的資料格式不正確 - 資料應包含格式、功能、長度、資料組和檢查碼");
-            return;
-        }
-
+        string data_01;
+        string data_02;
         int format = Convert.ToInt32(datas[0]);
         int function = Convert.ToInt32(datas[1]);
         int length = Convert.ToInt32(datas[2]);
-        int dataGroupCount = length;
-
-        if (datas.Count < 3 + dataGroupCount + 2)
+        string sourceData;
+        if (function == 1)
         {
-            LogMonitorMainThread("[錯誤]: 收到的資料組數不符，缺少資料或檢查碼");
+            data_01 = ConvertToIEEE754Hexadecimal(datas[3]);
+            data_02 = ConvertToIEEE754Hexadecimal(datas[4]);
+            sourceData = $"{data_01}:{data_02}";
+        }
+        else if (function == 2)
+        {
+            sourceData = ConvertToIEEE754Hexadecimal(datas[3]);
+        }
+        else if(function == 3) 
+        {
+            sourceData = datas[3];
+        }
+        else
+        {
+            sourceData = string.Empty;
+        }
+
+        if (datas.Count < 3)
+        {
+            LogMonitorMainThread("[錯誤]: 收到的資料組數不符");
             return;
         }
 
-        string sourceData = string.Join(":", datas.Skip(3).Take(dataGroupCount).Select(d => $"{Convert.ToInt32(d)}"));
-        int checksumIndex = 3 + dataGroupCount;
-        if (!int.TryParse(datas[checksumIndex], out int checksum1) || !int.TryParse(datas[checksumIndex + 1], out int checksum2))
-        {
-            LogMonitorMainThread("[錯誤]: 檢查碼格式不正確");
-            return;
-        }
         List<byte> bytesToCheck = new() { (byte)function, (byte)length };
-        bytesToCheck.AddRange(datas.Skip(3).Take(dataGroupCount).Select(d => Convert.ToByte(d)));
+
+        if (length == 8 || length == 4)
+        {
+            foreach (var hex in sourceData.Split(':'))
+            {
+                if (!string.IsNullOrEmpty(hex))
+                {
+                    bytesToCheck.Add(Convert.ToByte(hex.Trim()[2..], 16));
+                }
+            }
+        }
+        else if(length == 1)
+        {
+            bytesToCheck.Add(Convert.ToByte(datas[3]));
+        }      
+
         ushort calculatedCrc = CalculateCrc16(bytesToCheck.ToArray());
         int calculatedChecksum1 = calculatedCrc & 0xFF;
         int calculatedChecksum2 = (calculatedCrc >> 8) & 0xFF;
-        bool isValidChecksum = (calculatedChecksum1 == checksum1) && (calculatedChecksum2 == checksum2);
-        if (!isValidChecksum)
+        string receiveData;
+        if (function == 1)
         {
-            LogMonitorMainThread("[錯誤]: 檢查碼驗證失敗，收到的檢查碼與計算結果不符");
+            receiveData = $"1:{function}:{length}:{datas[3]}:{datas[4]}";
         }
-        string state = isValidChecksum ? "1" : "2";
-        string ackMessage = $"[ACK]:{format}:{function}:{state}:{checksum1}:{checksum2}";
-        string responseMessage = $"[Response]:3:{function}:{state}:{length}:{sourceData}:{checksum1}:{checksum2}";
-        string receiveData = $"1:{function}:{length}:{sourceData}:{checksum1}:{checksum2}";
+        else if (function == 2)
+        {
+            receiveData = $"1:{function}:{length}:{datas[3]}";
+        }
+        else if (function == 3)
+        {
+            receiveData = $"1:{function}:{length}:{datas[3]}";
+        }
+        else
+        {
+            receiveData = $"1:{function}:{length}";
+        }
+
         if (tcpServerData.portData == this.portData)
         {
             LogMonitorMainThread($"[請求]:{receiveData}");
         }
 
-        if (isValidChecksum)
+        string start = "0xDD";
+        string stop = "0x77";
+        string formatHex = "0x" + format.ToString("X2");
+        string functionHex = "0x" + function.ToString("X2");
+        string lengthHex = "0x" + length.ToString("X2");
+        string checksum1Hex = "0x" + calculatedChecksum1.ToString("X2");
+        string checksum2Hex = "0x" + calculatedChecksum2.ToString("X2");
+        string checksourceData = string.Empty;
+
+        if(function == 1)
         {
-            string source = $"{format}:{function}:{length}:{sourceData}:{checksum1}:{checksum2}";
-            tcpServerData.sourceData = source;
-            if (tcpClientdatas.TryGetValue(tcpServerData.portData.LocalPortDetails.Port, out var tcpClientData) && tcpClientData.IsConnecting)
-            {
-                SendMessage(tcpServerData, source);
-            }
+            checksourceData = RemoveColons(sourceData);
+        }
+        else if(function == 2)
+        {
+            checksourceData = RemoveColons(sourceData);
+        }
+        string source;
+        if (length == 0)
+        {
+            source = $"{start}{formatHex}{functionHex}{lengthHex}{checksum1Hex}{checksum2Hex}{stop}";
+        }
+        else
+        {
+            source = $"{start}{formatHex}{functionHex}{lengthHex}{checksourceData}{checksum1Hex}{checksum2Hex}{stop}";
         }
 
-        if (tcpClientdatas.ContainsKey(tcpServerData.portData.LocalPortDetails.Port))
-        {
-            if (tcpClientdatas[tcpServerData.portData.LocalPortDetails.Port].IsConnecting)
-            {
-                string stateDecimal = isValidChecksum ? "1" : "2";
-                string ackMessageDecimal = $"[ACK]:DD:2:{function}:{stateDecimal}:{checksum1}:{checksum2}";
-                var tcpClientData = tcpClientdatas[tcpServerData.portData.LocalPortDetails.Port];
+        tcpServerData.sourceData = source;
 
-                if (tcpClientData.portData == this.portData)
-                {
-                    LogMonitorMainThread(ackMessageDecimal);
-                }
-            }
+        if (tcpClientdatas.TryGetValue(tcpServerData.portData.LocalPortDetails.Port, out var tcpClientData) && tcpClientData.IsConnecting)
+        {
+            SendMessage(tcpServerData, source);
+        }
+    }
+
+    private string ConvertToIEEE754Hexadecimal(string decimalString)
+    {
+        if (!float.TryParse(decimalString, out float decimalNumber))
+        {
+            throw new ArgumentException("Invalid input format. Please provide a valid decimal number.");
         }
 
-        if (state.Equals("1"))
-        {
-            if (tcpClientdatas.ContainsKey(tcpServerData.portData.LocalPortDetails.Port))
-            {
-                string stateDecimal = isValidChecksum ? "1" : "2";
-                string responseMessageDecimal = $"[Response]:DD:3:{function}:{stateDecimal}:{length}:{sourceData}:{checksum1}:{checksum2}";
-                var tcpClientData = tcpClientdatas[tcpServerData.portData.LocalPortDetails.Port];
+        byte[] bytes = BitConverter.GetBytes(decimalNumber);
 
-                if (tcpClientData.portData == this.portData)
-                {
-                    LogMonitorMainThread(responseMessageDecimal);
-                }
-            }
-        }
+        string ieeeHex = string.Join(":", bytes.Select(b => $"0x{b:X2}"));
+
+        return ieeeHex;
+    }
+
+    private string RemoveColons(string input)
+    {
+        return input.Replace(":", string.Empty);
     }
 
     private List<string> SplitDataIntoGroups(string data, int groupSize)
@@ -855,10 +900,10 @@ public class NetworkConnectorCore
         string checksumHex = $"{datas[checksumIndex]}:{datas[checksumIndex + 1]}";
         string checksumDec = $"{Convert.ToInt32(datas[checksumIndex], 16)}:{Convert.ToInt32(datas[checksumIndex + 1], 16)}";
         List<byte> bytesToCheck = new()
-    {
-        Convert.ToByte(functionHex, 16),
-        Convert.ToByte(lengthHex, 16)
-    };
+        {
+            Convert.ToByte(functionHex, 16),
+            Convert.ToByte(lengthHex, 16)
+        };
         bytesToCheck.AddRange(datas.Skip(4).Take(numberOfElements).Select(d => Convert.ToByte(d, 16)));
 
         ushort calculatedCrc = CalculateCrc16(bytesToCheck.ToArray());
@@ -907,7 +952,6 @@ public class NetworkConnectorCore
             string reauestMsg = $"[Request]:{start}0x01{functionHex}{lengthHex}{responseMessageDatas}{datas[checksumIndex]}{datas[checksumIndex + 1]}{stop}";
             LogMonitorMainThread(reauestMsg);
         }
-
     }
 
     /// <summary>
