@@ -12,7 +12,7 @@ using System.IO;
 using static NetworkPortManager;
 using System.Buffers;
 using System.Linq;
-using System.Runtime.InteropServices;
+using System.Globalization;
 
 public class NetworkConnectorCore
 {
@@ -178,13 +178,13 @@ public class NetworkConnectorCore
     /// <param name="portData"></param>
     public async void DisconnectedUdp(PortData portData)
     {
-        if (!udpClients.ContainsKey(portData.RemotePortDetails.Port))
+        if (!udpClients.ContainsKey(portData.ProtocolName))
         {
             LogOnMainThread($"未找到 UDP 伺服器，端口 {portData.RemotePortDetails.Port}");
             return;
         }
 
-        var udpData = udpClients[portData.RemotePortDetails.Port];
+        var udpData = udpClients[portData.ProtocolName];
 
         if (portData.IsConnected && udpData.udpClient != null)
         {
@@ -220,14 +220,14 @@ public class NetworkConnectorCore
     /// <param name="portData"></param>
     public async void DisconnectedTcpClient(PortData portData)
     {
-        if (!tcpClientdatas.ContainsKey(portData.RemotePortDetails.Port))
+        if (!tcpClientdatas.ContainsKey(portData.ProtocolName))
         {
             LogOnMainThread($"未找到 TCP 客户端，端口 {portData.RemotePortDetails.Port}");
             return;
         }
         else
         {
-            var tcpClientData = tcpClientdatas[portData.RemotePortDetails.Port];
+            var tcpClientData = tcpClientdatas[portData.ProtocolName];
             try
             {
                 tcpClientData.CancellationTokenSource?.Cancel();
@@ -258,7 +258,7 @@ public class NetworkConnectorCore
     /// <param name="portData"></param>
     private async void AddTcpClient(PortData portData)
     {
-        if (tcpClientdatas.TryGetValue(portData.RemotePortDetails.Port, out var tcpClientData))
+        if (tcpClientdatas.TryGetValue(portData.ProtocolName, out var tcpClientData))
         {
             if (tcpClientData.tcpClient != null && tcpClientData.IsConnecting && tcpClientData.tcpClient.Connected)
             {
@@ -278,7 +278,7 @@ public class NetworkConnectorCore
                 tcpClient = new TcpClient(),
                 CancellationTokenSource = new CancellationTokenSource()
             };
-            tcpClientdatas.TryAdd(portData.RemotePortDetails.Port, tcpClientData);
+            tcpClientdatas.TryAdd(portData.ProtocolName, tcpClientData);
             LogOnMainThread($"在端口 {portData.RemotePortDetails.Port} 上啟動了 TCP 客戶端。");
         }
 
@@ -410,7 +410,7 @@ public class NetworkConnectorCore
 
     private void AddUdpClient(PortData portData)
     {
-        if (udpClients.TryGetValue(portData.RemotePortDetails.Port, out var existingServerData))
+        if (udpClients.TryGetValue(portData.ProtocolName, out var existingServerData))
         {
             if (existingServerData.IsConnecting)
             {
@@ -444,7 +444,7 @@ public class NetworkConnectorCore
                 CancellationTokenSource = new CancellationTokenSource(),
             };
 
-            udpClients[portData.RemotePortDetails.Port] = existingServerData;
+            udpClients[portData.ProtocolName] = existingServerData;
 
             LogOnMainThread($"在端口 {portData.RemotePortDetails.Port} 上啟動了 UDP 伺服器端。");
 
@@ -505,7 +505,7 @@ public class NetworkConnectorCore
     /// <param name="portData">The port data for the listener.</param>
     private void AddTcpListener(PortData portData)
     {
-        if (!tcpServerdatas.TryGetValue(portData.LocalPortDetails.Port, out TCPServerData tcpServerData))
+        if (!tcpServerdatas.TryGetValue(portData.ProtocolName, out TCPServerData tcpServerData))
         {
             StartTcpListener(portData);
         }
@@ -529,7 +529,7 @@ public class NetworkConnectorCore
             CancellationTokenSource = new CancellationTokenSource(),           
         };
         tcpListener.Start();
-        tcpServerdatas.TryAdd(portData.LocalPortDetails.Port, tcpServerData);
+        tcpServerdatas.TryAdd(portData.ProtocolName, tcpServerData);
         LogOnMainThread($"在端口 {portData.LocalPortDetails.Port} 上啟動了 TCP 伺服器端。");
         Task.Run(() => ListenForTcpClients(tcpServerData));
     }
@@ -583,7 +583,7 @@ public class NetworkConnectorCore
     /// <param name="portData">The port data of the server to disconnect.</param>
     private void DisconnectTcpServer(PortData portData)
     {
-        if (tcpServerdatas.TryGetValue(portData.LocalPortDetails.Port, out TCPServerData tcpServerData))
+        if (tcpServerdatas.TryGetValue(portData.ProtocolName, out TCPServerData tcpServerData))
         {
             tcpServerData.CancellationTokenSource.Cancel();
             tcpServerData.portData.IsConnected = false;
@@ -658,7 +658,7 @@ public class NetworkConnectorCore
                 switch (currentMaskType)
                 {
                     case "Robot to 10":
-                        await HandleRobotTo10Message(tcpServerData, client, data);
+                        HandleRobotTo10Message(tcpServerData, client, data);
                         break;
 
                     case "Robot to 16":
@@ -694,12 +694,12 @@ public class NetworkConnectorCore
         LogOnMainThread($"客戶端 {remoteEndPoint} 已斷開連接。");
     }
 
-    private async Task HandleRobotTo10Message(TCPServerData tcpServerData, TcpClient client, string data)
+    private void HandleRobotTo10Message(TCPServerData tcpServerData, TcpClient client, string data)
     {
         List<string> datas = SplitDataIntoGroups(data, 4);
         if (IsValidMessage(datas))
         {
-            await ProcessMessage(tcpServerData, client, datas);
+            ProcessMessage(tcpServerData, client, datas);
         }
         else if (tcpServerData.portData == this.portData)
         {
@@ -714,7 +714,7 @@ public class NetworkConnectorCore
             LogMonitorMainThread($"收到訊息，資料大小: {packetSize}，資料: {data}");
         }
 
-        if (tcpClientdatas.TryGetValue(tcpServerData.portData.LocalPortDetails.Port, out var tcpClientData) && tcpClientData.IsConnecting)
+        if (tcpClientdatas.TryGetValue(tcpServerData.portData.ProtocolName, out var tcpClientData) && tcpClientData.IsConnecting)
         {
             SendMessage(tcpServerData, data);
         }
@@ -844,7 +844,7 @@ public class NetworkConnectorCore
 
         tcpServerData.sourceData = source;
 
-        if (tcpClientdatas.TryGetValue(tcpServerData.portData.LocalPortDetails.Port, out var tcpClientData) && tcpClientData.IsConnecting)
+        if (tcpClientdatas.TryGetValue(tcpServerData.portData.ProtocolName, out var tcpClientData) && tcpClientData.IsConnecting)
         {
             SendMessage(tcpServerData, source);
         }
@@ -880,78 +880,87 @@ public class NetworkConnectorCore
         return datas;
     }
 
-    private async Task ProcessMessage(TCPServerData tcpServerData, TcpClient client, List<string> datas)
+    private void ProcessMessage(TCPServerData tcpServerData, TcpClient client, List<string> datas)
     {
+        string start = datas[0];
         string formatHex = datas[1];
         string functionHex = datas[2];
-        string lengthHex = datas[3];
-
+        string state = datas[3];
+        string lengthHex = datas[4];
+        string stop = datas[^1];
         int formatDec = Convert.ToInt32(formatHex, 16);
         int functionDec = Convert.ToInt32(functionHex, 16);
-        int lengthDec = Convert.ToInt32(lengthHex.StartsWith("0x") ? lengthHex[2..] : lengthHex, 16);
+        int stateDec = Convert.ToInt32(state, 16);
+        int lengthDec = Convert.ToInt32(lengthHex, 16);
+        string source_front;
+        float[] source_back = new float[lengthDec];
 
-        string dataLengthHex = lengthHex.StartsWith("0x") ? lengthHex[2..] : lengthHex;
-        int numberOfElements = Convert.ToInt32(dataLengthHex, 16);
-
-        string dataGroupString = string.Join(":", datas.Skip(4).Take(numberOfElements));
-        string dataGroupStringDec = string.Join(":", datas.Skip(4).Take(numberOfElements).Select(h => Convert.ToInt32(h, 16).ToString()));
-
-        int checksumIndex = 4 + numberOfElements;
-        string checksumHex = $"{datas[checksumIndex]}:{datas[checksumIndex + 1]}";
-        string checksumDec = $"{Convert.ToInt32(datas[checksumIndex], 16)}:{Convert.ToInt32(datas[checksumIndex + 1], 16)}";
-        List<byte> bytesToCheck = new()
+        byte[] bytes;
+        float result;
+        switch (functionDec)
         {
-            Convert.ToByte(functionHex, 16),
-            Convert.ToByte(lengthHex, 16)
-        };
-        bytesToCheck.AddRange(datas.Skip(4).Take(numberOfElements).Select(d => Convert.ToByte(d, 16)));
+            case 5:
 
-        ushort calculatedCrc = CalculateCrc16(bytesToCheck.ToArray());
-        string calculatedCrcHex = $"0x{(calculatedCrc & 0xFF):X2}:0x{(calculatedCrc >> 8):X2}";
-
-        bool isValidChecksum = checksumHex == calculatedCrcHex;
-
-        string state = isValidChecksum ? "0x01" : "0x02";
-        string ackFormat = "0x02";
-        string responseFormat = "0x03";
-        string start = "0xDD";
-        string stop = "0x77";
-        string ackMessage = $"{start}{ackFormat}{functionHex}{state}{datas[checksumIndex]}{datas[checksumIndex + 1]}{stop}";
-        await SendAckOrResponse(client, ackMessage);
-        string responseMessageDatas = string.Join("", datas.Skip(4).Take(numberOfElements));
-        string responseMessage = $"{start}{responseFormat}{functionHex}{state}{lengthHex}{responseMessageDatas}{datas[checksumIndex]}{datas[checksumIndex + 1]}{stop}";
-        if (state.Equals("0x01"))
-        {
-            await SendAckOrResponse(client, responseMessage);
+                source_front = string.Join(":", datas.Skip(5).Take(lengthDec));
+                bytes = HexStringToByteArray(source_front);
+                result = BitConverter.ToSingle(bytes, 0);
+                source_back[0] = result; 
+                break;
+            case 6:
+                source_front = string.Join(":", datas.Skip(5).Take(lengthDec));
+                bytes = HexStringToByteArray(source_front);
+                for (int i = 0; i < bytes.Length; i += 4)
+                {
+                    if (i + 4 <= bytes.Length)
+                    {
+                        result = BitConverter.ToSingle(bytes, i);
+                        source_back[i] = result;
+                    }
+                }
+                break;
         }
-        string ack = $"0xDD:0x02:{functionHex}:{state}:{dataGroupString}:{checksumHex}:0x77";
-        string response = $"0xDD:0x03:{functionHex}:{state}:{lengthHex}:{dataGroupString}:{checksumHex}:0x77";
-
-        var decimalToack = ack
-            .Split(':')
-            .Select(hex => Convert.ToInt32(hex, 16))
-            .ToArray();
-
-        var decimalValuesToResponse = response
-            .Split(':')
-            .Select(hex => Convert.ToInt32(hex, 16))
-            .ToArray();
-
-        string ackMsg = string.Join(":", decimalToack);
-        string ackResponse = string.Join (":", decimalValuesToResponse);
-
-
-        if (tcpClientdatas.TryGetValue(tcpServerData.portData.LocalPortDetails.Port, out var tcpClientData) && tcpClientData.IsConnecting)
+        string message = string.Empty;
+        switch (functionDec)
         {
-            SendMessage(tcpServerData, $"[ACK]:{ackMsg}");
-            SendMessage(tcpServerData, $"[Response]:{ackResponse}");
+            case 5:
+                message = $"{functionDec}:{stateDec}:{lengthDec}:{source_back[0]}";
+                break;
+
+            case 6:
+                message = $"{functionDec}:{stateDec}:{lengthDec}:{source_back[0]}:{source_back[4]}:{source_back[8]}";
+                break;
+
+            case 7:
+                var data = Convert.ToInt32(datas[5], 16);
+                message = $"{functionDec}:{stateDec}:{lengthDec}:{data}";
+                break;
+            default:
+                message = $"{functionDec}:{stateDec}:{lengthDec}";
+                break;
+        }      
+        
+        if (tcpClientdatas.TryGetValue(tcpServerData.portData.ProtocolName, out var tcpClientData) && tcpClientData.IsConnecting)
+        {
+            SendMessage(tcpServerData, $"[Response]:{message}");
         }
 
         if (tcpServerData.portData == this.portData)
         {
-            string reauestMsg = $"[Request]:{start}0x01{functionHex}{lengthHex}{responseMessageDatas}{datas[checksumIndex]}{datas[checksumIndex + 1]}{stop}";
+            string reauestMsg = $"[Request]:{start}0x01{functionHex}{lengthHex}{stop}";
             LogMonitorMainThread(reauestMsg);
         }
+    }
+    private static byte[] HexStringToByteArray(string hexString)
+    {
+        string[] hexParts = hexString.Replace("0x", "").Split(':');
+        byte[] bytes = new byte[hexParts.Length];
+
+        for (int i = 0; i < hexParts.Length; i++)
+        {
+            bytes[i] = byte.Parse(hexParts[i], NumberStyles.HexNumber);
+        }
+
+        return bytes;
     }
 
     /// <summary>
@@ -1008,13 +1017,13 @@ public class NetworkConnectorCore
     /// <param name="tcpServerData"></param>
     private void SendMessage(TCPServerData tcpServerData, string message)
     {
-        if (!tcpClientdatas.ContainsKey(tcpServerData.portData.LocalPortDetails.Port))
+        if (!tcpClientdatas.ContainsKey(tcpServerData.portData.ProtocolName))
         {
             Debug.Log($"沒有可用的 TCP 客戶端!");
             return;
         }
 
-        var tcpClinetData = tcpClientdatas[tcpServerData.portData.LocalPortDetails.Port];
+        var tcpClinetData = tcpClientdatas[tcpServerData.portData.ProtocolName];
 
         if (tcpClinetData.IsConnecting)
         {
