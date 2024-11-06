@@ -759,7 +759,8 @@ public class NetworkConnectorCore
         }
         else if(function == 3) 
         {
-            sourceData = datas[3];
+            var temp = int.Parse(datas[3]);
+            sourceData = "0x" + temp.ToString("X2");
         }
         else
         {
@@ -833,13 +834,21 @@ public class NetworkConnectorCore
             checksourceData = RemoveColons(sourceData);
         }
         string source;
-        if (length == 0)
+        if (length == 0) 
         {
             source = $"{start}{formatHex}{functionHex}{lengthHex}{checksum1Hex}{checksum2Hex}{stop}";
         }
-        else
+        else if(function == 1)
         {
             source = $"{start}{formatHex}{functionHex}{lengthHex}{checksourceData}{checksum1Hex}{checksum2Hex}{stop}";
+        }
+        else if (function == 2)
+        {
+            source = $"{start}{formatHex}{functionHex}{lengthHex}{checksourceData}{checksum1Hex}{checksum2Hex}{stop}";
+        }
+        else
+        {
+            source = $"{start}{formatHex}{functionHex}{lengthHex}{sourceData}{checksum1Hex}{checksum2Hex}{stop}";
         }
 
         tcpServerData.sourceData = source;
