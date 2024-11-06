@@ -43,23 +43,14 @@ public class NetworkPortTableUIManager : MonoBehaviour
 
     private void OnConfirm(PortData portData)
     {
-        if (NetworkPortManager.Instance.IsPortUnique(portData.NetProtocol,
-                                                     portData.RemotePortDetails.Port,
-                                                     portData.LocalPortDetails.Port))
+        if (NetworkPortManager.Instance.IsPortUnique(portData))
         {
-            var addedPortData = NetworkPortManager.Instance.AddPortData(
-                portData.ProtocolName,
-                portData.NetProtocol,
-                portData.RemotePortDetails.Port,
-                portData.LocalPortDetails.Port,
-                portData.TargetIP,
-                portData.MaskType
-            );
+            var addedPortData = NetworkPortManager.Instance.AddPortData(portData);
             prefabManager.InstantiatePortTable(uiCollector, addedPortData);
         }
         else
         {
-            consoleUI.AddLog($"端口號: {portData.RemotePortDetails.Port} 已經存在，請選擇另一個端口號。");
+            consoleUI.AddLog($"端口或名稱已重複");
         }
     }
 

@@ -42,6 +42,9 @@ public class NetworkPortManager
 
     #region 初始化
 
+    /// <summary>
+    /// 初始化
+    /// </summary>
     public void Init()
     {
         consoleUI = GameObject.FindObjectOfType<ConsoleUI>(true);
@@ -53,6 +56,9 @@ public class NetworkPortManager
 
     #region PortData 類別
 
+    /// <summary>
+    /// 協定資料結構
+    /// </summary>
     public class PortData
     {
         public string ProtocolName { get; set; }
@@ -68,6 +74,9 @@ public class NetworkPortManager
         public string MaskType { get; set; }
     }
 
+    /// <summary>
+    /// Port號 / 詳細內容
+    /// </summary>
     public class PortDetails
     {
         public string Port { get; set; }
@@ -77,21 +86,26 @@ public class NetworkPortManager
     #endregion
 
     #region 端口管理
-
-    public PortData AddPortData(string protocolName, string protocolType, string remotePort, string localPort, string target, string maskType)
+    
+    /// <summary>
+    /// 新增端口資料
+    /// </summary>
+    /// <param name="portData"></param>
+    /// <returns></returns>
+    public PortData AddPortData(PortData portData)
     {
         var data = new PortData
         {
-            ProtocolName = protocolName,
-            NetProtocol = protocolType,
-            LocalPortDetails = new PortDetails { Port = localPort },
-            RemotePortDetails = new PortDetails { Port = remotePort },
+            ProtocolName = portData.ProtocolName,
+            NetProtocol = portData.NetProtocol,
+            LocalPortDetails = new PortDetails { Port = portData.LocalPortDetails.Port },
+            RemotePortDetails = new PortDetails { Port = portData.RemotePortDetails.Port },
             IsConnected = true,
-            TargetIP = target,
+            TargetIP = portData.TargetIP,
             COMReceived = 0,
             NetReceived = 0,
             OnUpdate = OnUpdate,
-            MaskType = maskType,
+            MaskType = portData.MaskType,
         };
 
         AddPortToDictionary(data);
@@ -101,6 +115,10 @@ public class NetworkPortManager
         return data;
     }
 
+    /// <summary>
+    /// 新增網路協定
+    /// </summary>
+    /// <param name="data"></param>
     private void AddPortToDictionary(PortData data)
     {
         if (data.NetProtocol.Equals("TCP Server", StringComparison.OrdinalIgnoreCase))
@@ -117,24 +135,36 @@ public class NetworkPortManager
         }
     }
 
-    public bool IsPortUnique(string protocolType, string remotePort, string localPort)
-    {
-        if (protocolType.Equals("TCP Server", StringComparison.OrdinalIgnoreCase))
+    /// <summary>
+    /// 判斷是否可以新增
+    /// </summary>
+    /// <param name="porData"></param>
+    /// <returns></returns>
+    public bool IsPortUnique(PortData porData)
+    {        
+        if (porData.NetProtocol.Equals("TCP Server", StringComparison.OrdinalIgnoreCase))
         {
-            return !tcpServers.ContainsKey(localPort);
+            return !tcpServers.Values.Any(pd => pd.ProtocolName.Equals(porData.ProtocolName, StringComparison.OrdinalIgnoreCase))
+                && !tcpServers.ContainsKey(porData.LocalPortDetails.Port);
         }
-        else if (protocolType.Equals("TCP Client", StringComparison.OrdinalIgnoreCase))
+        else if (porData.NetProtocol.Equals("TCP Client", StringComparison.OrdinalIgnoreCase))
         {
-            return !tcpClients.ContainsKey(remotePort);
+            return !tcpClients.Values.Any(pd => pd.ProtocolName.Equals(porData.ProtocolName, StringComparison.OrdinalIgnoreCase))
+                && !tcpServers.ContainsKey(porData.RemotePortDetails.Port);
         }
-        else if (protocolType.Equals("UDP", StringComparison.OrdinalIgnoreCase))
+        else if (porData.NetProtocol.Equals("UDP", StringComparison.OrdinalIgnoreCase))
         {
-            return !udpPorts.ContainsKey(remotePort);
+            return !udpPorts.Values.Any(pd => pd.ProtocolName.Equals(porData.ProtocolName, StringComparison.OrdinalIgnoreCase))
+                && !tcpServers.ContainsKey(porData.RemotePortDetails.Port);
         }
 
         return false;
     }
 
+    /// <summary>
+    /// 刪除網路協定資料
+    /// </summary>
+    /// <param name="portData"></param>
     public void RemovePortData(PortData portData)
     {
         PortData dataToRemove = GetPortData(portData);
@@ -167,16 +197,28 @@ public class NetworkPortManager
 
     #region 連線管理
 
+    /// <summary>
+    /// 連線方法
+    /// </summary>
+    /// <param name="portData"></param>
     public void ConnectPort(PortData portData)
     {
         networkConnectorCore.AddPort(portData);
     }
 
+    /// <summary>
+    /// 斷線方法
+    /// </summary>
+    /// <param name="portData"></param>
     public void DisconnectedPort(PortData portData)
     {
         networkConnectorCore.Disconnected(portData);
     }
 
+    /// <summary>
+    /// 更換遮罩
+    /// </summary>
+    /// <param name="portData"></param>
     public void MaskSwitch(PortData portData)
     {
         networkConnectorCore.AddPort(portData);
