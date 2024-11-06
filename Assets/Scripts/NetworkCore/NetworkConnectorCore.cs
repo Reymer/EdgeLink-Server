@@ -633,6 +633,7 @@ public class NetworkConnectorCore
         IPEndPoint remoteEndPoint = client.Client.RemoteEndPoint as IPEndPoint;
         var buffer = new byte[1024];
         NetworkStream stream = client.GetStream();
+        StringBuilder dataBuffer = new StringBuilder();
 
         try
         {
@@ -647,31 +648,23 @@ public class NetworkConnectorCore
                     break;
                 }
 
-                string data = Encoding.UTF8.GetString(buffer, 0, bytesRead);
-                string currentMaskType;
+                // 將收到的資料追加到緩衝區
+                dataBuffer.Append(Encoding.UTF8.GetString(buffer, 0, bytesRead));
 
-                lock (maskTypeLock)
+                // 檢查並處理完整訊息
+                while (dataBuffer.ToString().Contains(";"))
                 {
-                    currentMaskType = tcpServerData.portData.MaskType;
-                }
+                    // 找到第一個定界符位置
+                    int delimiterIndex = dataBuffer.ToString().IndexOf(';');
 
-                switch (currentMaskType)
-                {
-                    case "Robot to 10":
-                        HandleRobotTo10Message(tcpServerData, client, data);
-                        break;
+                    // 提取完整訊息
+                    string completeMessage = dataBuffer.ToString(0, delimiterIndex);
 
-                    case "Robot to 16":
-                        ProcessRobotTo16Message(data, client, tcpServerData);
-                        break;
+                    // 處理完整訊息
+                    ProcessMessage(tcpServerData, client, completeMessage);
 
-                    case "original data":
-                        HandleOriginalDataMessage(tcpServerData, data, bytesRead);
-                        break;
-
-                    default:
-                        LogOnMainThread($"未識別的 MaskType: {currentMaskType}");
-                        break;
+                    // 移除已處理的訊息，包括定界符
+                    dataBuffer.Remove(0, delimiterIndex + 1);
                 }
             }
         }
@@ -687,6 +680,14 @@ public class NetworkConnectorCore
         {
             CleanupClientConnection(client, tcpServerData);
         }
+    }
+
+    // 處理完整訊息的範例方法
+    private void ProcessMessage(TCPServerData tcpServerData, TcpClient client, string message)
+    {
+        // 在這裡處理每條完整的訊息
+        LogOnMainThread($"接收到的完整訊息: {message}");
+        // 根據您的業務邏輯來進行相應處理
     }
 
     private void LogDisconnection(IPEndPoint remoteEndPoint)
