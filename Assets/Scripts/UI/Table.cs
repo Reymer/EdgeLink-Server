@@ -20,24 +20,16 @@ public class Table : MonoBehaviour
 
     #endregion
 
-    #region Unity 生命週期
-
-    private void Start()
-    {
-        Subscribe();
-    }
-
-    #endregion
-
     #region 初始化
 
     public void Init(PortData portData)
     {
         uiCollector = GetComponent<UICollector>();
+        Subscribe();
         networkSettingsUi = FindObjectOfType<NetworkSettingsUI>(true);
         currentPortData = portData;
         maskType = portData.MaskType;
-        UpdateUI(currentPortData);
+        UpdateUI(currentPortData);         
     }
 
     #endregion

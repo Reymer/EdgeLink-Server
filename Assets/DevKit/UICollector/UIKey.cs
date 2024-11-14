@@ -47,6 +47,8 @@ namespace DevKit.Tool
         
         public const string UI_DropdownMask = "UI_DropdownMask";
         
+        public const string UI_Exit = "UI_Exit";
+        
         public const string table_prococolText = "table_prococolText";
         
         public const string table_remoteText = "table_remoteText";

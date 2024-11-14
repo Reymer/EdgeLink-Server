@@ -110,7 +110,7 @@ public class NetworkConnectorCore
     {
         this.consoleUI = consoleUI;
         this.monitorConsole = monitorConsole;
-    }   
+    }
 
     #endregion
 
@@ -249,7 +249,7 @@ public class NetworkConnectorCore
                 tcpClientData.CancellationTokenSource = new CancellationTokenSource();
             }
             UnityMainThreadDispatcher.Instance().Enqueue(() => portData.OnUpdate?.Invoke(portData));
-        }      
+        }
     }
 
     /// <summary>
@@ -294,7 +294,7 @@ public class NetworkConnectorCore
     private async Task ConnectTcpClient(TCPClientData tcpClientData, PortData portData)
     {
         var token = tcpClientData.CancellationTokenSource.Token;
-        int reconnectDelay = 10000; 
+        int reconnectDelay = 10000;
 
         while (!token.IsCancellationRequested)
         {
@@ -526,7 +526,7 @@ public class NetworkConnectorCore
         {
             portData = portData,
             tcpListener = tcpListener,
-            CancellationTokenSource = new CancellationTokenSource(),           
+            CancellationTokenSource = new CancellationTokenSource(),
         };
         tcpListener.Start();
         tcpServerdatas.TryAdd(portData.ProtocolName, tcpServerData);
@@ -633,7 +633,6 @@ public class NetworkConnectorCore
         IPEndPoint remoteEndPoint = client.Client.RemoteEndPoint as IPEndPoint;
         var buffer = new byte[1024];
         NetworkStream stream = client.GetStream();
-        StringBuilder dataBuffer = new StringBuilder();
 
         try
         {
@@ -648,23 +647,31 @@ public class NetworkConnectorCore
                     break;
                 }
 
-                // 將收到的資料追加到緩衝區
-                dataBuffer.Append(Encoding.UTF8.GetString(buffer, 0, bytesRead));
+                string data = Encoding.UTF8.GetString(buffer, 0, bytesRead);
+                string currentMaskType;
 
-                // 檢查並處理完整訊息
-                while (dataBuffer.ToString().Contains(";"))
+                lock (maskTypeLock)
                 {
-                    // 找到第一個定界符位置
-                    int delimiterIndex = dataBuffer.ToString().IndexOf(';');
+                    currentMaskType = tcpServerData.portData.MaskType;
+                }
 
-                    // 提取完整訊息
-                    string completeMessage = dataBuffer.ToString(0, delimiterIndex);
+                switch (currentMaskType)
+                {
+                    case "Robot to 10":
+                        HandleRobotTo10Message(tcpServerData, client, data);
+                        break;
 
-                    // 處理完整訊息
-                    ProcessMessage(tcpServerData, client, completeMessage);
+                    case "Robot to 16":
+                        ProcessRobotTo16Message(data, client, tcpServerData);
+                        break;
 
-                    // 移除已處理的訊息，包括定界符
-                    dataBuffer.Remove(0, delimiterIndex + 1);
+                    case "original data":
+                        HandleOriginalDataMessage(tcpServerData, data, bytesRead);
+                        break;
+
+                    default:
+                        LogOnMainThread($"未識別的 MaskType: {currentMaskType}");
+                        break;
                 }
             }
         }
@@ -680,14 +687,6 @@ public class NetworkConnectorCore
         {
             CleanupClientConnection(client, tcpServerData);
         }
-    }
-
-    // 處理完整訊息的範例方法
-    private void ProcessMessage(TCPServerData tcpServerData, TcpClient client, string message)
-    {
-        // 在這裡處理每條完整的訊息
-        LogOnMainThread($"接收到的完整訊息: {message}");
-        // 根據您的業務邏輯來進行相應處理
     }
 
     private void LogDisconnection(IPEndPoint remoteEndPoint)
@@ -758,7 +757,7 @@ public class NetworkConnectorCore
         {
             sourceData = ConvertToIEEE754Hexadecimal(datas[3]);
         }
-        else if(function == 3) 
+        else if (function == 3)
         {
             var temp = int.Parse(datas[3]);
             sourceData = "0x" + temp.ToString("X2");
@@ -786,10 +785,10 @@ public class NetworkConnectorCore
                 }
             }
         }
-        else if(length == 1)
+        else if (length == 1)
         {
             bytesToCheck.Add(Convert.ToByte(datas[3]));
-        }      
+        }
 
         ushort calculatedCrc = CalculateCrc16(bytesToCheck.ToArray());
         int calculatedChecksum1 = calculatedCrc & 0xFF;
@@ -826,20 +825,20 @@ public class NetworkConnectorCore
         string checksum2Hex = "0x" + calculatedChecksum2.ToString("X2");
         string checksourceData = string.Empty;
 
-        if(function == 1)
+        if (function == 1)
         {
             checksourceData = RemoveColons(sourceData);
         }
-        else if(function == 2)
+        else if (function == 2)
         {
             checksourceData = RemoveColons(sourceData);
         }
         string source;
-        if (length == 0) 
+        if (length == 0)
         {
             source = $"{start}{formatHex}{functionHex}{lengthHex}{checksum1Hex}{checksum2Hex}{stop}";
         }
-        else if(function == 1)
+        else if (function == 1)
         {
             source = $"{start}{formatHex}{functionHex}{lengthHex}{checksourceData}{checksum1Hex}{checksum2Hex}{stop}";
         }
@@ -893,12 +892,10 @@ public class NetworkConnectorCore
     private void ProcessMessage(TCPServerData tcpServerData, TcpClient client, List<string> datas)
     {
         string start = datas[0];
-        string formatHex = datas[1];
         string functionHex = datas[2];
         string state = datas[3];
         string lengthHex = datas[4];
         string stop = datas[^1];
-        int formatDec = Convert.ToInt32(formatHex, 16);
         int functionDec = Convert.ToInt32(functionHex, 16);
         int stateDec = Convert.ToInt32(state, 16);
         int lengthDec = Convert.ToInt32(lengthHex, 16);
@@ -914,7 +911,7 @@ public class NetworkConnectorCore
                 source_front = string.Join(":", datas.Skip(5).Take(lengthDec));
                 bytes = HexStringToByteArray(source_front);
                 result = BitConverter.ToSingle(bytes, 0);
-                source_back[0] = result; 
+                source_back[0] = result;
                 break;
             case 6:
                 source_front = string.Join(":", datas.Skip(5).Take(lengthDec));
@@ -929,7 +926,7 @@ public class NetworkConnectorCore
                 }
                 break;
         }
-        string message = string.Empty;
+        string message;
         switch (functionDec)
         {
             case 5:
@@ -947,8 +944,8 @@ public class NetworkConnectorCore
             default:
                 message = $"{functionDec}:{stateDec}:{lengthDec}";
                 break;
-        }      
-        
+        }
+
         if (tcpClientdatas.TryGetValue(tcpServerData.portData.ProtocolName, out var tcpClientData) && tcpClientData.IsConnecting)
         {
             SendMessage(tcpServerData, $"[Response]:{message}");
@@ -983,7 +980,7 @@ public class NetworkConnectorCore
         ushort crc = 0xFFFF;
         foreach (byte b in data)
         {
-            crc ^= b; 
+            crc ^= b;
             for (int i = 0; i < 8; i++)
             {
                 if ((crc & 0x0001) != 0)
@@ -997,27 +994,6 @@ public class NetworkConnectorCore
             }
         }
         return crc;
-    }
-
-    /// <summary>
-    /// 傳送 ACK、Response 訊息
-    /// </summary>
-    /// <param name="client"></param>
-    /// <param name="message"></param>
-    /// <returns></returns>
-    private async Task SendAckOrResponse(TcpClient client, string message)
-    {
-        NetworkStream stream = client.GetStream();
-        if (stream.CanWrite)
-        {
-            byte[] bytes = Encoding.UTF8.GetBytes(message);
-            await stream.WriteAsync(bytes, 0, bytes.Length);
-            await stream.FlushAsync();
-        }
-        else
-        {
-            LogOnMainThread("Network stream is not writable.");
-        }
     }
 
     /// <summary>
@@ -1048,9 +1024,10 @@ public class NetworkConnectorCore
                 int packetSize = buffer.Length;
                 tcpClinetData.portData.IsConnected = true;
 
-                if(tcpClinetData.portData == this.portData)
+                if (tcpClinetData.portData == this.portData)
                 {
-                    LogMonitorMainThread(message);
+                    string messageTmp = $"傳送訊息，資料大小: {packetSize}，資料: {message}";
+                    LogMonitorMainThread(messageTmp);
                 }
 
             }
@@ -1145,11 +1122,11 @@ public class NetworkConnectorCore
             }
             finally
             {
-                ArrayPool<byte>.Shared.Return(buffer); 
+                ArrayPool<byte>.Shared.Return(buffer);
             }
         }
 
-        udpData.Dispose(); 
+        udpData.Dispose();
         Debug.Log($"端口 {portData.RemotePortDetails.Port} 上的 UDP 接收器已經關閉。");
     }
 
@@ -1197,7 +1174,7 @@ public class NetworkConnectorCore
             return sourceData.Length > length ? sourceData[..length] : sourceData;
         }
 
-        return string.Empty; 
+        return string.Empty;
     }
     #endregion
 
@@ -1221,7 +1198,7 @@ public class NetworkConnectorCore
             tcpServerDisposalTasks.Add(Task.Run(() => tcpServerData.Dispose()));
         }
 
-        foreach(var tcpClientData in tcpClientdatas.Values)
+        foreach (var tcpClientData in tcpClientdatas.Values)
         {
             tcpClientDisposalTasks.Add(Task.Run(() => tcpClientData.Dispose()));
         }
