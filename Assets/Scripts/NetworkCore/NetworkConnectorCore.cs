@@ -13,6 +13,7 @@ using static NetworkPortManager;
 using System.Buffers;
 using System.Linq;
 using System.Globalization;
+using UnityEngine.Windows;
 
 public class NetworkConnectorCore
 {
@@ -834,6 +835,7 @@ public class NetworkConnectorCore
             checksourceData = RemoveColons(sourceData);
         }
         string source;
+        List<byte> byteList = new();
         if (length == 0)
         {
             source = $"{start}{formatHex}{functionHex}{lengthHex}{checksum1Hex}{checksum2Hex}{stop}";
@@ -850,12 +852,18 @@ public class NetworkConnectorCore
         {
             source = $"{start}{formatHex}{functionHex}{lengthHex}{sourceData}{checksum1Hex}{checksum2Hex}{stop}";
         }
+        for (int i = 0; i < source.Length; i += 4)
+        {
+            string hexValue = source.Substring(i + 2, 2);
+            byteList.Add(Convert.ToByte(hexValue, 16));
+            Debug.Log(byteList);
+        }
 
         tcpServerData.sourceData = source;
 
         if (tcpClientdatas.TryGetValue(tcpServerData.portData.ProtocolName, out var tcpClientData) && tcpClientData.IsConnecting)
         {
-            SendMessage(tcpServerData, source);
+            SendMessage(tcpServerData, byteList.ToArray());
         }
     }
 
@@ -1027,6 +1035,48 @@ public class NetworkConnectorCore
                 if (tcpClinetData.portData == this.portData)
                 {
                     string messageTmp = $"傳送訊息，資料大小: {packetSize}，資料: {message}";
+                    LogMonitorMainThread(messageTmp);
+                }
+
+            }
+            catch (Exception ex)
+            {
+                LogOnMainThread($"發送訊息到 TCP 客戶端時出現錯誤: {ex.Message}", isError: true);
+            }
+        }
+        else
+        {
+            tcpClinetData.portData.IsConnected = false;
+            LogOnMainThread($"來自 {tcpClinetData.tcpClient.Client.RemoteEndPoint} TCP 客戶端已斷開連接: ", isError: true);
+            UnityMainThreadDispatcher.Instance().Enqueue(() => tcpClinetData.portData.OnUpdate?.Invoke(tcpClinetData.portData));
+        }
+    }
+
+    private void SendMessage(TCPServerData tcpServerData, byte[] message)
+    {
+        if (!tcpClientdatas.ContainsKey(tcpServerData.portData.ProtocolName))
+        {
+            Debug.Log($"沒有可用的 TCP 客戶端!");
+            return;
+        }
+
+        var tcpClinetData = tcpClientdatas[tcpServerData.portData.ProtocolName];
+
+        if (tcpClinetData.IsConnecting)
+        {
+            try
+            {
+                using var memoryStream = new MemoryStream();
+                memoryStream.Write(message, 0, message.Length);  // 寫入 byte[] 到記憶體流
+                NetworkStream stream = tcpClinetData.tcpClient.GetStream();
+                memoryStream.Position = 0;
+                memoryStream.CopyTo(stream);
+                int packetSize = message.Length;
+                tcpClinetData.portData.IsConnected = true;
+
+                if (tcpClinetData.portData == this.portData)
+                {
+                    string messageTmp = $"傳送訊息，資料大小: {packetSize}，資料: {BitConverter.ToString(message)}";
                     LogMonitorMainThread(messageTmp);
                 }
 
