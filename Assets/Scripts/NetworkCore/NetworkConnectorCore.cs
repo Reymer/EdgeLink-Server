@@ -648,9 +648,11 @@ public class NetworkConnectorCore
                     break;
                 }
 
+
                 string data = Encoding.UTF8.GetString(buffer, 0, bytesRead);
                 string currentMaskType;
-
+                byte[] dataByteArray = new byte[bytesRead];
+                Array.Copy(buffer, dataByteArray, bytesRead);
                 lock (maskTypeLock)
                 {
                     currentMaskType = tcpServerData.portData.MaskType;
@@ -659,7 +661,7 @@ public class NetworkConnectorCore
                 switch (currentMaskType)
                 {
                     case "Robot to 10":
-                        HandleRobotTo10Message(tcpServerData, client, data);
+                        HandleRobotTo10Message(tcpServerData, client, dataByteArray);
                         break;
 
                     case "Robot to 16":
@@ -695,16 +697,15 @@ public class NetworkConnectorCore
         LogOnMainThread($"客戶端 {remoteEndPoint} 已斷開連接。");
     }
 
-    private void HandleRobotTo10Message(TCPServerData tcpServerData, TcpClient client, string data)
+    private void HandleRobotTo10Message(TCPServerData tcpServerData, TcpClient client, byte[] datas)
     {
-        List<string> datas = SplitDataIntoGroups(data, 4);
         if (IsValidMessage(datas))
         {
             ProcessMessage(tcpServerData, client, datas);
         }
         else if (tcpServerData.portData == this.portData)
         {
-            LogMonitorMainThread($"錯誤：收到的資料不以 0xDD 開頭或以 0x77 結尾。資料: {data}");
+            LogMonitorMainThread($"錯誤：收到的資料不以 0xDD 開頭或以 0x77 結尾。資料: {BitConverter.ToString(datas)}");
         }
     }
 
@@ -728,10 +729,12 @@ public class NetworkConnectorCore
         UnityMainThreadDispatcher.Instance().Enqueue(() => tcpServerData.portData.OnUpdate?.Invoke(tcpServerData.portData));
     }
 
-    private bool IsValidMessage(List<string> datas)
+    private bool IsValidMessage(byte[] dataBytes)
     {
-        return datas.Count >= 7 && datas[0] == "0xDD" && datas[^1] == "0x77";
+        // 檢查資料長度是否大於或等於 7 且開頭是 0xDD，結尾是 0x77
+        return dataBytes.Length >= 7 && dataBytes[0] == 0xDD && dataBytes[^1] == 0x77;
     }
+
 
     private void ProcessRobotTo16Message(string data, TcpClient client, TCPServerData tcpServerData)
     {
@@ -897,44 +900,50 @@ public class NetworkConnectorCore
         return datas;
     }
 
-    private void ProcessMessage(TCPServerData tcpServerData, TcpClient client, List<string> datas)
+    private void ProcessMessage(TCPServerData tcpServerData, TcpClient client, byte[] dataBytes)
     {
-        string start = datas[0];
-        string functionHex = datas[2];
-        string state = datas[3];
-        string lengthHex = datas[4];
-        string stop = datas[^1];
-        int functionDec = Convert.ToInt32(functionHex, 16);
-        int stateDec = Convert.ToInt32(state, 16);
-        int lengthDec = Convert.ToInt32(lengthHex, 16);
+        // 假設資料的結構與原本相同，這裡通過索引來解析 byte[] 內容
+        byte start = dataBytes[0];
+        byte functionHex = dataBytes[2];
+        byte state = dataBytes[3];
+        byte lengthHex = dataBytes[4];
+        byte stop = dataBytes[^1];
+        int functionDec = functionHex;
+        int stateDec = state;
+        int lengthDec = lengthHex;
         string source_front;
         float[] source_back = new float[lengthDec];
 
         byte[] bytes;
         float result;
+
+        // 根據 functionDec 值進行處理
         switch (functionDec)
         {
             case 5:
-
-                source_front = string.Join(":", datas.Skip(5).Take(lengthDec));
+                // 提取需要的部分並轉換
+                source_front = BitConverter.ToString(dataBytes, 5, lengthDec).Replace("-", ":");
                 bytes = HexStringToByteArray(source_front);
                 result = BitConverter.ToSingle(bytes, 0);
                 source_back[0] = result;
                 break;
             case 6:
-                source_front = string.Join(":", datas.Skip(5).Take(lengthDec));
+                // 提取需要的部分並轉換
+                source_front = BitConverter.ToString(dataBytes, 5, lengthDec).Replace("-", ":");
                 bytes = HexStringToByteArray(source_front);
                 for (int i = 0; i < bytes.Length; i += 4)
                 {
                     if (i + 4 <= bytes.Length)
                     {
                         result = BitConverter.ToSingle(bytes, i);
-                        source_back[i] = result;
+                        source_back[i / 4] = result;  // 注意這裡是以 4 為單位填充
                     }
                 }
                 break;
         }
+
         string message;
+        // 根據 functionDec 值生成 message
         switch (functionDec)
         {
             case 5:
@@ -946,7 +955,8 @@ public class NetworkConnectorCore
                 break;
 
             case 7:
-                var data = Convert.ToInt32(datas[5], 16);
+                // 假設資料位置為 5, 這是從 `datas[5]` 中提取的資料
+                var data = dataBytes[5]; // 假設是單個字節，根據需要進行轉換
                 message = $"{functionDec}:{stateDec}:{lengthDec}:{data}";
                 break;
             default:
@@ -954,17 +964,20 @@ public class NetworkConnectorCore
                 break;
         }
 
+        // 檢查是否正在連接並發送回應
         if (tcpClientdatas.TryGetValue(tcpServerData.portData.ProtocolName, out var tcpClientData) && tcpClientData.IsConnecting)
         {
             SendMessage(tcpServerData, $"[Response]:{message}");
         }
 
+        // 當前端資料和本地端一致，記錄請求
         if (tcpServerData.portData == this.portData)
         {
-            string reauestMsg = $"[Request]:{start}0x01{functionHex}{lengthHex}{stop}";
+            string reauestMsg = $"[Request]:{start:X2}-01-{functionHex:X2}-{lengthHex:X2}-{stop:X2}";
             LogMonitorMainThread(reauestMsg);
         }
     }
+
     private static byte[] HexStringToByteArray(string hexString)
     {
         string[] hexParts = hexString.Replace("0x", "").Split(':');
