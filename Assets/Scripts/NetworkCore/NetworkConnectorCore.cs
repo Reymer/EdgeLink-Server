@@ -14,6 +14,7 @@ using System.Buffers;
 using System.Linq;
 using System.Globalization;
 using UnityEngine.Windows;
+using DevKit;
 
 public class NetworkConnectorCore
 {
@@ -522,7 +523,10 @@ public class NetworkConnectorCore
     /// <param name="portData">The port data for the listener.</param>
     private void StartTcpListener(PortData portData)
     {
-        var tcpListener = new TcpListener(IPAddress.Any, int.Parse(portData.LocalPortDetails.Port));
+        TcpListener tcpListener = null;
+        tcpListener = new TcpListener(IPAddress.Any, int.Parse(portData.LocalPortDetails.Port));
+
+
         var tcpServerData = new TCPServerData
         {
             portData = portData,
@@ -1052,47 +1056,68 @@ public class NetworkConnectorCore
         }
     }
 
-    private void SendMessage(TCPServerData tcpServerData, byte[] message)
+    private async void SendMessage(TCPServerData tcpServerData, byte[] message)
     {
         if (!tcpClientdatas.ContainsKey(tcpServerData.portData.ProtocolName))
         {
-            Debug.Log($"沒有可用的 TCP 客戶端!");
+            LogOnMainThread($"沒有可用的 TCP 客戶端!", isError: true);
             return;
         }
 
-        var tcpClinetData = tcpClientdatas[tcpServerData.portData.ProtocolName];
+        var tcpClientData = tcpClientdatas[tcpServerData.portData.ProtocolName];
 
-        if (tcpClinetData.IsConnecting)
+        if (!tcpClientData.IsConnecting)
         {
-            try
+            tcpClientData.portData.IsConnected = false;
+            LogOnMainThread($"來自 {tcpClientData.tcpClient.Client.RemoteEndPoint} 的 TCP 客戶端已斷開連接。", isError: true);
+            UnityMainThreadDispatcher.Instance().Enqueue(() => tcpClientData.portData.OnUpdate?.Invoke(tcpClientData.portData));
+            return;
+        }
+
+        try
+        {
+            // 發送訊息
+            using var memoryStream = new MemoryStream();
+            memoryStream.Write(message, 0, message.Length); // 寫入 byte[] 到記憶體流
+            NetworkStream stream = tcpClientData.tcpClient.GetStream();
+            memoryStream.Position = 0;
+            await memoryStream.CopyToAsync(stream);
+
+            int packetSize = message.Length;
+            tcpClientData.portData.IsConnected = true;
+
+            if (tcpClientData.portData == this.portData)
             {
-                using var memoryStream = new MemoryStream();
-                memoryStream.Write(message, 0, message.Length);  // 寫入 byte[] 到記憶體流
-                NetworkStream stream = tcpClinetData.tcpClient.GetStream();
-                memoryStream.Position = 0;
-                memoryStream.CopyTo(stream);
-                int packetSize = message.Length;
-                tcpClinetData.portData.IsConnected = true;
-
-                if (tcpClinetData.portData == this.portData)
-                {
-                    string messageTmp = $"傳送訊息，資料大小: {packetSize}，資料: {BitConverter.ToString(message)}";
-                    LogMonitorMainThread(messageTmp);
-                }
-
+                string messageTmp = $"傳送訊息，資料大小: {packetSize}，資料: {BitConverter.ToString(message)}";
+                LogMonitorMainThread(messageTmp);
             }
-            catch (Exception ex)
+
+            // 等待 ACK 和 Response
+            byte[] buffer = new byte[1024];
+            using var cts = new CancellationTokenSource(5000);
+            int bytesRead = await stream.ReadAsync(buffer, 0, buffer.Length, cts.Token);
+
+            if (bytesRead > 0)
             {
-                LogOnMainThread($"發送訊息到 TCP 客戶端時出現錯誤: {ex.Message}", isError: true);
+                // 根據協議解析 ACK 和 Response
+                string response = Encoding.UTF8.GetString(buffer, 0, bytesRead);
+                LogMonitorMainThread($"收到回應: {response}");
+            }
+            else
+            {
+                LogOnMainThread($"未收到任何回應，可能是伺服器未正確處理請求。", isError: true);
             }
         }
-        else
+        catch (OperationCanceledException)
         {
-            tcpClinetData.portData.IsConnected = false;
-            LogOnMainThread($"來自 {tcpClinetData.tcpClient.Client.RemoteEndPoint} TCP 客戶端已斷開連接: ", isError: true);
-            UnityMainThreadDispatcher.Instance().Enqueue(() => tcpClinetData.portData.OnUpdate?.Invoke(tcpClinetData.portData));
+            LogOnMainThread("等待伺服器回應超時。", isError: true);
+        }
+        catch (Exception ex)
+        {
+            LogOnMainThread($"發送訊息或接收回應時出現錯誤: {ex.Message}", isError: true);
         }
     }
+
 
     #endregion
 

@@ -150,12 +150,12 @@ public class NetworkPortManager
         else if (porData.NetProtocol.Equals("TCP Client", StringComparison.OrdinalIgnoreCase))
         {
             return !tcpClients.Values.Any(pd => pd.ProtocolName.Equals(porData.ProtocolName, StringComparison.OrdinalIgnoreCase))
-                && !tcpServers.ContainsKey(porData.RemotePortDetails.Port);
+                && !tcpClients.ContainsKey(porData.RemotePortDetails.Port);
         }
         else if (porData.NetProtocol.Equals("UDP", StringComparison.OrdinalIgnoreCase))
         {
             return !udpPorts.Values.Any(pd => pd.ProtocolName.Equals(porData.ProtocolName, StringComparison.OrdinalIgnoreCase))
-                && !tcpServers.ContainsKey(porData.RemotePortDetails.Port);
+                && !udpPorts.ContainsKey(porData.RemotePortDetails.Port);
         }
 
         return false;
