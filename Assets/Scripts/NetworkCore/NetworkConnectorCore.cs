@@ -766,7 +766,7 @@ public class NetworkConnectorCore
         {
             sourceData = ConvertToIEEE754Hexadecimal(datas[3]);
         }
-        else if (function == 3)
+        else if (function is 3 or 7 or 8 or 10)
         {
             var temp = int.Parse(datas[3]);
             sourceData = "0x" + temp.ToString("X2");
@@ -811,7 +811,7 @@ public class NetworkConnectorCore
         {
             receiveData = $"1:{function}:{length}:{datas[3]}";
         }
-        else if (function == 3)
+        else if (function is 3 or 7 or 8 or 10)
         {
             receiveData = $"1:{function}:{length}:{datas[3]}";
         }
@@ -1105,6 +1105,15 @@ public class NetworkConnectorCore
                         responseBufferLen = 20;
                         break;
                     case 7:
+                        responseBufferLen = 8;
+                        break;
+                    case 8:
+                        responseBufferLen = 8;
+                        break;
+                    case 9:
+                        responseBufferLen = 9;
+                        break;
+                    case 10:
                         responseBufferLen = 8;
                         break;
                 }
