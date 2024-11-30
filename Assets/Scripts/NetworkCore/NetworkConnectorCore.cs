@@ -289,7 +289,7 @@ public class NetworkConnectorCore
     private async Task ConnectTcpClient(TCPClientData tcpClientData, PortData portData)
     {
         var token = tcpClientData.CancellationTokenSource.Token;
-        int reconnectDelay = 10000;
+        int reconnectDelay = 5000;
 
         while (!token.IsCancellationRequested)
         {
@@ -340,7 +340,7 @@ public class NetworkConnectorCore
     private void StartConnectionMonitoring(TCPClientData tcpClientData, PortData portData)
     {
         var token = tcpClientData.CancellationTokenSource.Token;
-        int reconnectDelay = 10000;
+        int reconnectDelay = 5000;
 
         Task.Run(async () =>
         {
@@ -629,8 +629,9 @@ public class NetworkConnectorCore
     private async Task ReceiveTcpMessages(TcpClient client, TCPServerData tcpServerData)
     {
         IPEndPoint remoteEndPoint = client.Client.RemoteEndPoint as IPEndPoint;
-        var buffer = new byte[1024];
         NetworkStream stream = client.GetStream();
+        var buffer = new byte[1024];
+        var dataBuffer = new StringBuilder();  // 用於累積接收到的數據
 
         try
         {
@@ -645,32 +646,14 @@ public class NetworkConnectorCore
                     break;
                 }
 
-                string currentMaskType;
+                // 將收到的字節轉換為字符串，並寫入累積緩衝區
+                string receivedData = Encoding.UTF8.GetString(buffer, 0, bytesRead);
+                dataBuffer.Append(receivedData);
 
-                lock (maskTypeLock)
+                // 嘗試提取完整的封包
+                while (TryExtractCompletePacket(dataBuffer, out string completePacket))
                 {
-                    currentMaskType = tcpServerData.portData.MaskType;
-                }
-
-                switch (currentMaskType)
-                {
-                    case "Robot to 10":
-                        HandleRobotTo10Message(tcpServerData, buffer, bytesRead);
-                        break;
-
-                    case "Robot to 16":
-                        string data16 = Encoding.UTF8.GetString(buffer, 0, bytesRead);
-                        ProcessRobotTo16Message(data16, tcpServerData);
-                        break;
-
-                    case "original data":
-                        string originalData = Encoding.UTF8.GetString(buffer, 0, bytesRead);
-                        HandleOriginalDataMessage(tcpServerData, originalData, bytesRead);
-                        break;
-
-                    default:
-                        LogOnMainThread($"未識別的 MaskType: {currentMaskType}");
-                        break;
+                    ProcessPacket(completePacket, tcpServerData);
                 }
             }
         }
@@ -684,9 +667,73 @@ public class NetworkConnectorCore
         }
         finally
         {
-            CleanupClientConnection(client, tcpServerData);
+            client.Close();
+            tcpServerData.portData.IsConnected = false;
+            UnityMainThreadDispatcher.Instance().Enqueue(() => tcpServerData.portData.OnUpdate?.Invoke(tcpServerData.portData));
         }
     }
+
+    private bool TryExtractCompletePacket(StringBuilder dataBuffer, out string completePacket)
+    {
+        completePacket = null;
+
+        // 查找資料中的 ID 部分
+        int idStartIndex = dataBuffer.ToString().IndexOf("ID");
+        if (idStartIndex == -1)
+        {
+            return false;  // 如果找不到 ID，返回 false
+        }
+
+        // 查找下一個資料包的開始（下一個 "ID"）
+        int nextIdStartIndex = dataBuffer.ToString().IndexOf("ID", idStartIndex + 2);
+        if (nextIdStartIndex == -1)
+        {
+            // 如果找不到下一個 ID，說明這是最後一個資料包
+            // 直到緩衝區的結尾為止
+            completePacket = dataBuffer.ToString(idStartIndex, dataBuffer.Length - idStartIndex);
+            dataBuffer.Clear(); // 清除緩衝區，因為資料包已處理完
+            return true;
+        }
+        else
+        {
+            // 如果找到下一個 ID，提取從當前 ID 到下一個 ID 之間的資料包
+            completePacket = dataBuffer.ToString(idStartIndex, nextIdStartIndex - idStartIndex);
+
+            // 移除已經處理過的部分，保留剩餘資料
+            dataBuffer.Remove(0, nextIdStartIndex);
+
+            return true;
+        }
+    }
+
+
+
+    private void ProcessPacket(string packet, TCPServerData tcpServerData)
+    {
+        string currentMaskType;
+
+        lock (maskTypeLock)
+        {
+            currentMaskType = tcpServerData.portData.MaskType;
+        }
+
+        switch (currentMaskType)
+        {
+            case "Robot to 10":
+                HandleRobotTo10Message(tcpServerData, Encoding.UTF8.GetBytes(packet), packet.Length);
+                break;
+            case "Robot to 16":
+                ProcessRobotTo16Message(packet, tcpServerData);
+                break;
+            case "original data":
+                ProcessOriginalDataMessage(tcpServerData, packet, packet.Length);
+                break;
+            default:
+                LogOnMainThread($"未識別的 MaskType: {currentMaskType}");
+                break;
+        }
+    }
+
 
     private void LogDisconnection(IPEndPoint remoteEndPoint)
     {
@@ -695,11 +742,9 @@ public class NetworkConnectorCore
 
     private void HandleRobotTo10Message(TCPServerData tcpServerData, byte[] buffer, int bytesRead)
     {
-        // Copy the relevant bytes into messageData
         byte[] messageData = new byte[bytesRead];
         Array.Copy(buffer, 0, messageData, 0, bytesRead);
 
-        // Validate message: starts with 0xDD and ends with 0x77
         if (messageData.Length >= 7 && messageData[0] == 0xDD && messageData[^1] == 0x77)
         {
             ProcessMessage(messageData);
@@ -711,8 +756,7 @@ public class NetworkConnectorCore
         }
     }
 
-
-    private void HandleOriginalDataMessage(TCPServerData tcpServerData, string data, int packetSize)
+    private void ProcessOriginalDataMessage(TCPServerData tcpServerData, string data, int packetSize)
     {
         if (tcpServerData.portData == this.portData)
         {
@@ -725,12 +769,6 @@ public class NetworkConnectorCore
         }
     }
 
-    private void CleanupClientConnection(TcpClient client, TCPServerData tcpServerData)
-    {
-        client.Close();
-        tcpServerData.portData.IsConnected = false;
-        UnityMainThreadDispatcher.Instance().Enqueue(() => tcpServerData.portData.OnUpdate?.Invoke(tcpServerData.portData));
-    }
 
     private void ProcessRobotTo16Message(string data, TCPServerData tcpServerData)
     {
@@ -1009,7 +1047,7 @@ public class NetworkConnectorCore
                 byte[] buffer = Encoding.UTF8.GetBytes(message);
 
                 NetworkStream stream = tcpClinetData.tcpClient.GetStream();
-                await stream.WriteAsync(buffer, 0, buffer.Length); // 使用異步寫入
+                await stream.WriteAsync(buffer, 0, buffer.Length);
 
                 int packetSize = buffer.Length;
                 tcpClinetData.portData.IsConnected = true;
@@ -1086,80 +1124,68 @@ public class NetworkConnectorCore
     /// <param name="port">端口</param>
     private async Task ReceiveUdpMessages(PortData portData, UdpData udpData)
     {
-        using (var sendClient = new UdpClient())
-        {
+        using var sendClient = new UdpClient();
+        IPEndPoint sendEndPoint = string.IsNullOrWhiteSpace(portData.TargetIP)
+            ? new IPEndPoint(IPAddress.Broadcast, int.Parse(portData.LocalPortDetails.Port))
+            : new IPEndPoint(IPAddress.Parse(portData.TargetIP), int.Parse(portData.LocalPortDetails.Port));
+
+        if (string.IsNullOrWhiteSpace(portData.TargetIP))
             sendClient.EnableBroadcast = true;
-            IPEndPoint sendEndPoint = new(IPAddress.Broadcast, int.Parse(portData.LocalPortDetails.Port));
 
-            long totalReceivedBytes = 0;
-            long totalSentBytes = 0;
+        byte[] buffer = new byte[1024];  // 固定大小的緩衝區
 
-            byte[] buffer = ArrayPool<byte>.Shared.Rent(16 * 1024);
-
-            try
+        try
+        {
+            while (!udpData.CancellationTokenSource.Token.IsCancellationRequested)
             {
-                while (!udpData.CancellationTokenSource.Token.IsCancellationRequested)
+                try
                 {
-                    try
+                    var result = await udpData.udpClient.ReceiveAsync().WithCancellation(udpData.CancellationTokenSource.Token);
+                    int messageLength = result.Buffer.Length;
+
+                    // 確認訊息是否超過緩衝區大小
+                    if (messageLength > buffer.Length)
                     {
-                        var result = await udpData.udpClient.ReceiveAsync().WithCancellation(udpData.CancellationTokenSource.Token);
-
-                        int messageLength = result.Buffer.Length;
-
-                        if (messageLength > buffer.Length)
-                        {
-                            ArrayPool<byte>.Shared.Return(buffer);
-                            buffer = ArrayPool<byte>.Shared.Rent(messageLength);
-                        }
-
-                        Array.Copy(result.Buffer, buffer, messageLength);
-
-                        string message = Encoding.UTF8.GetString(buffer, 0, messageLength);
-                        portData.COMReceived += messageLength;
-                        totalReceivedBytes += messageLength;
-
-                        udpData.SourceData = message;
-
-                        if (udpData.portData == this.portData)
-                        {
-                            LogMonitorMainThread($"UDP 伺服器。收到來自: {result.RemoteEndPoint} 的訊息，封包大小: {messageLength} bytes, 訊息: {message}");
-                        }
-
-                        await sendClient.SendAsync(result.Buffer, messageLength, sendEndPoint);
-
-                        portData.NetReceived += messageLength;
-                        totalSentBytes += messageLength;
-
-                        if (udpData.portData == this.portData)
-                        {
-                            LogMonitorMainThread($"UDP 客戶端。傳送訊息到: {sendEndPoint}, 封包大小: {messageLength} bytes, 訊息: {message}");
-                        }
-
-                        UnityMainThreadDispatcher.Instance().Enqueue(() => portData.OnUpdate?.Invoke(portData));
+                        buffer = new byte[messageLength];  // 創建更大的緩衝區
                     }
-                    catch (SocketException ex) when (ex.SocketErrorCode == SocketError.Interrupted)
-                    {
-                        Debug.Log($"端口 {portData.RemotePortDetails.Port} 上的 UDP 客戶端已關閉。 {ex.Message}");
-                    }
-                    catch (OperationCanceledException)
-                    {
-                        Debug.Log($"端口 {portData.RemotePortDetails.Port} 上的 UDP 接收操作被取消。");
-                    }
-                    catch (Exception ex)
-                    {
-                        Debug.Log($"接收 UDP 訊息時發生錯誤: {ex.Message}");
-                    }
+
+                    Array.Copy(result.Buffer, buffer, messageLength);
+                    string message = Encoding.UTF8.GetString(buffer, 0, messageLength);
+
+                    portData.COMReceived += messageLength;
+                    udpData.SourceData = message;
+
+                    LogMonitorMainThread($"名稱: {portData.ProtocolName}。收到來自: {result.RemoteEndPoint} 的訊息，大小: {messageLength} bytes, 訊息: {message}");
+
+                    await sendClient.SendAsync(result.Buffer, messageLength, sendEndPoint);
+                    portData.NetReceived += messageLength;
+
+                    LogMonitorMainThread($"名稱: {portData.ProtocolName}。傳送到: {sendEndPoint}, 大小: {messageLength} bytes, 訊息: {message}");
+                    UnityMainThreadDispatcher.Instance().Enqueue(() => portData.OnUpdate?.Invoke(portData));
+                }
+                catch (SocketException ex) when (ex.SocketErrorCode == SocketError.Interrupted)
+                {
+                    Debug.Log($"UDP 客戶端已關閉: {ex.Message}");
+                }
+                catch (OperationCanceledException)
+                {
+                    Debug.Log("UDP 接收操作被取消。");
+                }
+                catch (Exception ex)
+                {
+                    Debug.Log($"接收 UDP 訊息時發生錯誤: {ex.Message}");
                 }
             }
-            finally
-            {
-                ArrayPool<byte>.Shared.Return(buffer);
-            }
+        }
+        finally
+        {
+            Debug.Log("結束接收。");
         }
 
         udpData.Dispose();
-        Debug.Log($"端口 {portData.RemotePortDetails.Port} 上的 UDP 接收器已經關閉。");
+        Debug.Log($"UDP 接收器已在端口 {portData.RemotePortDetails.Port} 上關閉。");
     }
+
 
 
     #endregion

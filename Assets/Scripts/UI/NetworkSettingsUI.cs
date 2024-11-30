@@ -110,7 +110,7 @@ public class NetworkSettingsUI : MonoBehaviour
         targetIP = null;
         protocolName = null;
         protocolType = "UDP";
-        SetUiStatus(true, UIKey.UI_TargetIPMask);
+        SetUiStatus(false, UIKey.UI_TargetIPMask);
         SetUiStatus(false, UIKey.UI_RemotePortsMask);
         SetUiStatus(false, UIKey.UI_LocalPortsMask);
     }
@@ -225,7 +225,7 @@ public class NetworkSettingsUI : MonoBehaviour
         {
             case 0:
                 protocolType = "UDP";
-                SetUiStatus(true, UIKey.UI_TargetIPMask);
+                SetUiStatus(false, UIKey.UI_TargetIPMask);
                 SetUiStatus(false, UIKey.UI_RemotePortsMask);
                 SetUiStatus(false, UIKey.UI_LocalPortsMask);
                 uiCollector.GetAsset<TMP_InputField>(UIKey.UI_RemotePortInput).text = string.Empty;

@@ -4,12 +4,18 @@ using UnityEngine;
 
 public class UnityMainThreadDispatcher : MonoBehaviour
 {
-    private static readonly Queue<Action> executionQueue = new();
-
     private static UnityMainThreadDispatcher instance = null;
+    private static readonly Queue<Action> executionQueue = new();
+    private static bool isQuitting = false;
 
     public static UnityMainThreadDispatcher Instance()
     {
+        if (isQuitting)
+        {
+            Debug.LogWarning("UnityMainThreadDispatcher is being accessed after the application has quit.");
+            return null;
+        }
+
         if (!instance)
         {
             throw new Exception("UnityMainThreadDispatcher is not initialized. Please add it to a GameObject in the scene.");
@@ -17,7 +23,8 @@ public class UnityMainThreadDispatcher : MonoBehaviour
         return instance;
     }
 
-    void Awake()
+
+    private void Awake()
     {
         if (instance == null)
         {
@@ -48,13 +55,8 @@ public class UnityMainThreadDispatcher : MonoBehaviour
         }
     }
 
-    public static void Initialize()
+    private void OnDestroy()
     {
-        if (instance == null)
-        {
-            GameObject obj = new("UnityMainThreadDispatcher");
-            instance = obj.AddComponent<UnityMainThreadDispatcher>();
-            DontDestroyOnLoad(obj);
-        }
+        isQuitting = true;
     }
 }
