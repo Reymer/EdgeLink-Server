@@ -6,6 +6,7 @@ using DevKit.Console;
 using DevKit.Tool;
 using Newtonsoft.Json;
 using UnityEngine;
+using static NetworkPortManager;
 
 public class NetworkPortManager
 {
@@ -21,7 +22,7 @@ public class NetworkPortManager
     private readonly string filePath;
     private ConsoleUI consoleUI;
     private MonitorConsole monitorConsole;
-    private readonly NetworkConnectorCore networkConnectorCore = new();
+    public NetworkConnectorCore networkConnectorCore = new();
     public readonly Dictionary<string, PortData> tcpServers = new();
     public readonly Dictionary<string, PortData> tcpClients = new();
     public readonly Dictionary<string, PortData> udpPorts = new();
@@ -107,11 +108,10 @@ public class NetworkPortManager
             OnUpdate = OnUpdate,
             MaskType = portData.MaskType,
         };
-
         AddPortToDictionary(data);
         portDataList.Add(data);
         networkConnectorCore.AddPort(data);
-        SavePortDataToFile();
+        SaveData();
         return data;
     }
 
@@ -190,7 +190,7 @@ public class NetworkPortManager
         }
         networkConnectorCore.StopClient(portData);
 
-        SavePortDataToFile();
+        SaveData();
     }
 
     #endregion
@@ -302,6 +302,12 @@ public class NetworkPortManager
 
     #endregion
 
+    public List<PortData> GetPortDatas()
+    {
+        return new List<PortData>(portDataList);
+    }
+
+
     #region 儲存與載入
 
     public void AddPortsToNetwork()
@@ -314,7 +320,7 @@ public class NetworkPortManager
         }
     }
 
-    public void LoadFromJson()
+    public void LoadData()
     {
         try
         {
@@ -343,7 +349,7 @@ public class NetworkPortManager
         }
     }
 
-    public void DeInit()
+    public void UnInit()
     {
         networkConnectorCore.DeInit();
         foreach (var portData in tcpServers.Values.Concat(udpPorts.Values).Concat(tcpClients.Values))
@@ -352,10 +358,10 @@ public class NetworkPortManager
         }
 
         PortDataUpdated = null;
-        SavePortDataToFile();
+        SaveData();
     }
 
-    private void SavePortDataToFile()
+    private void SaveData()
     {
         try
         {

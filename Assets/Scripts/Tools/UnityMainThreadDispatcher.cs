@@ -12,16 +12,17 @@ public class UnityMainThreadDispatcher : MonoBehaviour
     {
         if (isQuitting)
         {
-            Debug.LogWarning("UnityMainThreadDispatcher is being accessed after the application has quit.");
+            Debug.LogWarning("應用程式已退出後嘗試存取 UnityMainThreadDispatcher。");
             return null;
         }
 
         if (!instance)
         {
-            throw new Exception("UnityMainThreadDispatcher is not initialized. Please add it to a GameObject in the scene.");
+            throw new Exception("UnityMainThreadDispatcher 尚未初始化。請將其新增到場景中的一個 GameObject。");
         }
         return instance;
     }
+
 
 
     private void Awake()

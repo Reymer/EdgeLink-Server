@@ -334,7 +334,10 @@ public class NetworkConnectorCore
             }
         }
 
-        UnityMainThreadDispatcher.Instance().Enqueue(() => portData.OnUpdate?.Invoke(portData));
+        if(UnityMainThreadDispatcher.Instance() != null)
+        {
+            UnityMainThreadDispatcher.Instance().Enqueue(() => portData.OnUpdate?.Invoke(portData));
+        }
     }
 
     private void StartConnectionMonitoring(TCPClientData tcpClientData, PortData portData)
@@ -1179,7 +1182,7 @@ public class NetworkConnectorCore
         }
         finally
         {
-            Debug.Log("結束接收。");
+           
         }
 
         udpData.Dispose();

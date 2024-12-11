@@ -25,7 +25,7 @@ public class NetworkPortTableUIManager : MonoBehaviour
 
         networkSettingUI.Confirm += OnConfirm;
         NetworkPortManager.Instance.PortDataUpdated += OnUpdate;
-        NetworkPortManager.Instance.LoadFromJson();
+        NetworkPortManager.Instance.LoadData();
         NetworkPortManager.Instance.InstantiateTables(prefabManager, uiCollector);
         NetworkPortManager.Instance.AddPortsToNetwork();
     }
