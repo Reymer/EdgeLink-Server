@@ -645,7 +645,12 @@ public class NetworkConnectorCore
                     LogDisconnection(remoteEndPoint);
                     break;
                 }
+                string currentMaskType;
 
+                lock (maskTypeLock)
+                {
+                    currentMaskType = tcpServerData.portData.MaskType;
+                }
                 // 將收到的字節轉換為字符串，並寫入累積緩衝區
                 string receivedData = Encoding.UTF8.GetString(buffer, 0, bytesRead);
                 dataBuffer.Append(receivedData);
@@ -747,7 +752,7 @@ public class NetworkConnectorCore
                 ProcessRobotTo16Message(packet, tcpServerData);
                 break;
             case "original data":
-                ProcessOriginalDataMessage(tcpServerData, packet, packet.Length);
+                HandleOriginalDataMessage(tcpServerData, packet, packet.Length);
                 break;
             default:
                 LogOnMainThread($"未識別的 MaskType: {currentMaskType}");
@@ -777,7 +782,7 @@ public class NetworkConnectorCore
         }
     }
 
-    private void ProcessOriginalDataMessage(TCPServerData tcpServerData, string data, int packetSize)
+    private void HandleOriginalDataMessage(TCPServerData tcpServerData, string data, int packetSize)
     {
         if (tcpServerData.portData == this.portData)
         {
