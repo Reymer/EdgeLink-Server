@@ -648,7 +648,12 @@ public class NetworkConnectorCore
                     LogDisconnection(remoteEndPoint);
                     break;
                 }
+                string currentMaskType;
 
+                lock (maskTypeLock)
+                {
+                    currentMaskType = tcpServerData.portData.MaskType;
+                }
                 // 將收到的字節轉換為字符串，並寫入累積緩衝區
                 string receivedData = Encoding.UTF8.GetString(buffer, 0, bytesRead);
                 dataBuffer.Append(receivedData);
@@ -656,7 +661,28 @@ public class NetworkConnectorCore
                 // 嘗試提取完整的封包
                 while (TryExtractCompletePacket(dataBuffer, out string completePacket))
                 {
-                    ProcessPacket(completePacket, tcpServerData);
+                    currentMaskType = tcpServerData.portData.MaskType;
+                }
+
+                switch (currentMaskType)
+                {
+                    case "Robot to 10":
+                        HandleRobotTo10Message(tcpServerData, buffer, bytesRead);
+                        break;
+
+                    case "Robot to 16":
+                        string data16 = Encoding.UTF8.GetString(buffer, 0, bytesRead);
+                        ProcessRobotTo16Message(data16, tcpServerData);
+                        break;
+
+                    case "original data":
+                        string originalData = Encoding.UTF8.GetString(buffer, 0, bytesRead);
+                        HandleOriginalDataMessage(tcpServerData, originalData, bytesRead);
+                        break;
+
+                    default:
+                        LogOnMainThread($"未識別的 MaskType: {currentMaskType}");
+                        break;
                 }
             }
         }
@@ -729,7 +755,7 @@ public class NetworkConnectorCore
                 ProcessRobotTo16Message(packet, tcpServerData);
                 break;
             case "original data":
-                ProcessOriginalDataMessage(tcpServerData, packet, packet.Length);
+                HandleOriginalDataMessage(tcpServerData, packet, packet.Length);
                 break;
             default:
                 LogOnMainThread($"未識別的 MaskType: {currentMaskType}");
@@ -759,7 +785,7 @@ public class NetworkConnectorCore
         }
     }
 
-    private void ProcessOriginalDataMessage(TCPServerData tcpServerData, string data, int packetSize)
+    private void HandleOriginalDataMessage(TCPServerData tcpServerData, string data, int packetSize)
     {
         if (tcpServerData.portData == this.portData)
         {
@@ -931,12 +957,12 @@ public class NetworkConnectorCore
         {
             case 4:
                 length = 0;
-                break;
+                    break;
 
             case 5:
-                if (length == 4)
+                if (length == 5)
                 {
-                    sourceBack[0] = BitConverter.ToSingle(sourceData, 0);
+                    sourceBack[0] = BitConverter.ToSingle(sourceData, 1);
                 }
                 break;
 
@@ -953,8 +979,9 @@ public class NetworkConnectorCore
         string message = function switch
         {
             4 => $"{function}:{state}:{length}",
-            5 => $"{function}:{state}:{length}:{sourceBack[0]}",
+            5 => $"{function}:{state}:{length}:{sourceData[0]}:{sourceBack[0]}",
             6 => $"{function}:{state}:{length}:{string.Join(":", sourceBack)}",
+            9 => $"{function}:{state}:{length}:{sourceData[0]}",
             _ => $"{function}:{state}:{length}"
 
         };
@@ -1050,7 +1077,7 @@ public class NetworkConnectorCore
                 byte[] buffer = Encoding.UTF8.GetBytes(message);
 
                 NetworkStream stream = tcpClinetData.tcpClient.GetStream();
-                await stream.WriteAsync(buffer, 0, buffer.Length);
+                await stream.WriteAsync(buffer, 0, buffer.Length); // 使用異步寫入
 
                 int packetSize = buffer.Length;
                 tcpClinetData.portData.IsConnected = true;
@@ -1096,23 +1123,91 @@ public class NetworkConnectorCore
         await stream.WriteAsync(message, 0, message.Length);
 
         tcpClientData.portData.IsConnected = true;
-        var ackbuffer = new byte[1024];
-        using var ctsAck = new CancellationTokenSource(200);
-        int ackBytesRead = await stream.ReadAsync(ackbuffer, 0, ackbuffer.Length, ctsAck.Token);
-        if (ackBytesRead > 0)
+
+
+
+        var buffer = new byte[1024];
+        try
         {
-            string ackMessage = BitConverter.ToString(ackbuffer, 0, ackBytesRead).Replace("-", " ");
-            LogMonitorMainThread($"ACK: {ackMessage}");
+            while (tcpClientData.tcpClient.Connected) // 持續監聽直到斷線
+            {
+                int bytesRead = await stream.ReadAsync(buffer, 0, buffer.Length);
+                if (bytesRead > 0)
+                {
+                    ProcessReceivedData(buffer, bytesRead);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            LogOnMainThread($"監聽期間出錯: {ex.Message}", isError: true);
         }
 
-        var responsebuffer = new byte[1024];
-        using var ctsResponse = new CancellationTokenSource(400);
-        int responseBytesRead = await stream.ReadAsync(responsebuffer, 0, responsebuffer.Length, ctsResponse.Token);
-        if (responseBytesRead > 0)
+        //var ackbuffer = new byte[1024];
+        //using var ctsAck = new CancellationTokenSource(200);
+        //int ackBytesRead = await stream.ReadAsync(ackbuffer, 0, ackbuffer.Length, ctsAck.Token);
+        //if (ackBytesRead > 0)
+        //{
+        //    string ackMessage = BitConverter.ToString(ackbuffer, 0, ackBytesRead).Replace("-", " ");
+        //    LogMonitorMainThread($"ACK: {ackMessage}");
+        //}
+
+        //var responsebuffer = new byte[1024];
+        //using var ctsResponse = new CancellationTokenSource(400);
+        //int responseBytesRead = await stream.ReadAsync(responsebuffer, 0, responsebuffer.Length, ctsResponse.Token);
+        //if (responseBytesRead > 0)
+        //{
+        //    string responseMessage = BitConverter.ToString(responsebuffer, 0, responseBytesRead).Replace("-", " ");
+        //    LogMonitorMainThread($"Response: {responseMessage}");
+        //    ProcessMessage(responsebuffer);
+        //}
+    }
+    private void ProcessReceivedData(byte[] buffer, int bytesRead)
+    {
+        int currentIndex = 0;
+        while (currentIndex < bytesRead)
         {
-            string responseMessage = BitConverter.ToString(responsebuffer, 0, responseBytesRead).Replace("-", " ");
-            LogMonitorMainThread($"Response: {responseMessage}");
-            ProcessMessage(responsebuffer);
+            // 找到頭標記
+            int startIndex = Array.IndexOf(buffer, (byte)0xDD, currentIndex);
+            if (startIndex == -1 || startIndex >= bytesRead)
+                break;
+
+            // 找到尾標記
+            int endIndex = Array.IndexOf(buffer, (byte)0x77, startIndex);
+            if (endIndex == -1 || endIndex >= bytesRead)
+                break;
+
+            // 確定封包長度並提取資料
+            int packetLength = endIndex - startIndex + 1;
+            if (packetLength <= 2) // 無效封包 (至少需要包含類型位元)
+            {
+                currentIndex = endIndex + 1;
+                continue;
+            }
+
+            byte[] packet = new byte[packetLength];
+            Array.Copy(buffer, startIndex, packet, 0, packetLength);
+
+            // 根據協議解析封包
+            byte type = packet[1]; // 第二個位元是類型
+            string messageContent = BitConverter.ToString(packet).Replace("-", " ");
+
+            if (type == 0x02) // ACK
+            {
+                LogMonitorMainThread($"ACK: {messageContent}");
+            }
+            else if (type == 0x03) // Response
+            {
+                LogMonitorMainThread($"Response: {messageContent}");
+                ProcessMessage(packet);
+            }
+            else
+            {
+                LogOnMainThread($"未知的回應類型: {type}", isError: true);
+            }
+
+            // 更新當前索引，繼續解析下一個封包
+            currentIndex = endIndex + 1;
         }
     }
 
