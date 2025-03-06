@@ -43,11 +43,13 @@ namespace DevKit.Tool
         
         public const string UI_NetProtocolDropdowm = "UI_NetProtocolDropdowm";
         
-        public const string UI_NameInput = "UI_NameInput";
-        
         public const string UI_DropdownMask = "UI_DropdownMask";
         
         public const string UI_Exit = "UI_Exit";
+        
+        public const string UI_LanguageDropdown = "UI_LanguageDropdown";
+        
+        public const string UI_NameInput = "UI_NameInput";
         
         public const string table_prococolText = "table_prococolText";
         

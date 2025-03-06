@@ -36,7 +36,6 @@ public class NetworkPortManager
     private NetworkPortManager(string customFilePath = null)
     {
         filePath = string.IsNullOrEmpty(customFilePath) ? Path.Combine(Application.dataPath, "portData.json") : customFilePath;
-        Debug.Log($"檔案路徑已設定為: {filePath}");
     }
 
     #endregion
@@ -51,6 +50,7 @@ public class NetworkPortManager
         consoleUI = GameObject.FindObjectOfType<ConsoleUI>(true);
         monitorConsole = GameObject.FindObjectOfType<MonitorConsole>(true);
         networkConnectorCore.Init(consoleUI, monitorConsole);
+        consoleUI.AddLog($"檔案路徑已設定為: {filePath}");
     }
 
     #endregion

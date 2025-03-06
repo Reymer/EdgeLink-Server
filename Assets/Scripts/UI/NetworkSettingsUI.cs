@@ -9,6 +9,8 @@ using Random = System.Random;
 using UnityEngine.UI;
 using System.Collections.Generic;
 using static NetworkPortManager;
+using System.Linq;
+using DevKit;
 
 public class NetworkSettingsUI : MonoBehaviour
 {
@@ -24,7 +26,7 @@ public class NetworkSettingsUI : MonoBehaviour
     private string targetIP;
     private bool isOpenConsole = true;
     private string maskType = "original data";
-
+    private TMP_Dropdown languageDropdown;
     #endregion
 
     #region Unity 生命週期
@@ -33,6 +35,7 @@ public class NetworkSettingsUI : MonoBehaviour
     {
         Init();
         Subscribe();
+        SetUpLanguageDropdown();
     }
 
     private void Update()
@@ -75,8 +78,19 @@ public class NetworkSettingsUI : MonoBehaviour
         uiCollector.GetAsset<TMP_InputField>(UIKey.UI_RemotePortInput).onValueChanged.AddListener(OnRemotePortInput);
         uiCollector.GetAsset<TMP_InputField>(UIKey.UI_LocalPortInput).onValueChanged.AddListener(OnLocalPortInput);
         uiCollector.GetAsset<TMP_InputField>(UIKey.UI_TargetIPInput).onValueChanged.AddListener(OnTargetInput);
-        uiCollector.GetAsset<InputField>(UIKey.UI_NameInput).onValueChanged.AddListener(OnNameInput);
+        uiCollector.GetAsset<TMP_InputField>(UIKey.UI_NameInput).onValueChanged.AddListener(OnNameInput);
         uiCollector.GetAsset<TMP_Dropdown>(UIKey.UI_DropdownMask).onValueChanged.AddListener(OnMaskDropdownValueChanged);
+        languageDropdown = uiCollector.GetAsset<TMP_Dropdown>(UIKey.UI_LanguageDropdown);
+    }
+    private void SetUpLanguageDropdown()
+    {
+        string[] shownNames = Localization.Instance.GetAllLanguageShownNames();
+        languageDropdown.AddOptions(shownNames.ToList());
+        languageDropdown.onValueChanged.AddListener(OnUserChangeLanguage);
+    }
+    private void OnUserChangeLanguage(int index)
+    {
+        Localization.Instance.SetCurrentLanguage(index);
     }
 
     #endregion
@@ -97,7 +111,7 @@ public class NetworkSettingsUI : MonoBehaviour
 
     private void Clear()
     {
-        uiCollector.GetAsset<InputField>(UIKey.UI_NameInput).text = string.Empty;
+        uiCollector.GetAsset<TMP_InputField>(UIKey.UI_NameInput).text = string.Empty;
         uiCollector.GetAsset<TMP_InputField>(UIKey.UI_RemotePortInput).text = string.Empty;
         uiCollector.GetAsset<TMP_InputField>(UIKey.UI_LocalPortInput).text = string.Empty;
         uiCollector.GetAsset<TMP_InputField>(UIKey.UI_TargetIPInput).text = string.Empty;

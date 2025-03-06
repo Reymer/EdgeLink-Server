@@ -37,9 +37,10 @@ MonoBehaviour:
   - UI_TargetIPInput
   - UI_Title
   - UI_NetProtocolDropdowm
-  - UI_NameInput
   - UI_DropdownMask
   - UI_Exit
+  - UI_LanguageDropdown
+  - UI_NameInput
   - table_prococolText
   - table_remoteText
   - table_netReceived
@@ -101,9 +102,10 @@ MonoBehaviour:
     - UI_TargetIPInput
     - UI_Title
     - UI_NetProtocolDropdowm
-    - UI_NameInput
     - UI_DropdownMask
     - UI_Exit
+    - UI_LanguageDropdown
+    - UI_NameInput
   - id: -1
     guid: ead97c791377951419dc7f025be1c6f9
     keys:

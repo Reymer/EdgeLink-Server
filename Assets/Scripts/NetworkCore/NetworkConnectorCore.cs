@@ -1422,7 +1422,10 @@ public class NetworkConnectorCore
             {
                 Debug.Log(formattedMessage);
             }
-            consoleUI.AddLog(formattedMessage);
+            if(consoleUI != null)
+            {
+                consoleUI.AddLog(formattedMessage);
+            }
         });
     }
 
