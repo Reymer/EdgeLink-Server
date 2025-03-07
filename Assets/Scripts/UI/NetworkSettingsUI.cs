@@ -1,4 +1,4 @@
-using DevKit.Tool;
+﻿using DevKit.Tool;
 using System;
 using UnityEngine;
 using TMPro;
@@ -82,6 +82,8 @@ public class NetworkSettingsUI : MonoBehaviour
         uiCollector.GetAsset<TMP_Dropdown>(UIKey.UI_DropdownMask).onValueChanged.AddListener(OnMaskDropdownValueChanged);
         languageDropdown = uiCollector.GetAsset<TMP_Dropdown>(UIKey.UI_LanguageDropdown);
     }
+
+    #region 多語系
     private void SetUpLanguageDropdown()
     {
         string[] shownNames = Localization.Instance.GetAllLanguageShownNames();
@@ -92,6 +94,7 @@ public class NetworkSettingsUI : MonoBehaviour
     {
         Localization.Instance.SetCurrentLanguage(index);
     }
+    #endregion
 
     #endregion
 

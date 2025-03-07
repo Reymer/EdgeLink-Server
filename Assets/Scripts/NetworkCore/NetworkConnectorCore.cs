@@ -422,7 +422,6 @@ public class NetworkConnectorCore
                 existingServerData.udpClient?.Dispose();
                 existingServerData.udpClient = null;
                 existingServerData.IsConnecting = false;
-                LogOnMainThread($"端口 {portData.RemotePortDetails.Port} 的 UDP 伺服器已停止，準備重新啟動。");
                 Task.Delay(100).Wait();
             }
             catch (Exception ex)

@@ -1,3 +1,4 @@
+﻿using DevKit;
 using DevKit.Tool;
 using System;
 using TMPro;
@@ -65,8 +66,8 @@ public class Table : MonoBehaviour
         SetValue(UIKey.table_COMReceived, portData.COMReceived.ToString());
         SetValue(UIKey.table_netReceived, portData.NetReceived.ToString());
         SetValue(UIKey.table_ForwardTargetText, portData.TargetIP);
-        SetValue(UIKey.table_netReceivedStatus, GetIsConnecting(portData));
-
+        var localize_Text = uiCollector.GetAsset<UILocalizeTMP_Text>(UIKey.table_netReceivedStatusRoot);
+        localize_Text.SetKey(GetIsConnecting(portData));
         CreateMaskData();
 
         var dropdown = uiCollector.GetAsset<TMP_Dropdown>(UIKey.table_DropdownMask);
@@ -111,7 +112,7 @@ public class Table : MonoBehaviour
             {
                 uiCollector.Active(UIKey.table_ConnectRoot);
                 uiCollector.Deactive(UIKey.table_DisconnectedRoot);
-                return "Not Connecting";
+                return "NotConnecting";
             }
         }
         return "Not Connecting";
@@ -132,8 +133,6 @@ public class Table : MonoBehaviour
         }
 
         maskType = data[index].text;
-        Debug.Log($"Mask type set to: {maskType}");
-
         currentPortData.MaskType = maskType;
         HandleAction(OnMask);
     }

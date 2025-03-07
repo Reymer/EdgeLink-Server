@@ -24,6 +24,7 @@ MonoBehaviour:
   - UI_OK
   - UI_Console
   - UI_clear
+  - UI_Exit
   - UI_Tables
   - UI_MenuRoot
   - UI_ConsoleUI
@@ -31,31 +32,32 @@ MonoBehaviour:
   - UI_TargetIPMask
   - UI_RemotePortsMask
   - UI_LocalPortsMask
+  - UI_LanguageDropdown
   - UI_NetProtrocolTitle
-  - UI_RemotePortInput
-  - UI_LocalPortInput
-  - UI_TargetIPInput
   - UI_Title
   - UI_NetProtocolDropdowm
   - UI_DropdownMask
-  - UI_Exit
-  - UI_LanguageDropdown
+  - UI_RemotePortInput
+  - UI_LocalPortInput
+  - UI_TargetIPInput
   - UI_NameInput
   - table_prococolText
-  - table_remoteText
-  - table_netReceived
-  - table_localPortText
-  - table_COMReceived
-  - table_ForwardTargetText
-  - table_netReceivedStatus
-  - table_DropdownMask
   - table_Delete
   - table_Connect
   - table_Disconnected
   - table_Monitor
   - table_ConnectRoot
   - table_DisconnectedRoot
+  - table_netReceivedStatusRoot
+  - table_remoteText
+  - table_netReceived
+  - table_localPortText
+  - table_COMReceived
+  - table_ForwardTargetText
+  - table_netReceivedStatus
   - table_nameText
+  - table_DropdownMask
+  - table_DropdownMaskRoot
   - Monitor_Close
   - Monitor_Monitor
   IncreaseCollectorID: 0
@@ -89,6 +91,7 @@ MonoBehaviour:
     - UI_OK
     - UI_Console
     - UI_clear
+    - UI_Exit
     - UI_Tables
     - UI_MenuRoot
     - UI_ConsoleUI
@@ -96,15 +99,14 @@ MonoBehaviour:
     - UI_TargetIPMask
     - UI_RemotePortsMask
     - UI_LocalPortsMask
+    - UI_LanguageDropdown
     - UI_NetProtrocolTitle
-    - UI_RemotePortInput
-    - UI_LocalPortInput
-    - UI_TargetIPInput
     - UI_Title
     - UI_NetProtocolDropdowm
     - UI_DropdownMask
-    - UI_Exit
-    - UI_LanguageDropdown
+    - UI_RemotePortInput
+    - UI_LocalPortInput
+    - UI_TargetIPInput
     - UI_NameInput
   - id: -1
     guid: ead97c791377951419dc7f025be1c6f9
@@ -113,6 +115,13 @@ MonoBehaviour:
   - id: -1
     guid: e15e3e80ef79d004db95693a4cf03589
     keys:
+    - table_Delete
+    - table_Connect
+    - table_Disconnected
+    - table_Monitor
+    - table_ConnectRoot
+    - table_DisconnectedRoot
+    - table_netReceivedStatusRoot
     - table_prococolText
     - table_remoteText
     - table_netReceived
@@ -120,14 +129,9 @@ MonoBehaviour:
     - table_COMReceived
     - table_ForwardTargetText
     - table_netReceivedStatus
-    - table_DropdownMask
-    - table_Delete
-    - table_Connect
-    - table_Disconnected
-    - table_Monitor
-    - table_ConnectRoot
-    - table_DisconnectedRoot
     - table_nameText
+    - table_DropdownMask
+    - table_DropdownMaskRoot
   - id: -1
     guid: 7639347123f1f534db883fbf21df1a64
     keys:
