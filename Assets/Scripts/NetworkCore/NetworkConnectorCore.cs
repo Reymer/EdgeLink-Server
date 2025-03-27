@@ -9,7 +9,6 @@ using System;
 using UnityEngine;
 using DevKit.Console;
 using static NetworkPortManager;
-using System.Buffers;
 using System.Linq;
 
 public class NetworkConnectorCore
@@ -45,10 +44,15 @@ public class NetworkConnectorCore
         }
     }
 
+    /// <summary>
+    /// TCP 伺服器資料
+    /// </summary>
     public class TCPServerData : IDisposable
     {
         public TcpListener tcpListener;
         public CancellationTokenSource CancellationTokenSource = new();
+        public AsyncMessageQueue<byte[]> asyncMessageQueue = new();
+        public IPEndPoint RemoteEndPoint;
         public PortData portData;
         public string sourceData = string.Empty;
         public bool disposed = false;
@@ -67,6 +71,9 @@ public class NetworkConnectorCore
         }
     }
 
+    /// <summary>
+    /// TCP 客戶端資料
+    /// </summary>
     public class TCPClientData : IDisposable
     {
         public TcpClient tcpClient;
@@ -90,7 +97,14 @@ public class NetworkConnectorCore
         }
     }
 
-    #region 私有幫助方法
+
+    #region 釋放資源
+    /// <summary>
+    /// 釋放資源
+    /// </summary>
+    /// <param name="disposed"></param>
+    /// <param name="lockObj"></param>
+    /// <param name="disposeAction"></param>
 
     private static void DisposeResources(ref bool disposed, object lockObj, Action disposeAction)
     {
@@ -104,12 +118,18 @@ public class NetworkConnectorCore
 
     #endregion
 
+    #region 初始化
+    /// <summary>
+    /// 初始化
+    /// </summary>
+    /// <param name="consoleUI"></param>
+    /// <param name="monitorConsole"></param>
     public void Init(ConsoleUI consoleUI, MonitorConsole monitorConsole)
     {
         this.consoleUI = consoleUI;
         this.monitorConsole = monitorConsole;
     }
-
+    #endregion
     #endregion
 
     #region 資料字典存取
@@ -459,7 +479,6 @@ public class NetworkConnectorCore
         }
     }
 
-
     #endregion
 
     #region 停止 TCP 或 UDP 連線邏輯
@@ -535,9 +554,10 @@ public class NetworkConnectorCore
     }
 
     /// <summary>
-    /// Restarts an existing TCP listener, resetting its cancellation token.
+    /// 重新啟動 TCP 監聽器。
     /// </summary>
-    /// <param name="tcpServerData">The TCP server data to restart.</param>
+    /// <param name="tcpServerData"></param>
+
     private void RestartTcpListener(TCPServerData tcpServerData)
     {
         if (tcpServerData.CancellationTokenSource != null && !tcpServerData.CancellationTokenSource.IsCancellationRequested)
@@ -554,9 +574,9 @@ public class NetworkConnectorCore
     }
 
     /// <summary>
-    /// Disposes and stops a TCP server listener, removing it from the dictionary.
+    /// 釋放 TCP 伺服器。
     /// </summary>
-    /// <param name="portData">The port data of the listener to dispose.</param>
+    /// <param name="portData"></param>
     private void DisposeTcpServer(PortData portData)
     {
         if (tcpServerdatas.TryRemove(portData.LocalPortDetails.Port, out TCPServerData tcpServerData))
@@ -578,9 +598,9 @@ public class NetworkConnectorCore
     }
 
     /// <summary>
-    /// Disconnects a TCP server and updates the connection status for a single client.
+    /// 斷開 TCP 伺服器。
     /// </summary>
-    /// <param name="portData">The port data of the server to disconnect.</param>
+    /// <param name="portData"></param>
     private void DisconnectTcpServer(PortData portData)
     {
         if (tcpServerdatas.TryGetValue(portData.ProtocolName, out TCPServerData tcpServerData))
@@ -592,6 +612,11 @@ public class NetworkConnectorCore
         }
     }
 
+    /// <summary>
+    /// 監聽 TCP 客戶端。
+    /// </summary>
+    /// <param name="tcpServerData"></param>
+    /// <returns></returns>
     private async Task ListenForTcpClients(TCPServerData tcpServerData)
     {
         try
@@ -601,10 +626,16 @@ public class NetworkConnectorCore
                 try
                 {
                     var client = await tcpServerData.tcpListener.AcceptTcpClientAsync();
+                    tcpServerData.RemoteEndPoint = client.Client.RemoteEndPoint as IPEndPoint;
                     tcpServerData.portData.IsConnected = true;
-                    LogOnMainThread($"新客戶端已連線: {client.Client.RemoteEndPoint}");
+
+                    LogOnMainThread($"新客戶端已連線: {tcpServerData.RemoteEndPoint}");
+                    SendClientEventMessage(tcpServerData, "CONNECTED");
+
                     UnityMainThreadDispatcher.Instance().Enqueue(() => tcpServerData.portData.OnUpdate?.Invoke(tcpServerData.portData));
+
                     _ = Task.Run(() => ReceiveTcpMessages(client, tcpServerData));
+                    _ = Task.Run(() => ProcessTcpPackets(tcpServerData));
                 }
                 catch (SocketException ex)
                 {
@@ -626,80 +657,122 @@ public class NetworkConnectorCore
         }
     }
 
-    private readonly object maskTypeLock = new();
-
+    /// <summary>
+    /// 接收來自 TCP 客戶端的訊息。
+    /// </summary>
+    /// <param name="client"></param>
+    /// <param name="tcpServerData"></param>
+    /// <returns></returns>
     private async Task ReceiveTcpMessages(TcpClient client, TCPServerData tcpServerData)
     {
-        IPEndPoint remoteEndPoint = client.Client.RemoteEndPoint as IPEndPoint;
+        tcpServerData.RemoteEndPoint = client.Client.RemoteEndPoint as IPEndPoint;
         NetworkStream stream = client.GetStream();
         var buffer = new byte[1024];
-        var dataBuffer = new StringBuilder();  // 用於累積接收到的數據
 
         try
         {
-            while (true)
+            while (!tcpServerData.CancellationTokenSource.Token.IsCancellationRequested)
             {
-                tcpServerData.CancellationTokenSource.Token.ThrowIfCancellationRequested();
-
                 int bytesRead = await stream.ReadAsync(buffer, 0, buffer.Length, tcpServerData.CancellationTokenSource.Token);
                 if (bytesRead <= 0)
                 {
-                    LogDisconnection(remoteEndPoint);
+                    LogOnMainThread($"客戶端 {tcpServerData.RemoteEndPoint} 已斷開連接。");
                     break;
                 }
-                string currentMaskType;
 
-                lock (maskTypeLock)
-                {
-                    currentMaskType = tcpServerData.portData.MaskType;
-                }
-                // 將收到的字節轉換為字符串，並寫入累積緩衝區
-                string receivedData = Encoding.UTF8.GetString(buffer, 0, bytesRead);
-                dataBuffer.Append(receivedData);
-
-                // 嘗試提取完整的封包
-                while (TryExtractCompletePacket(dataBuffer, out string completePacket))
-                {
-                    currentMaskType = tcpServerData.portData.MaskType;
-                }
-
-                switch (currentMaskType)
-                {
-                    case "Robot to 10":
-                        HandleRobotTo10Message(tcpServerData, buffer, bytesRead);
-                        break;
-
-                    case "Robot to 16":
-                        string data16 = Encoding.UTF8.GetString(buffer, 0, bytesRead);
-                        ProcessRobotTo16Message(data16, tcpServerData);
-                        break;
-
-                    case "original data":
-                        string originalData = Encoding.UTF8.GetString(buffer, 0, bytesRead);
-                        HandleOriginalDataMessage(tcpServerData, originalData, bytesRead);
-                        break;
-
-                    default:
-                        LogOnMainThread($"未識別的 MaskType: {currentMaskType}");
-                        break;
-                }
+                byte[] packet = new byte[bytesRead];
+                Array.Copy(buffer, 0, packet, 0, bytesRead);
+                tcpServerData.asyncMessageQueue.Enqueue(packet);
             }
         }
         catch (OperationCanceledException)
         {
-            LogOnMainThread($"接收訊息已被取消: {remoteEndPoint}");
+            LogOnMainThread($"接收訊息已被取消: {tcpServerData.RemoteEndPoint}");
         }
         catch (Exception ex)
         {
-            LogOnMainThread($"接收來自 {remoteEndPoint} 的訊息時發生錯誤: {ex.Message}");
+            LogOnMainThread($"接收來自 {tcpServerData.RemoteEndPoint} 的訊息時發生錯誤: {ex.Message}");
         }
         finally
         {
             client.Close();
             tcpServerData.portData.IsConnected = false;
+            SendClientEventMessage(tcpServerData, "DISCONNECTED", "Remote closed or error");
             UnityMainThreadDispatcher.Instance().Enqueue(() => tcpServerData.portData.OnUpdate?.Invoke(tcpServerData.portData));
         }
     }
+
+    /// <summary>
+    /// 處理 TCP 封包。
+    /// </summary>
+    /// <param name="tcpServerData"></param>
+    /// <returns></returns>
+    private async Task ProcessTcpPackets(TCPServerData tcpServerData)
+    {
+        var dataBuffer = new StringBuilder();
+        var token = tcpServerData.CancellationTokenSource.Token;
+        string source = tcpServerData.RemoteEndPoint?.ToString() ?? "Unknown";
+
+        try
+        {
+            while (!token.IsCancellationRequested)
+            {
+                byte[] packet = await tcpServerData.asyncMessageQueue.DequeueAsync(token);
+                string receivedData = Encoding.UTF8.GetString(packet);
+                dataBuffer.Append(receivedData);
+
+                while (TryExtractCompletePacket(dataBuffer, out string completePacket))
+                {
+                    string currentMaskType;
+                    currentMaskType = tcpServerData.portData.MaskType;
+
+                    try
+                    {
+                        switch (currentMaskType)
+                        {
+                            case "Robot to 10":
+                                var packetBytes = Encoding.UTF8.GetBytes(completePacket);
+                                HandleRobotTo10Message(tcpServerData, packetBytes, packetBytes.Length);
+                                break;
+
+                            case "Robot to 16":
+                                ProcessRobotTo16Message(completePacket, tcpServerData);
+                                break;
+
+                            case "original data":
+                                HandleOriginalDataMessage(tcpServerData, completePacket, completePacket.Length);
+                                break;
+
+                            default:
+                                LogOnMainThread($"[{source}] 未識別的 MaskType: {currentMaskType}");
+                                break;
+                        }
+
+                        LogMonitorMainThread($"[{source}] 處理封包成功: {completePacket}");
+                    }
+                    catch (Exception innerEx)
+                    {
+                        LogOnMainThread($"[{source}] 處理封包失敗: {completePacket}，錯誤: {innerEx.Message}", isError: true);
+                    }
+                }
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            LogOnMainThread($"[{source}] 封包處理取消");
+        }
+        catch (Exception ex)
+        {
+            LogOnMainThread($"[{source}] 封包處理錯誤: {ex.Message}", isError: true);
+        }
+    }
+
+    /// <summary>
+    /// 嘗試提取完整的封包。
+    /// </summary>
+    /// <param name="dataBuffer"></param>
+    /// <param name="completePacket"></param>
+    /// <returns></returns>
 
     private bool TryExtractCompletePacket(StringBuilder dataBuffer, out string completePacket)
     {
@@ -734,38 +807,30 @@ public class NetworkConnectorCore
         }
     }
 
-
-
-    private void ProcessPacket(string packet, TCPServerData tcpServerData)
+    /// <summary>
+    /// 發送事件消息到 TCP 客戶端。
+    /// </summary>
+    /// <param name="serverData"></param>
+    /// <param name="eventType"></param>
+    /// <param name="reason"></param>
+    private void SendClientEventMessage(TCPServerData serverData, string eventType, string reason = null)
     {
-        string currentMaskType;
-
-        lock (maskTypeLock)
+        if (tcpClientdatas.TryGetValue(serverData.portData.ProtocolName, out var clientData) &&
+            clientData.IsConnecting &&
+            clientData.tcpClient?.Connected == true)
         {
-            currentMaskType = tcpServerData.portData.MaskType;
-        }
+            var stream = clientData.tcpClient.GetStream();
 
-        switch (currentMaskType)
-        {
-            case "Robot to 10":
-                HandleRobotTo10Message(tcpServerData, Encoding.UTF8.GetBytes(packet), packet.Length);
-                break;
-            case "Robot to 16":
-                ProcessRobotTo16Message(packet, tcpServerData);
-                break;
-            case "original data":
-                HandleOriginalDataMessage(tcpServerData, packet, packet.Length);
-                break;
-            default:
-                LogOnMainThread($"未識別的 MaskType: {currentMaskType}");
-                break;
+            byte[] buffer = Encoding.UTF8.GetBytes(eventType + "\n");
+            stream.Write(buffer, 0, buffer.Length);
+
+            LogMonitorMainThread($"主動通知 Client: {eventType}");
         }
     }
 
-
     private void LogDisconnection(IPEndPoint remoteEndPoint)
     {
-        LogOnMainThread($"客戶端 {remoteEndPoint} 已斷開連接。");
+   
     }
 
     private void HandleRobotTo10Message(TCPServerData tcpServerData, byte[] buffer, int bytesRead)
@@ -1398,6 +1463,41 @@ public class NetworkConnectorCore
         });
     }
 
+
+    #endregion
+
+    #region 異步訊息佇列
+    /// <summary>
+    /// 異步訊息佇列
+    /// </summary>
+    /// <typeparam name="T"></typeparam>
+    public class AsyncMessageQueue<T>
+    {
+        private readonly ConcurrentQueue<T> queue = new();
+        private readonly SemaphoreSlim semaphoreSlim = new(0);
+
+        /// <summary>
+        /// 放入佇列
+        /// </summary>
+        /// <param name="item"></param>
+        public void Enqueue(T item)
+        {
+            queue.Enqueue(item);
+            semaphoreSlim.Release();
+        }
+
+        /// <summary>
+        /// 取出佇列
+        /// </summary>
+        /// <param name="cancellationToken"></param>
+        /// <returns></returns>
+        public async Task<T> DequeueAsync(CancellationToken cancellationToken = default)
+        {
+            await semaphoreSlim.WaitAsync(cancellationToken);
+            queue.TryDequeue(out var item);
+            return item;
+        }
+    }
 
     #endregion
 
