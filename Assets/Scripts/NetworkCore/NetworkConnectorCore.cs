@@ -721,10 +721,18 @@ public class NetworkConnectorCore
                 string receivedData = Encoding.UTF8.GetString(packet);
                 dataBuffer.Append(receivedData);
 
-                while (TryExtractCompletePacket(dataBuffer, out string completePacket))
+                string bufferString = dataBuffer.ToString();
+                string[] packets = bufferString.Split('\n');
+
+                // 最後一個可能是不完整的封包，不處理，保留回去
+                for (int i = 0; i < packets.Length - 1; i++)
                 {
-                    string currentMaskType;
-                    currentMaskType = tcpServerData.portData.MaskType;
+                    string completePacket = packets[i].Trim(); // 去掉空白與 \r
+
+                    if (string.IsNullOrWhiteSpace(completePacket))
+                        continue;
+
+                    string currentMaskType = tcpServerData.portData.MaskType;
 
                     try
                     {
@@ -740,20 +748,26 @@ public class NetworkConnectorCore
                                 break;
 
                             case "original data":
-                                HandleOriginalDataMessage(tcpServerData, completePacket, completePacket.Length);
+                                var originalBytes = Encoding.UTF8.GetBytes(completePacket);
+                                HandleOriginalDataMessage(tcpServerData, completePacket, originalBytes.Length);
                                 break;
 
                             default:
                                 LogOnMainThread($"[{source}] 未識別的 MaskType: {currentMaskType}");
                                 break;
                         }
-
-                        LogMonitorMainThread($"[{source}] 處理封包成功: {completePacket}");
                     }
                     catch (Exception innerEx)
                     {
                         LogOnMainThread($"[{source}] 處理封包失敗: {completePacket}，錯誤: {innerEx.Message}", isError: true);
                     }
+                }
+
+                // 將最後一個未結束的片段保留下來
+                dataBuffer.Clear();
+                if (!bufferString.EndsWith("\n"))
+                {
+                    dataBuffer.Append(packets[^1]); // C# 8.0 以後可用 ^1 代表最後一個元素
                 }
             }
         }
@@ -767,6 +781,8 @@ public class NetworkConnectorCore
         }
     }
 
+
+
     /// <summary>
     /// 嘗試提取完整的封包。
     /// </summary>
@@ -777,35 +793,20 @@ public class NetworkConnectorCore
     private bool TryExtractCompletePacket(StringBuilder dataBuffer, out string completePacket)
     {
         completePacket = null;
+        string bufferStr = dataBuffer.ToString();
 
-        // 查找資料中的 ID 部分
-        int idStartIndex = dataBuffer.ToString().IndexOf("ID");
-        if (idStartIndex == -1)
-        {
-            return false;  // 如果找不到 ID，返回 false
-        }
+        int newlineIndex = bufferStr.IndexOf('\n');
+        if (newlineIndex == -1)
+            return false;
 
-        // 查找下一個資料包的開始（下一個 "ID"）
-        int nextIdStartIndex = dataBuffer.ToString().IndexOf("ID", idStartIndex + 2);
-        if (nextIdStartIndex == -1)
-        {
-            // 如果找不到下一個 ID，說明這是最後一個資料包
-            // 直到緩衝區的結尾為止
-            completePacket = dataBuffer.ToString(idStartIndex, dataBuffer.Length - idStartIndex);
-            dataBuffer.Clear(); // 清除緩衝區，因為資料包已處理完
-            return true;
-        }
-        else
-        {
-            // 如果找到下一個 ID，提取從當前 ID 到下一個 ID 之間的資料包
-            completePacket = dataBuffer.ToString(idStartIndex, nextIdStartIndex - idStartIndex);
+        completePacket = bufferStr.Substring(0, newlineIndex).TrimEnd('\r');
+        dataBuffer.Remove(0, newlineIndex + 1); // ✅ 這行很重要
 
-            // 移除已經處理過的部分，保留剩餘資料
-            dataBuffer.Remove(0, nextIdStartIndex);
-
-            return true;
-        }
+        return true;
     }
+
+
+
 
     /// <summary>
     /// 發送事件消息到 TCP 客戶端。
@@ -828,11 +829,6 @@ public class NetworkConnectorCore
         }
     }
 
-    private void LogDisconnection(IPEndPoint remoteEndPoint)
-    {
-   
-    }
-
     private void HandleRobotTo10Message(TCPServerData tcpServerData, byte[] buffer, int bytesRead)
     {
         byte[] messageData = new byte[bytesRead];
@@ -853,8 +849,9 @@ public class NetworkConnectorCore
     {
         if (tcpServerData.portData == this.portData)
         {
-            LogMonitorMainThread($"收到訊息，資料大小: {packetSize}，資料: {data}");
-        }
+            string timestamp = DateTime.Now.ToString("HH:mm:ss.fff");
+            LogMonitorMainThread($"[{timestamp}] 收到訊息，資料大小: {packetSize}，資料: {data}");
+        }    
 
         if (tcpClientdatas.TryGetValue(tcpServerData.portData.ProtocolName, out var tcpClientData) && tcpClientData.IsConnecting)
         {
@@ -1148,7 +1145,8 @@ public class NetworkConnectorCore
 
                 if (tcpClinetData.portData == this.portData)
                 {
-                    string messageTmp = $"傳送訊息，資料大小: {packetSize}，資料: {message}";
+                    string timestamp = DateTime.Now.ToString("HH:mm:ss.fff");
+                    string messageTmp = $"[ {timestamp} ] 收到訊息，資料大小: : {packetSize}，資料: {message}";
                     LogMonitorMainThread(messageTmp);
                 }
 
