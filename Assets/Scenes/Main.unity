@@ -9160,6 +9160,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 8bcc4c0245578874ebead4cc95e1f458, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  networkPortTableUIManager: {fileID: 625530670}
 --- !u!114 &1200409096
 MonoBehaviour:
   m_ObjectHideFlags: 0
