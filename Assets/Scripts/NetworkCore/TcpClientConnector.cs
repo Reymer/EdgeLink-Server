@@ -40,7 +40,6 @@ public class TcpClientConnector
         {
             LogHelper.LogToConsole($"手動重新連線 TCP Client: {portData.ProtocolName}");
 
-            // ✅ 先取消舊的 token
             try
             {
                 if (!clientData.CancellationTokenSource.IsCancellationRequested)
@@ -51,7 +50,6 @@ public class TcpClientConnector
                 LogHelper.LogToConsole($"取消舊 CancellationToken 時出錯: {ex.Message}", isError: true);
             }
 
-            // ✅ 重新建立
             clientData.CancellationTokenSource = new CancellationTokenSource();
 
             try
@@ -67,7 +65,6 @@ public class TcpClientConnector
             clientData.tcpClient = new TcpClient();
             clientData.portData.IsConnected = false;
 
-            // ✅ 正式啟動新的連線任務
             _ = ConnectTcpClient(clientData);
         }
         else

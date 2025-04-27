@@ -2,9 +2,7 @@
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
-using System.Net.Sockets;
 using System.Text;
-using System.Threading;
 using static NetworkPortManager;
 
 public class NetworkMessageRouter
@@ -14,8 +12,6 @@ public class NetworkMessageRouter
 
     private readonly ConcurrentDictionary<string, TCPClientData> tcpClients = new();
     private readonly ConcurrentDictionary<string, TCPServerData> tcpServers = new();
-
-    private PortData monitorPortData = null;
 
     private NetworkMessageRouter() { }
     public void RegisterTcpClient(string protocolName, TCPClientData clientData)

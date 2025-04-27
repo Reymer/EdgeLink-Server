@@ -53,7 +53,6 @@ public class NetworkPortManager
         public int NetReceived { get; set; } = 0;
         public string MaskType { get; set; }
 
-        // ✅ 新增統計欄位
         [JsonIgnore]
         public int CurrentConnections { get; set; } = 0;  // 當前連線數（TCP Server專用）
 
