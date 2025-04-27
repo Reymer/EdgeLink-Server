@@ -8,6 +8,11 @@ public class UnityMainThreadDispatcher : MonoBehaviour
     private static readonly Queue<Action> executionQueue = new();
     private static bool isQuitting = false;
 
+    /// <summary>
+    /// 獲取 UnityMainThreadDispatcher 實例
+    /// </summary>
+    /// <returns></returns>
+    /// <exception cref="Exception"></exception>
     public static UnityMainThreadDispatcher Instance()
     {
         if (isQuitting)
@@ -22,8 +27,6 @@ public class UnityMainThreadDispatcher : MonoBehaviour
         }
         return instance;
     }
-
-
 
     private void Awake()
     {
@@ -48,6 +51,10 @@ public class UnityMainThreadDispatcher : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// 將 Action 加入執行佇列
+    /// </summary>
+    /// <param name="action"></param>
     public void Enqueue(Action action)
     {
         lock (executionQueue)

@@ -1,7 +1,7 @@
-F:\iot-server\Excel
+C:\Projects\iot-server-gitlab\Excel
 0
 0
 iotserver
-F:\iot-server\GameData
-F:\iot-server\Assets\GameData
+C:\Projects\iot-server-gitlab\GameData
+C:\Projects\iot-server-gitlab\Assets\GameData
 False

@@ -1,17 +1,34 @@
 [
   {
-    "ProtocolName": "123",
-    "NetProtocol": "UDP",
+    "ProtocolName": "1234",
+    "NetProtocol": "TCP Server",
     "LocalPortDetails": {
-      "Port": "333",
+      "Port": "8888",
       "Description": null
     },
     "RemotePortDetails": {
-      "Port": "333",
+      "Port": "--",
       "Description": null
     },
-    "TargetIP": "123",
-    "IsConnected": true,
+    "TargetIP": null,
+    "IsConnected": false,
+    "COMReceived": 0,
+    "NetReceived": 0,
+    "MaskType": "original data"
+  },
+  {
+    "ProtocolName": "1234",
+    "NetProtocol": "TCP Client",
+    "LocalPortDetails": {
+      "Port": "--",
+      "Description": null
+    },
+    "RemotePortDetails": {
+      "Port": "1111",
+      "Description": null
+    },
+    "TargetIP": "192.168.1.102",
+    "IsConnected": false,
     "COMReceived": 0,
     "NetReceived": 0,
     "MaskType": "original data"

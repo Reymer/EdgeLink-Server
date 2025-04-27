@@ -1,4 +1,4 @@
-﻿namespace iotserver {
+namespace iotserver {
     public static class LanguageKeys {
         public static readonly string Name = "Name";
         public static readonly string NetProtocol = "NetProtocol";
