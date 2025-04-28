@@ -10,10 +10,10 @@ public class TCPServerData : DisposableBase
     public AsyncMessageQueue<byte[]> asyncMessageQueue = new();
     public IPEndPoint RemoteEndPoint;
     public PortData portData;
-    public int TotalConnections { get; set; } = 0;     // 累計連進來的 Client 數量
-    public int CurrentConnections { get; set; } = 0;   // 當前連線中的 Client 數量
-    public long TotalReceivedBytes { get; set; } = 0;  // 累計收到的資料量
-    public long TotalSentBytes { get; set; } = 0;      // 累計發送的資料量
+    public int TotalConnections { get; set; } = 0;    
+    public int CurrentConnections { get; set; } = 0;  
+    public long TotalReceivedBytes { get; set; } = 0;  
+    public long TotalSentBytes { get; set; } = 0;     
 
     public string sourceData = string.Empty;
 

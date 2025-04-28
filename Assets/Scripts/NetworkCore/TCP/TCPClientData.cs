@@ -1,13 +1,14 @@
-
 using static NetworkPortManager;
 using System.Net.Sockets;
 using System.Threading;
-using System;
+using System.Threading.Tasks;
 
 public class TCPClientData : DisposableBase
 {
     public TcpClient tcpClient;
     public CancellationTokenSource CancellationTokenSource = new();
+    public Task HeartbeatTask;
+
     public PortData portData;
 
     protected override void DisposeManagedResources()

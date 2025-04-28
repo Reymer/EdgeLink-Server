@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Concurrent;
-using System.Collections.Generic;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
@@ -9,7 +8,7 @@ using System.Threading.Tasks;
 using UnityEngine;
 using static NetworkPortManager;
 
-public class TcpServerConnector
+public class TCPServerConnector
 {
     private readonly ConcurrentDictionary<string, TCPServerData> tcpServers = new();
 

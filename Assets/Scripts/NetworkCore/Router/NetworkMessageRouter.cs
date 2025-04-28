@@ -14,48 +14,56 @@ public class NetworkMessageRouter
     private readonly ConcurrentDictionary<string, TCPServerData> tcpServers = new();
 
     private NetworkMessageRouter() { }
+
+    /// <summary>
+    /// 註冊 TCP Client
+    /// </summary>
+    /// <param name="protocolName"></param>
+    /// <param name="clientData"></param>
     public void RegisterTcpClient(string protocolName, TCPClientData clientData)
     {
         tcpClients[protocolName] = clientData;
     }
 
+    /// <summary>
+    /// 註銷 TCP Client
+    /// </summary>
+    /// <param name="protocolName"></param>
     public void UnregisterTcpClient(string protocolName)
     {
         tcpClients.TryRemove(protocolName, out _);
     }
 
+    /// <summary>
+    /// 註冊 TCP Server
+    /// </summary>
+    /// <param name="protocolName"></param>
+    /// <param name="serverData"></param>
     public void RegisterTcpServer(string protocolName, TCPServerData serverData)
     {
         tcpServers[protocolName] = serverData;
     }
 
+    /// <summary>
+    /// 註銷 TCP Server
+    /// </summary>
+    /// <param name="protocolName"></param>
     public void UnregisterTcpServer(string protocolName)
     {
         tcpServers.TryRemove(protocolName, out _);
     }
 
-    public void RouteMessage(object sourceData, byte[] rawBytes, string parsedMessage)
+    /// <summary>
+    /// 路由 TCP Server 收到的封包
+    /// </summary>
+    /// <param name="serverData"></param>
+    /// <param name="rawBytes"></param>
+    /// <param name="parsedMessage"></param>
+    public void RouteMessage(TCPServerData serverData, byte[] rawBytes, string parsedMessage)
     {
-        PortData portData = sourceData switch
-        {
-            TCPServerData server => server.portData,
-            TCPClientData client => client.portData,
-            _ => null
-        };
-
-        if (portData == null)
-        {
-            LogHelper.LogToConsole("[Router] 錯誤：找不到 PortData！", isError: true);
-            return;
-        }
-
+        var portData = serverData.portData;
+        RouterLogHelper.LogReceive(serverData.portData, MonitorTargetType.TCPServer, parsedMessage);
         string maskType = portData.MaskType?.Trim() ?? "";
-
-        if (string.IsNullOrEmpty(maskType))
-        {
-            LogHelper.LogToConsole("[Router] 未設定 MaskType，無法處理", isError: true);
-            return;
-        }
 
         switch (maskType)
         {
@@ -66,13 +74,19 @@ public class NetworkMessageRouter
                 HandleRobotTo16(portData, parsedMessage);
                 break;
             case "original data":
-                HandleOriginalData(sourceData, parsedMessage);
+                HandleOriginalData(portData, parsedMessage);
                 break;
             default:
                 LogHelper.LogToConsole($"[Router] 未識別的 MaskType: {maskType}", isError: true);
                 break;
         }
     }
+
+    /// <summary>
+    /// 處理 RobotTo10 封包
+    /// </summary>
+    /// <param name="portData"></param>
+    /// <param name="rawBytes"></param>
     private void HandleRobotTo10(PortData portData, byte[] rawBytes)
     {
         if (rawBytes == null || rawBytes.Length < 7)
@@ -87,7 +101,7 @@ public class NetworkMessageRouter
         {
             ProcessRobotTo10Message(rawBytes);
 
-            if (MonitorManager.Instance.IsMonitoring(portData))
+            if (MonitorManager.Instance.IsMonitoring(portData, MonitorTargetType.TCPServer))
             {
                 LogHelper.LogToMonitor($"[監控] RobotTo10 正常封包: {hex}");
             }
@@ -96,14 +110,17 @@ public class NetworkMessageRouter
         {
             LogHelper.LogToMonitor($"[RobotTo10] 格式錯誤（需 0xDD~0x77），收到: {hex}");
 
-            if (MonitorManager.Instance.IsMonitoring(portData))
+            if (MonitorManager.Instance.IsMonitoring(portData, MonitorTargetType.TCPServer))
             {
                 LogHelper.LogToMonitor($"[監控] RobotTo10 格式錯誤封包: {hex}");
             }
         }
     }
 
-
+    /// <summary>
+    /// 處理 RobotTo10 封包內容
+    /// </summary>
+    /// <param name="data"></param>
     private void ProcessRobotTo10Message(byte[] data)
     {
         try
@@ -129,6 +146,12 @@ public class NetworkMessageRouter
             LogHelper.LogToMonitor($"[錯誤] 處理 RobotTo10 封包失敗: {ex.Message}");
         }
     }
+
+    /// <summary>
+    /// 處理 RobotTo16 封包
+    /// </summary>
+    /// <param name="portData"></param>
+    /// <param name="message"></param>
     private void HandleRobotTo16(PortData portData, string message)
     {
         try
@@ -163,17 +186,15 @@ public class NetworkMessageRouter
         }
     }
 
-    private void HandleOriginalData(object sourceData, string message)
+    /// <summary>
+    /// 處理原始資料
+    /// </summary>
+    /// <param name="portData"></param>
+    /// <param name="message"></param>
+    private void HandleOriginalData(PortData portData, string message)
     {
         try
         {
-            PortData portData = sourceData switch
-            {
-                TCPServerData server => server.portData,
-                TCPClientData client => client.portData,
-                _ => null
-            };
-
             if (portData == null)
             {
                 LogHelper.LogToConsole("[Router] 未知來源，無法處理。", isError: true);
@@ -182,28 +203,7 @@ public class NetworkMessageRouter
 
             var bytes = Encoding.UTF8.GetBytes(message + "\n");
 
-            if (sourceData is TCPServerData serverData)
-            {
-                ForwardToClient(portData.ProtocolName, bytes);
-
-                if (MonitorManager.Instance.IsMonitoring(portData))
-                {
-                    int id = MonitorCounter.Next();
-                    string remoteIP = serverData?.RemoteEndPoint?.ToString() ?? "未知IP";
-
-                    LogHelper.LogToMonitor($"[監控 #{id}] 收到 (TCP Server, {remoteIP}): {message}");
-                }
-            }
-            else if (sourceData is TCPClientData clientData)
-            {
-                if (MonitorManager.Instance.IsMonitoring(portData))
-                {
-                    int id = MonitorCounter.Next();
-                    string remoteIP = clientData?.tcpClient?.Client?.RemoteEndPoint?.ToString() ?? "未知IP";
-
-                    LogHelper.LogToMonitor($"[監控 #{id}] 收到 (TCP Client, {remoteIP}): {message}");
-                }
-            }
+            ForwardToClient(portData.ProtocolName, bytes);
         }
         catch (Exception ex)
         {
@@ -212,7 +212,7 @@ public class NetworkMessageRouter
     }
 
     /// <summary>
-    /// 轉到特定客戶端
+    /// 將封包轉發到 TCP Client
     /// </summary>
     /// <param name="protocolName"></param>
     /// <param name="data"></param>
@@ -225,6 +225,9 @@ public class NetworkMessageRouter
             try
             {
                 await client.tcpClient.GetStream().WriteAsync(data, 0, data.Length);
+                string parsedMessage = Encoding.UTF8.GetString(data);
+                RouterLogHelper.LogSend(client.portData, MonitorTargetType.TCPClient, parsedMessage);
+
             }
             catch (Exception ex)
             {
@@ -242,12 +245,16 @@ public class NetworkMessageRouter
 
                 UnityMainThreadDispatcher.Instance()?.Enqueue(() =>
                     SafeExecution.Safe(() => client.portData.OnUpdate?.Invoke(client.portData)));
-
-                LogHelper.LogToConsole($"TCP Client [{protocolName}] 已偵測到斷線，已自動關閉連線。");
             }
         }
     }
 
+    /// <summary>
+    /// 發送 UDP 封包
+    /// </summary>
+    /// <param name="ip"></param>
+    /// <param name="port"></param>
+    /// <param name="message"></param>
     private void SendUdp(string ip, int port, string message)
     {
         try
@@ -261,8 +268,14 @@ public class NetworkMessageRouter
         {
             LogHelper.LogToMonitor($"[Router] UDP發送失敗: {ex.Message}");
         }
-    } 
+    }
 
+    /// <summary>
+    /// 將十進制字串轉換為 IEEE754 格式的十六進制字串
+    /// </summary>
+    /// <param name="decimalStr"></param>
+    /// <returns></returns>
+    /// <exception cref="ArgumentException"></exception>
     private string ConvertToIEEE754(string decimalStr)
     {
         if (!float.TryParse(decimalStr, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var value))

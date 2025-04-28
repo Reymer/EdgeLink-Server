@@ -5,8 +5,8 @@ using static NetworkPortManager;
 public class NetworkConnectorCore
 {
     private readonly UdpConnector udpConnector = new();
-    private readonly TcpServerConnector tcpServerConnector = new();
-    private readonly TcpClientConnector tcpClientConnector = new();
+    private readonly TCPServerConnector tcpServerConnector = new();
+    private readonly TCPClientConnector tcpClientConnector = new();
 
     /// <summary>
     /// 初始化 NetworkConnectorCore
@@ -126,7 +126,13 @@ public class NetworkConnectorCore
     public void MonitorConsole(PortData portData)
     {
         MonitorCounter.Reset();
-        MonitorManager.Instance.SetMonitorPort(portData);
+
+        if (portData.NetProtocol.ToUpperInvariant() == "TCP SERVER")
+            MonitorManager.Instance.SetMonitorPort(portData, MonitorTargetType.TCPServer);
+        else if (portData.NetProtocol.ToUpperInvariant() == "TCP CLIENT")
+            MonitorManager.Instance.SetMonitorPort(portData, MonitorTargetType.TCPClient);
+        else
+            LogHelper.LogToConsole($"[Monitor] 不支援的監控協議類型: {portData.NetProtocol}", isError: true);
     }
 
     /// <summary>
