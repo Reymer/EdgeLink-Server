@@ -250,6 +250,17 @@ public class NetworkMessageRouter
     }
 
     /// <summary>
+    /// 取得 TCP Client 資料
+    /// </summary>
+    /// <param name="protocolName"></param>
+    /// <returns></returns>
+    public TCPClientData GetTcpClient(string protocolName)
+    {
+        tcpClients.TryGetValue(protocolName, out var clientData);
+        return clientData;
+    }
+
+    /// <summary>
     /// 發送 UDP 封包
     /// </summary>
     /// <param name="ip"></param>

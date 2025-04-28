@@ -160,10 +160,8 @@ public class TCPClientConnector
 
                     UnityMainThreadDispatcher.Instance()?.Enqueue(() => portData.OnUpdate?.Invoke(portData));
                     OnReconnectSuccess?.Invoke(portData);
-
-                    // 啟動心跳之前，先確保只開一個
-                    clientData.HeartbeatTask?.Dispose();
                     clientData.HeartbeatTask = StartHeartbeatAsync(clientData);
+
 
                     return; // 成功連線，結束
                 }

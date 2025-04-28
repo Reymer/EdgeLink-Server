@@ -205,7 +205,7 @@ public class TCPServerConnector
                         string serverName = serverData.portData.ProtocolName ?? "未知名稱";
                         string localPort = serverData.portData.LocalPortDetails?.Port ?? "未知端口";
                         string remoteAddress = serverData.RemoteEndPoint?.ToString() ?? "未知IP";
-
+                        NotifyForwardTargetStatusChange("CONNECT", serverData.portData);
                         LogHelper.LogToConsole(
                             $"TCP Server [{serverName}] (本地:{localPort}) 收到來自 {remoteAddress} 的新連線" +
                             $"當前連線數: {serverData.CurrentConnections}，累積連線數: {serverData.TotalConnections}");
@@ -267,7 +267,7 @@ public class TCPServerConnector
 
             string serverName = serverData.portData.ProtocolName ?? "未知名稱";
             string localPort = serverData.portData.LocalPortDetails?.Port ?? "未知端口";
-
+            NotifyForwardTargetStatusChange("DISCONNECT", serverData.portData);
             LogHelper.LogToConsole(
                 $"TCP Server [{serverName}] (本地:{localPort}) 有客戶端斷線，" +
                 $"當前連線數: {serverData.CurrentConnections}，累積連線數: {serverData.TotalConnections}");
@@ -276,6 +276,40 @@ public class TCPServerConnector
                 SafeExecution.Safe(() => serverData.portData.OnUpdate?.Invoke(serverData.portData)));
         }
     }
+
+    /// <summary>
+    /// 通知轉發目標狀態
+    /// </summary>
+    /// <param name="status"></param>
+    /// <param name="sourcePortData"></param>
+    private void NotifyForwardTargetStatusChange(string status, PortData sourcePortData)
+    {
+        try
+        {
+            string notifyMessage = $"{status}:{sourcePortData.ProtocolName}";
+            byte[] notifyBytes = Encoding.UTF8.GetBytes(notifyMessage + "\n");
+
+            string forwardTargetProtocol = sourcePortData.ProtocolName; // TODO: 如果有更好的動態來源可以改這裡
+            var targetClient = NetworkMessageRouter.Instance.GetTcpClient(forwardTargetProtocol);
+
+            if (targetClient?.tcpClient?.Connected == true)
+            {
+                var stream = targetClient.tcpClient.GetStream();
+                stream.Write(notifyBytes, 0, notifyBytes.Length);
+
+                LogHelper.LogToConsole($"[Router] 已通知目標 [{forwardTargetProtocol}]：來源 [{sourcePortData.ProtocolName}] {status}");
+            }
+            else
+            {
+                LogHelper.LogToConsole($"[Router] 找不到連接中的目標 [{forwardTargetProtocol}]，無法通知 {status}", isError: true);
+            }
+        }
+        catch (Exception ex)
+        {
+            LogHelper.LogToConsole($"[Router] 通知目標 [{sourcePortData.ProtocolName}] {status} 失敗: {ex.Message}", isError: true);
+        }
+    }
+
 
     /// <summary>
     /// 處理接收到的數據包
