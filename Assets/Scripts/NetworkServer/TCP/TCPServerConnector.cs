@@ -270,7 +270,7 @@ public class TCPServerConnector
             string serverName = serverData.portData.ProtocolName ?? "未知名稱";
             string localPort = serverData.portData.LocalPortDetails?.Port ?? "未知端口";
             NotifyForwardTargetStatusChange("DISCONNECT", serverData.portData);
-            LogHelper.LogToConsole(
+            LogHelper.LogToMonitor(
                 $"TCP Server [{serverName}] (本地:{localPort}) 有客戶端斷線，" +
                 $"當前連線數: {serverData.CurrentConnections}，累積連線數: {serverData.TotalConnections}");
 
@@ -299,7 +299,7 @@ public class TCPServerConnector
                 var stream = targetClient.tcpClient.GetStream();
                 stream.Write(notifyBytes, 0, notifyBytes.Length);
 
-                LogHelper.LogToConsole($"[Router] 已通知目標 [{forwardTargetProtocol}]：來源 [{sourcePortData.ProtocolName}] {status}");
+                LogHelper.LogToMonitor($"[Router] 已通知目標 [{forwardTargetProtocol}]：來源 [{sourcePortData.ProtocolName}] {status}");
             }
             else
             {
