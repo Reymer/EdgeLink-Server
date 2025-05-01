@@ -4180,6 +4180,7 @@ GameObject:
   - component: {fileID: 625530671}
   - component: {fileID: 625530670}
   - component: {fileID: 625530669}
+  - component: {fileID: 625530673}
   m_Layer: 5
   m_Name: UI
   m_TagString: Untagged
@@ -4227,7 +4228,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 7091003d0f024e541a39f7ffe7b11d42, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  prefab: {fileID: 821128895}
+  portTableFactory: {fileID: 625530673}
 --- !u!114 &625530670
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -4240,6 +4241,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: dc4fc64dd2aeb1f4cb7b2cdd584d5c45, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  uiCollector: {fileID: 625530672}
 --- !u!114 &625530671
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -4292,6 +4294,10 @@ MonoBehaviour:
     groupName: UI
     keyName: clear
     asset: {fileID: 518962815}
+  - realKey: UI_Exit
+    groupName: UI
+    keyName: Exit
+    asset: {fileID: 1933086402}
   - realKey: UI_Tables
     groupName: UI
     keyName: Tables
@@ -4320,22 +4326,14 @@ MonoBehaviour:
     groupName: UI
     keyName: LocalPortsMask
     asset: {fileID: 519834518}
+  - realKey: UI_LanguageDropdown
+    groupName: UI
+    keyName: LanguageDropdown
+    asset: {fileID: 1358840146}
   - realKey: UI_NetProtrocolTitle
     groupName: UI
     keyName: NetProtrocolTitle
     asset: {fileID: 1019445535}
-  - realKey: UI_RemotePortInput
-    groupName: UI
-    keyName: RemotePortInput
-    asset: {fileID: 1553487262}
-  - realKey: UI_LocalPortInput
-    groupName: UI
-    keyName: LocalPortInput
-    asset: {fileID: 289084823}
-  - realKey: UI_TargetIPInput
-    groupName: UI
-    keyName: TargetIPInput
-    asset: {fileID: 707608476}
   - realKey: UI_Title
     groupName: UI
     keyName: Title
@@ -4348,18 +4346,35 @@ MonoBehaviour:
     groupName: UI
     keyName: DropdownMask
     asset: {fileID: 966490029}
-  - realKey: UI_Exit
+  - realKey: UI_RemotePortInput
     groupName: UI
-    keyName: Exit
-    asset: {fileID: 1933086402}
-  - realKey: UI_LanguageDropdown
+    keyName: RemotePortInput
+    asset: {fileID: 1553487262}
+  - realKey: UI_LocalPortInput
     groupName: UI
-    keyName: LanguageDropdown
-    asset: {fileID: 1358840146}
+    keyName: LocalPortInput
+    asset: {fileID: 289084823}
+  - realKey: UI_TargetIPInput
+    groupName: UI
+    keyName: TargetIPInput
+    asset: {fileID: 707608476}
   - realKey: UI_NameInput
     groupName: UI
     keyName: NameInput
     asset: {fileID: 1386623441}
+--- !u!114 &625530673
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 625530667}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8d99be8c4b910604689a819ce56c4e69, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  prefab: {fileID: 821128895}
 --- !u!1 &630899772
 GameObject:
   m_ObjectHideFlags: 0
