@@ -2,6 +2,10 @@ using System.Collections.Concurrent;
 using System.Threading.Tasks;
 using System.Threading;
 
+/// <summary>
+/// 非同步訊息佇列
+/// </summary>
+/// <typeparam name="T"></typeparam>
 public class AsyncMessageQueue<T>
 {
     private readonly ConcurrentQueue<T> queue = new();

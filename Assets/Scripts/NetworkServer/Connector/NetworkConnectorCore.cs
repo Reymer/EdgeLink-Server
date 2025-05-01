@@ -1,6 +1,5 @@
 ﻿using System.Threading.Tasks;
 using DevKit.Console;
-using static NetworkPortManager;
 
 public class NetworkConnectorCore
 {
@@ -9,7 +8,7 @@ public class NetworkConnectorCore
     private readonly TCPClientConnector tcpClientConnector = new();
 
     /// <summary>
-    /// 初始化 NetworkConnectorCore
+    /// 初始化
     /// </summary>
     /// <param name="consoleUI"></param>
     /// <param name="monitorConsole"></param>

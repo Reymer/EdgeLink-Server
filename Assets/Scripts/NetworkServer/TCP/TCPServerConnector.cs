@@ -7,6 +7,9 @@ using System.Threading;
 using System.Threading.Tasks;
 using UnityEngine;
 
+/// <summary>
+/// TCP Server 連接器
+/// </summary>
 public class TCPServerConnector
 {
     private readonly ConcurrentDictionary<string, TCPServerData> tcpServers = new();
@@ -354,7 +357,7 @@ public class TCPServerConnector
     }
 
     /// <summary>
-    /// 獲取 TCP Server 數據
+    /// 獲取 TCP Server 資料
     /// </summary>
     /// <param name="portData"></param>
     /// <returns></returns>

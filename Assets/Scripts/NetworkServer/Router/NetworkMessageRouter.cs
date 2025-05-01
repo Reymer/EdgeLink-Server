@@ -3,8 +3,10 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using static NetworkPortManager;
 
+/// <summary>
+/// 網路訊息路由器
+/// </summary>
 public class NetworkMessageRouter
 {
     private static NetworkMessageRouter instance;

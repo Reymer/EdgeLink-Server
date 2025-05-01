@@ -1,16 +1,17 @@
 ﻿using System;
 using System.Collections.Concurrent;
-using System.Collections.Generic;
 using System.Linq;
 using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
-using static NetworkPortManager;
 
+/// <summary>
+/// TCP Client 連線管理器
+/// </summary>
 public class TCPClientConnector
 {
     private readonly ConcurrentDictionary<string, TCPClientData> tcpClientDatas = new();
-    private const int HeartbeatIntervalMs = 5000;
+    private const int HeartbeatIntervalMs = 5000; // 心跳間隔時間（5秒）可以改成設定檔
     public Action<PortData> OnReconnectSuccess;
     public Action<PortData> OnReconnectFailed;
 
@@ -186,6 +187,11 @@ public class TCPClientConnector
         OnReconnectFailed?.Invoke(portData);
     }
 
+    /// <summary>
+    /// 啟動心跳檢查
+    /// </summary>
+    /// <param name="clientData"></param>
+    /// <returns></returns>
 
     private async Task StartHeartbeatAsync(TCPClientData clientData)
     {
@@ -229,12 +235,23 @@ public class TCPClientConnector
         }
     }
 
-
+    /// <summary>
+    /// 檢查是否應該停止重試
+    /// </summary>
+    /// <param name="clientData"></param>
+    /// <param name="retryCount"></param>
+    /// <param name="maxRetry"></param>
+    /// <returns></returns>
     private bool ShouldStopRetry(TCPClientData clientData, int retryCount, int maxRetry)
     {
         return clientData.CancellationTokenSource.Token.IsCancellationRequested || retryCount >= maxRetry;
     }
 
+    /// <summary>
+    /// 檢查 Socket 是否已斷線
+    /// </summary>
+    /// <param name="client"></param>
+    /// <returns></returns>
     private bool IsSocketDisconnected(TcpClient client)
     {
         try
@@ -251,7 +268,10 @@ public class TCPClientConnector
     }
 
 
-
+    /// <summary>
+    /// 重置 TCP Client 連線
+    /// </summary>
+    /// <param name="clientData"></param>
     private void ResetClientConnection(TCPClientData clientData)
     {
         try

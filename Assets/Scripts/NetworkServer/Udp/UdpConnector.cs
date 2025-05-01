@@ -5,10 +5,12 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using UnityEngine;
-using static NetworkPortManager;
 using System.Collections.Generic;
 using System;
 
+/// <summary>
+/// UDP 連接器
+/// </summary>
 public class UdpConnector
 {
     private readonly ConcurrentDictionary<string, UdpData> udpClients = new();
