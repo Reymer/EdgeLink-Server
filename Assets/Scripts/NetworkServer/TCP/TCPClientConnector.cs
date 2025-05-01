@@ -11,7 +11,6 @@ public class TCPClientConnector
 {
     private readonly ConcurrentDictionary<string, TCPClientData> tcpClientDatas = new();
     private const int HeartbeatIntervalMs = 5000;
-    // 可選的 callback
     public Action<PortData> OnReconnectSuccess;
     public Action<PortData> OnReconnectFailed;
 
@@ -122,9 +121,8 @@ public class TCPClientConnector
     {
         var portData = clientData.portData;
         var token = clientData.CancellationTokenSource.Token;
-
         int retryCount = 0;
-        int maxRetry = isFirstConnect ? 1 : 10;
+        int maxRetry = isFirstConnect ? 3 : 10;
         int delayMs = 2000;
         int maxDelayMs = 30000;
 
@@ -136,7 +134,6 @@ public class TCPClientConnector
                 clientData.tcpClient?.Close();
                 clientData.tcpClient?.Dispose();
                 clientData.tcpClient = new TcpClient();
-
                 var connectTask = clientData.tcpClient.ConnectAsync(portData.TargetIP, int.Parse(portData.RemotePortDetails.Port));
                 var timeoutTask = Task.Delay(5000, token);
 
@@ -173,8 +170,12 @@ public class TCPClientConnector
             catch (Exception ex)
             {
                 portData.IsConnected = false;
+
+                UnityMainThreadDispatcher.Instance()?.Enqueue(() => portData.OnUpdate?.Invoke(portData)); // ✅ 加這行通知 UI
+
                 LogHelper.LogToConsole($"TCP Client [{portData.ProtocolName}] 第 {retryCount + 1} 次連接失敗: {ex.Message}", isError: true);
             }
+
 
             retryCount++;
             await Task.Delay(delayMs, token);
@@ -195,13 +196,13 @@ public class TCPClientConnector
         {
             await Task.Delay(HeartbeatIntervalMs, token);
 
-            if (clientData.tcpClient == null || !clientData.tcpClient.Connected)
+            if (IsSocketDisconnected(clientData.tcpClient))
             {
-                LogHelper.LogToConsole($"[Heartbeat] 偵測到 TCP Client [{portData.ProtocolName}] 已斷線，啟動重連流程。");
+                LogHelper.LogToConsole($"[Heartbeat] TCP Client [{portData.ProtocolName}] socket 判斷為斷線，啟動重連流程。");
                 portData.IsConnected = false;
-
+                UnityMainThreadDispatcher.Instance()?.Enqueue(() => portData.OnUpdate?.Invoke(portData)); // 告知 UI
                 _ = ConnectWithRetryAsync(clientData, isFirstConnect: false);
-                break; // 停止目前心跳
+                break;
             }
 
             try
@@ -233,6 +234,23 @@ public class TCPClientConnector
     {
         return clientData.CancellationTokenSource.Token.IsCancellationRequested || retryCount >= maxRetry;
     }
+
+    private bool IsSocketDisconnected(TcpClient client)
+    {
+        try
+        {
+            if (client == null || !client.Connected) return true;
+
+            Socket socket = client.Client;
+            return socket.Poll(0, SelectMode.SelectRead) && socket.Available == 0;
+        }
+        catch
+        {
+            return true;
+        }
+    }
+
+
 
     private void ResetClientConnection(TCPClientData clientData)
     {
