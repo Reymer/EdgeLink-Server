@@ -1,9 +1,4 @@
 ﻿using UnityEngine;
-using VARLive.ApexNetwork;
-using DevKit.Console;
-using static NetworkPortManager;
-using System;
-using System.Collections.Generic;
 
 public class Main : MonoBehaviour
 {
@@ -26,6 +21,6 @@ public class Main : MonoBehaviour
     private void OnApplicationQuit()
     {
         NetworkPortManager.Instance.UnInit();
-        networkPortTableUIManager.DeInit();
+        networkPortTableUIManager.UnInit();
     }
 }
