@@ -9082,6 +9082,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   networkPortTableUIManager: {fileID: 625530670}
+  consoleUI: {fileID: 662794188}
+  monitorConsole: {fileID: 1877981815}
 --- !u!114 &1200409096
 MonoBehaviour:
   m_ObjectHideFlags: 0
