@@ -1,41 +1,47 @@
-using Newtonsoft.Json;
 using System;
-
+using System.Collections.Generic;
 
 /// <summary>
-/// 端口資料
+/// 容器：包一個 PortData 的列表，方便 SettingLoader 處理
 /// </summary>
-public class PortData
+[Serializable]
+public class PortDatas
 {
-    public string ProtocolName { get; set; }
-    public string NetProtocol { get; set; }
-    public PortDetails LocalPortDetails { get; set; }
-    public PortDetails RemotePortDetails { get; set; }
-    public string TargetIP { get; set; }
-    public bool IsConnected { get; set; }
-    public int COMReceived { get; set; } = 0;
-    public int NetReceived { get; set; } = 0;
-    public string MaskType { get; set; }
-
-    [JsonIgnore]
-    public int CurrentConnections { get; set; } = 0;  
-
-    [JsonIgnore]
-    public int TotalConnections { get; set; } = 0;  
-
-    [JsonIgnore]
-    public long TotalReceivedBytes { get; set; } = 0;
-
-    [JsonIgnore]
-    public Action<PortData> OnUpdate { get; set; }
+    /// <summary>所有端口資料，如無也不為 null</summary>
+    public List<PortData> portDatas = new();
 }
 
+/// <summary>
+/// 單筆端口資料
+/// </summary>
+[Serializable]
+public class PortData
+{
+    public string ProtocolName;
+    public string NetProtocol;
+    public PortDetails LocalPortDetails;
+    public PortDetails RemotePortDetails;
+    public string TargetIP;
+    public bool IsConnected;
+    public int COMReceived;
+    public int NetReceived;
+    public string MaskType;
+
+    /// <summary>
+    /// 以下都是運行時屬性，不要序列化
+    /// </summary>
+    [NonSerialized] public int CurrentConnections;
+    [NonSerialized] public int TotalConnections;
+    [NonSerialized] public long TotalReceivedBytes;
+    [NonSerialized] public Action<PortData> OnUpdate;
+}
 
 /// <summary>
-/// 端口詳細資料
+/// 端口詳細資訊
 /// </summary>
+[Serializable]
 public class PortDetails
 {
-    public string Port { get; set; }
-    public string Description { get; set; }
+    public string Port;
+    public string Description;
 }

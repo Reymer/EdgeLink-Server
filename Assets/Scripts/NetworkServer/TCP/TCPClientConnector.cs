@@ -11,7 +11,6 @@ using System.Threading.Tasks;
 public class TCPClientConnector
 {
     private readonly ConcurrentDictionary<string, TCPClientData> tcpClientDatas = new();
-    private const int HeartbeatIntervalMs = 5000; // 心跳間隔時間（5秒）可以改成設定檔
     public Action<PortData> OnReconnectSuccess;
     public Action<PortData> OnReconnectFailed;
 
@@ -122,10 +121,11 @@ public class TCPClientConnector
     {
         var portData = clientData.portData;
         var token = clientData.CancellationTokenSource.Token;
+        var cfg = NetworkPortManager.Instance.GetTcpClientRetryConfig();
         int retryCount = 0;
-        int maxRetry = isFirstConnect ? 3 : 10;
-        int delayMs = 2000;
-        int maxDelayMs = 30000;
+        int maxRetry = isFirstConnect ? cfg.MaxRetryFirst : cfg.MaxRetrySubsequent;
+        int delayMs = cfg.InitialDelayMs;
+        int maxDelayMs = cfg.MaxDelayMs;
 
         while (!ShouldStopRetry(clientData, retryCount, maxRetry))
         {
@@ -200,7 +200,8 @@ public class TCPClientConnector
 
         while (!token.IsCancellationRequested)
         {
-            await Task.Delay(HeartbeatIntervalMs, token);
+            var cfg = NetworkPortManager.Instance.GetTcpClientRetryConfig();
+            await Task.Delay(cfg.HeartbeatIntervalMs, token);
 
             if (IsSocketDisconnected(clientData.tcpClient))
             {

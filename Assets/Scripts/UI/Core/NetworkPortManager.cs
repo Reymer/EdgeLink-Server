@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using DevKit;
 using DevKit.Console;
 using DevKit.Tool;
 using Newtonsoft.Json;
@@ -12,33 +13,59 @@ public class NetworkPortManager
     private static readonly Lazy<NetworkPortManager> instance = new(() => new NetworkPortManager());
     public static NetworkPortManager Instance => instance.Value;
     private readonly string filePath;
-    private ConsoleUI consoleUI;
-    private MonitorConsole monitorConsole;
-    public NetworkConnectorCore networkConnectorCore = new();
+    public NetworkConnectorCore networkConnectorCore = new(); // 網路連接器核心
     private readonly PortDataStorageService storageService; // 儲存端口資料的服務
     private readonly NetPortRegistry portRegistry = new();  // 註冊端口的服務
-    public Action<PortData> PortDataUpdated;
-
+    public Action<PortData> PortDataUpdated; // 端口資料更新事件
+    public TcpClientRetryConfig retryConfig; // 重試配置
 
     /// <summary>
-    /// 單例模式
+    /// 註冊端口資料的服務
     /// </summary>
-    /// <param name="customFilePath"></param>
-    private NetworkPortManager(string customFilePath = null)
+    private NetworkPortManager()
     {
-        filePath = string.IsNullOrEmpty(customFilePath) ? Path.Combine(Application.dataPath, "portData.json") : customFilePath;
-        storageService = new(filePath);
+        storageService = new PortDataStorageService();
+
+        try
+        {
+            retryConfig = storageService.LoadRetryConfig();
+            var ports = storageService.LoadPortData();
+            if (ports == null || ports.Count == 0)
+            {
+                Debug.LogWarning("未載入任何 PortData，將不註冊任何端口資料");
+                return;
+            }
+            LogHelper.LogToConsole($"成功載入 {ports.Count} 筆資料");
+
+            foreach (var data in ports)
+            {
+                data.OnUpdate += OnUpdate;
+                var type = ParseProtocolType(data.NetProtocol);
+                var key = GetPortKey(data);
+                portRegistry.Add(type, key, data);
+            }
+        }
+        catch (Exception ex)
+        {
+            Debug.LogError($"初始化 NetworkPortManager 時發生錯誤: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// 獲取 Client 重試配置
+    /// </summary>
+    /// <returns></returns>
+    public TcpClientRetryConfig GetTcpClientRetryConfig()
+    {
+        return retryConfig;
     }
 
     /// <summary>
     /// 初始化
     /// </summary>
-    public void Init()
+    public void Init(ConsoleUI consoleUi, MonitorConsole monitorConsole)
     {
-        consoleUI = GameObject.FindObjectOfType<ConsoleUI>(true);
-        monitorConsole = GameObject.FindObjectOfType<MonitorConsole>(true);
-        networkConnectorCore.Init(consoleUI, monitorConsole);
-        consoleUI.AddLog($"檔案路徑已設定為: {filePath}");
+        networkConnectorCore.Init(consoleUi, monitorConsole);
     }
 
     /// <summary>
@@ -223,9 +250,12 @@ public class NetworkPortManager
     /// </summary>
     public void LoadData()
     {
-        var loaded = storageService.Load();
+        var loaded = storageService.LoadPortData();
+        if (loaded == null || loaded.Count == 0)
+        {
+            return;
+        }
         portRegistry.Clear();
-
         foreach (var data in loaded)
         {
             data.OnUpdate += OnUpdate;
@@ -253,7 +283,9 @@ public class NetworkPortManager
     {
         networkConnectorCore.UnInit();
         foreach (var data in portRegistry.GetAll())
+        {
             data.OnUpdate -= OnUpdate;
+        }
         PortDataUpdated = null;
         SaveData();
     }
@@ -261,5 +293,8 @@ public class NetworkPortManager
     /// <summary>
     /// 儲存資料
     /// </summary>
-    public void SaveData() => storageService.Save(portRegistry.GetAll().ToList());
+    public void SaveData()
+    {
+        storageService.SavePortData(portRegistry.GetAll().ToList());
+    }
 }

@@ -1,12 +1,11 @@
-﻿using UnityEngine;
+﻿using DevKit.Console;
+using UnityEngine;
 
 public class Main : MonoBehaviour
 {
     [SerializeField] private NetworkPortTableUIManager networkPortTableUIManager;
-    private void Awake()
-    {
-        NetworkPortManager.Instance.Init();
-    }
+    [SerializeField] private ConsoleUI consoleUI;
+    [SerializeField] private MonitorConsole monitorConsole;
 
     private void Start()
     {
@@ -15,6 +14,7 @@ public class Main : MonoBehaviour
 
     private void Init()
     {
+        NetworkPortManager.Instance.Init(consoleUI, monitorConsole);
         networkPortTableUIManager.Init();
     }
 
