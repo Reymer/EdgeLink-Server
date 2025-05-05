@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Net.Sockets;
 using DevKit;
 using DevKit.Console;
 using DevKit.Tool;
@@ -120,14 +121,15 @@ public class NetworkPortManager
     /// </summary>
     /// <param name="data"></param>
     /// <returns></returns>
-    private static string GetPortKey(PortData data)
+    private string GetPortKey(PortData portData)
     {
-        return ParseProtocolType(data.NetProtocol) switch
+        var type = ParseProtocolType(portData.NetProtocol);
+        return type switch
         {
-            NetProtocolType.TcpServer => data.LocalPortDetails.Port,
-            NetProtocolType.TcpClient => data.RemotePortDetails.Port,
-            NetProtocolType.Udp => data.RemotePortDetails.Port,
-            _ => ""
+            NetProtocolType.TcpClient => $"{portData.TargetIP}:{portData.RemotePortDetails.Port}",
+            NetProtocolType.TcpServer => portData.LocalPortDetails.Port,
+            NetProtocolType.Udp => portData.LocalPortDetails.Port,
+            _ => portData.LocalPortDetails.Port
         };
     }
 
@@ -139,17 +141,12 @@ public class NetworkPortManager
     public bool IsPortUnique(PortData portData)
     {
         var type = ParseProtocolType(portData.NetProtocol);
-        string key = GetPortKey(portData);
+        string key = GetPortKey(portData); // 通常是 LocalPort 或 Local+Remote 的唯一組合
 
-        bool nameExistsInSameProtocol = portRegistry
-            .GetAll()
-            .Where(p => ParseProtocolType(p.NetProtocol) == type)
-            .Any(p => p.ProtocolName.Equals(portData.ProtocolName, StringComparison.OrdinalIgnoreCase));
-
-        bool portExists = portRegistry.Contains(type, key);
-
-        return !nameExistsInSameProtocol && !portExists;
+        // 僅檢查 port 是否存在，不檢查 ProtocolName 重複
+        return !portRegistry.Contains(type, key);
     }
+
 
 
     /// <summary>

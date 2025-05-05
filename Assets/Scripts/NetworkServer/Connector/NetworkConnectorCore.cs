@@ -109,7 +109,6 @@ public class NetworkConnectorCore
                 break;
             case "TCP CLIENT":
                 tcpClientConnector.RemovePort(portData);
-                NetworkMessageRouter.Instance.UnregisterTcpClient(portData.ProtocolName);
                 break;
             case "TCP SERVER":
                 tcpServerConnector.RemovePort(portData);
@@ -117,6 +116,7 @@ public class NetworkConnectorCore
                 break;
         }
     }
+
 
     /// <summary>
     /// 監控控制台

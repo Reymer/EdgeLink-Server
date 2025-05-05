@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Linq;
 using System.Net.Sockets;
 using System.Threading;
@@ -10,7 +11,7 @@ using System.Threading.Tasks;
 /// </summary>
 public class TCPClientConnector
 {
-    private readonly ConcurrentDictionary<string, TCPClientData> tcpClientDatas = new();
+    private readonly ConcurrentDictionary<string, List<TCPClientData>> tcpClientGroups = new();
     public Action<PortData> OnReconnectSuccess;
     public Action<PortData> OnReconnectFailed;
 
@@ -19,27 +20,30 @@ public class TCPClientConnector
     /// </summary>
     public void AddPort(PortData portData)
     {
-        if (!tcpClientDatas.ContainsKey(portData.ProtocolName))
+        var clientData = new TCPClientData
         {
-            var clientData = new TCPClientData
-            {
-                portData = portData,
-                tcpClient = new TcpClient(),
-                CancellationTokenSource = new CancellationTokenSource()
-            };
-            tcpClientDatas[portData.ProtocolName] = clientData;
-            NetworkMessageRouter.Instance.RegisterTcpClient(portData.ProtocolName, clientData);
-        }
+            portData = portData,
+            tcpClient = new TcpClient(),
+            CancellationTokenSource = new CancellationTokenSource()
+        };
 
-        _ = ConnectWithRetryAsync(tcpClientDatas[portData.ProtocolName], isFirstConnect: true);
+        if (!tcpClientGroups.ContainsKey(portData.ProtocolName))
+            tcpClientGroups[portData.ProtocolName] = new List<TCPClientData>();
+
+        tcpClientGroups[portData.ProtocolName].Add(clientData);
+        NetworkMessageRouter.Instance.RegisterTcpClient(portData.ProtocolName, clientData);
+
+        _ = ConnectWithRetryAsync(clientData, isFirstConnect: true);
     }
+
 
     /// <summary>
     /// 主動重新連線 TCP Client
     /// </summary>
     public void Connect(PortData portData)
     {
-        if (tcpClientDatas.TryGetValue(portData.ProtocolName, out var clientData))
+        var clientData = FindClientData(portData);
+        if (clientData != null)
         {
             ResetClientConnection(clientData);
             _ = ConnectWithRetryAsync(clientData, isFirstConnect: true);
@@ -55,12 +59,19 @@ public class TCPClientConnector
     /// </summary>
     public void Disconnect(PortData portData)
     {
-        if (tcpClientDatas.TryGetValue(portData.ProtocolName, out var clientData))
+        var target = FindClientData(portData);
+        if (target != null)
         {
-            ResetClientConnection(clientData);
+            ResetClientConnection(target);
             portData.IsConnected = false;
             LogHelper.LogToConsole($"TCP Client 已完全斷線並重置: {portData.ProtocolName}");
         }
+    }
+    private TCPClientData FindClientData(PortData portData)
+    {
+        return tcpClientGroups.TryGetValue(portData.ProtocolName, out var list)
+            ? list.FirstOrDefault(c => c.portData == portData)
+            : null;
     }
 
     /// <summary>
@@ -68,22 +79,33 @@ public class TCPClientConnector
     /// </summary>
     public void RemovePort(PortData portData)
     {
-        if (tcpClientDatas.TryRemove(portData.ProtocolName, out var clientData))
+        if (tcpClientGroups.TryGetValue(portData.ProtocolName, out var list))
         {
-            ResetClientConnection(clientData);
-            clientData.Dispose();
-            portData.IsConnected = false;
-            NetworkMessageRouter.Instance.UnregisterTcpClient(portData.ProtocolName);
-            LogHelper.LogToConsole($"已刪除 TCP Client: {portData.ProtocolName}");
+            var target = list.FirstOrDefault(c => c.portData == portData);
+            if (target != null)
+            {
+                ResetClientConnection(target);
+                target.Dispose();
+                list.Remove(target);
+                portData.IsConnected = false;
+                NetworkMessageRouter.Instance.UnregisterTcpClient(portData.ProtocolName, target);
+
+                if (list.Count == 0)
+                    tcpClientGroups.TryRemove(portData.ProtocolName, out _);
+
+                LogHelper.LogToConsole($"已刪除 TCP Client: {portData.ProtocolName}");
+            }
         }
     }
+
 
     /// <summary>
     /// 重啟 TCP Client
     /// </summary>
     public void RestartPort(PortData portData)
     {
-        if (tcpClientDatas.TryGetValue(portData.ProtocolName, out var clientData))
+        var clientData = FindClientData(portData);
+        if (clientData != null)
         {
             LogHelper.LogToConsole($"重新啟動 TCP Client: {portData.ProtocolName}");
             Disconnect(portData);
@@ -91,28 +113,44 @@ public class TCPClientConnector
         }
     }
 
+
     /// <summary>
     /// 取得 TCP Client 資料
     /// </summary>
     public TCPClientData GetClientData(PortData portData)
     {
-        return tcpClientDatas.TryGetValue(portData.ProtocolName, out var clientData) ? clientData : null;
+        return FindClientData(portData);
     }
+
+    /// <summary>
+    /// 取得所有 TCP Client 資料
+    /// </summary>
+    /// <param name="protocolName"></param>
+    /// <returns></returns>
+    public List<TCPClientData> GetAllClients(string protocolName)
+    {
+        return tcpClientGroups.TryGetValue(protocolName, out var list) ? list : new List<TCPClientData>();
+    }
+
 
     /// <summary>
     /// 關閉所有 TCP Client
     /// </summary>
     public async Task ShutdownAsync()
     {
-        var tasks = tcpClientDatas.Values.Select(clientData => Task.Run(() =>
-        {
-            ResetClientConnection(clientData);
-            clientData.Dispose();
-        })).ToList();
+        var tasks = tcpClientGroups.Values
+            .SelectMany(list => list)
+            .Select(clientData => Task.Run(() =>
+            {
+                ResetClientConnection(clientData);
+                clientData.Dispose();
+            }))
+            .ToList();
 
-        tcpClientDatas.Clear();
+        tcpClientGroups.Clear();
         await Task.WhenAll(tasks);
     }
+
 
     /// <summary>
     /// 核心：自動連線與重連邏輯

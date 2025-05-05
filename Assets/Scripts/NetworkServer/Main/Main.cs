@@ -12,12 +12,18 @@ public class Main : MonoBehaviour
         Init();
     }
 
+    /// <summary>
+    /// 初始化
+    /// </summary>
     private void Init()
     {
         NetworkPortManager.Instance.Init(consoleUI, monitorConsole);
         networkPortTableUIManager.Init();
     }
 
+    /// <summary>
+    /// 退出應用程式時調用
+    /// </summary>
     private void OnApplicationQuit()
     {
         NetworkPortManager.Instance.UnInit();

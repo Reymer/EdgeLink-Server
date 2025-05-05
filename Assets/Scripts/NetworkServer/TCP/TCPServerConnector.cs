@@ -292,19 +292,25 @@ public class TCPServerConnector
             byte[] notifyBytes = Encoding.UTF8.GetBytes(notifyMessage + "\n");
 
             string forwardTargetProtocol = sourcePortData.ProtocolName; // TODO: 如果有更好的動態來源可以改這裡
-            var targetClient = NetworkMessageRouter.Instance.GetTcpClient(forwardTargetProtocol);
+            var targetClients = NetworkMessageRouter.Instance.GetTcpClients(forwardTargetProtocol);
 
-            if (targetClient?.tcpClient?.Connected == true)
+            foreach (var client in targetClients)
             {
-                var stream = targetClient.tcpClient.GetStream();
-                stream.Write(notifyBytes, 0, notifyBytes.Length);
+                if (client?.tcpClient?.Connected == true)
+                {
+                    try
+                    {
+                        var stream = client.tcpClient.GetStream();
+                        stream.Write(notifyBytes, 0, notifyBytes.Length);
+                        LogHelper.LogToMonitor($"[Router] 已通知目標 [{forwardTargetProtocol}]：來源 [{sourcePortData.ProtocolName}] {status}");
+                    }
+                    catch (Exception ex)
+                    {
+                        LogHelper.LogToConsole($"[Router] 通知目標 {forwardTargetProtocol} 失敗: {ex.Message}", isError: true);
+                    }
+                }
+            }
 
-                LogHelper.LogToMonitor($"[Router] 已通知目標 [{forwardTargetProtocol}]：來源 [{sourcePortData.ProtocolName}] {status}");
-            }
-            else
-            {
-                LogHelper.LogToConsole($"[Router] 找不到連接中的目標 [{forwardTargetProtocol}]，無法通知 {status}", isError: true);
-            }
         }
         catch (Exception ex)
         {
