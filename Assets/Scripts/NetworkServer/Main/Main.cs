@@ -6,6 +6,7 @@ public class Main : MonoBehaviour
     [SerializeField] private NetworkPortTableUIManager networkPortTableUIManager;
     [SerializeField] private ConsoleUI consoleUI;
     [SerializeField] private MonitorConsole monitorConsole;
+    private readonly DeviceLockProcessor deviceLockProcessor = new();
 
     private void Start()
     {
@@ -17,8 +18,14 @@ public class Main : MonoBehaviour
     /// </summary>
     private void Init()
     {
+        //deviceLockProcessor.Init();
         NetworkPortManager.Instance.Init(consoleUI, monitorConsole);
         networkPortTableUIManager.Init();
+    }
+
+    private void Update()
+    {
+        //deviceLockProcessor.Update();
     }
 
     /// <summary>
@@ -26,6 +33,7 @@ public class Main : MonoBehaviour
     /// </summary>
     private void OnApplicationQuit()
     {
+        //deviceLockProcessor.UnInit();   
         NetworkPortManager.Instance.UnInit();
         networkPortTableUIManager.UnInit();
     }

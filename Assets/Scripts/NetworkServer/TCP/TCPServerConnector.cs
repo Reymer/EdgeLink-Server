@@ -210,7 +210,7 @@ public class TCPServerConnector
                         NotifyForwardTargetStatusChange("CONNECT", serverData.portData);
                         LogHelper.LogToConsole(
                             $"TCP Server [{serverName}] (本地:{localPort}) 收到來自 {remoteAddress} 的新連線" +
-                            $"當前連線數: {serverData.CurrentConnections}，累積連線數: {serverData.TotalConnections}");
+                            $"當前連線數: {serverData.CurrentConnections}");
 
                         UnityMainThreadDispatcher.Instance().Enqueue(() =>
                             SafeExecution.Safe(() => serverData.portData.OnUpdate?.Invoke(serverData.portData)));
@@ -270,9 +270,9 @@ public class TCPServerConnector
             string serverName = serverData.portData.ProtocolName ?? "未知名稱";
             string localPort = serverData.portData.LocalPortDetails?.Port ?? "未知端口";
             NotifyForwardTargetStatusChange("DISCONNECT", serverData.portData);
-            LogHelper.LogToMonitor(
+            LogHelper.LogToConsole(
                 $"TCP Server [{serverName}] (本地:{localPort}) 有客戶端斷線，" +
-                $"當前連線數: {serverData.CurrentConnections}，累積連線數: {serverData.TotalConnections}");
+                $"當前連線數: {serverData.CurrentConnections}");
 
             UnityMainThreadDispatcher.Instance().Enqueue(() =>
                 SafeExecution.Safe(() => serverData.portData.OnUpdate?.Invoke(serverData.portData)));
@@ -348,6 +348,7 @@ public class TCPServerConnector
                 string remaining = bufferString[(lastNewlineIndex + 1)..];
                 dataBuffer.Clear();
                 dataBuffer.Append(remaining);
+
 
                 foreach (var line in processable.Split('\n'))
                 {

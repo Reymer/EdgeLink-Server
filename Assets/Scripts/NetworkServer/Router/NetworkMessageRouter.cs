@@ -3,6 +3,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using UnityEngine;
 
 /// <summary>
 /// 網路訊息路由器
@@ -13,7 +14,7 @@ public class NetworkMessageRouter
     public static NetworkMessageRouter Instance => instance ??= new NetworkMessageRouter();
 
     //private readonly ConcurrentDictionary<string, TCPClientData> tcpClients = new();
-    private readonly ConcurrentDictionary<string, List<TCPClientData>> tcpClientGroups = new();
+    private readonly ConcurrentDictionary<string, TCPClientData> tcpClients = new();
     private readonly ConcurrentDictionary<string, TCPServerData> tcpServers = new();
 
     private NetworkMessageRouter() { }
@@ -23,32 +24,33 @@ public class NetworkMessageRouter
     /// </summary>
     /// <param name="protocolName"></param>
     /// <param name="clientData"></param>
-    public void RegisterTcpClient(string protocolName, TCPClientData clientData)
+    public void RegisterTcpClient(TCPClientData clientData)
     {
-        if (!tcpClientGroups.ContainsKey(protocolName))
+        string key = GetClientKey(clientData.portData);
+
+        if (tcpClients.ContainsKey(key))
         {
-            tcpClientGroups[protocolName] = new List<TCPClientData>();
+            Debug.LogWarning($"[Router] 已註冊 TCP Client: {key}");
+            return;
         }
-        tcpClientGroups[protocolName].Add(clientData);
+        tcpClients[key] = clientData;
+        Debug.Log($"[Router] 註冊 TCP Client 成功: {key}");
     }
 
+    private string GetClientKey(PortData data)
+    {
+        return $"{data.ProtocolName}_{data.TargetIP}_{data.RemotePortDetails.Port}";
+    }
 
     /// <summary>
     /// 註銷 TCP Client
     /// </summary>
     /// <param name="protocolName"></param>
-    public void UnregisterTcpClient(string protocolName, TCPClientData clientData)
+    public void UnregisterTcpClient(TCPClientData clientData)
     {
-        if (tcpClientGroups.TryGetValue(protocolName, out var list))
-        {
-            list.Remove(clientData);
-            if (list.Count == 0)
-            {
-                tcpClientGroups.TryRemove(protocolName, out _);
-            }
-        }
+        string key = GetClientKey(clientData.portData);
+        tcpClients.TryRemove(key, out _);
     }
-
 
     /// <summary>
     /// 註冊 TCP Server
@@ -236,11 +238,15 @@ public class NetworkMessageRouter
     {
         if (string.IsNullOrEmpty(protocolName)) return;
 
-        if (!tcpClientGroups.TryGetValue(protocolName, out var clients)) return;
+        var matchingClients = tcpClients
+            .Where(kv => kv.Key.StartsWith(protocolName + "_"))
+            .Select(kv => kv.Value)
+            .ToList();
+
+        if (matchingClients.Count == 0) return;
 
         string parsedMessage = Encoding.UTF8.GetString(data);
-
-        foreach (var client in clients.ToList()) // ToList 防止修改時列舉錯誤
+        foreach (var client in matchingClients)
         {
             if (client?.tcpClient?.Connected == true)
             {
@@ -251,14 +257,14 @@ public class NetworkMessageRouter
                 }
                 catch (Exception ex)
                 {
-                    LogHelper.LogToConsole($"[Router] 轉送到 TCP Client 失敗: {ex.Message}", isError: true);
+                    //LogHelper.LogToConsole($"[Router] 轉送到 TCP Client 失敗: {ex.Message}", isError: true);
 
                     try { client.tcpClient?.Close(); client.tcpClient?.Dispose(); } catch { }
 
                     client.tcpClient = null;
                     client.portData.IsConnected = false;
 
-                    UnregisterTcpClient(protocolName, client);
+                    UnregisterTcpClient(client);  // ✅ 改為用完整 clientData 做移除
 
                     UnityMainThreadDispatcher.Instance()?.Enqueue(() =>
                         SafeExecution.Safe(() => client.portData.OnUpdate?.Invoke(client.portData)));
@@ -268,6 +274,7 @@ public class NetworkMessageRouter
     }
 
 
+
     /// <summary>
     /// 取得 TCP Client 資料
     /// </summary>
@@ -275,8 +282,12 @@ public class NetworkMessageRouter
     /// <returns></returns>
     public List<TCPClientData> GetTcpClients(string protocolName)
     {
-        return tcpClientGroups.TryGetValue(protocolName, out var list) ? list : new List<TCPClientData>();
+        return tcpClients
+            .Where(kv => kv.Key.StartsWith(protocolName + "_"))
+            .Select(kv => kv.Value)
+            .ToList();
     }
+
 
 
     /// <summary>

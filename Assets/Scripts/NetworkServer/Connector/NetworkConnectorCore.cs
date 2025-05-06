@@ -30,7 +30,6 @@ public class NetworkConnectorCore
                 break;
             case "TCP CLIENT":
                 tcpClientConnector.AddPort(portData);
-                NetworkMessageRouter.Instance.RegisterTcpClient(portData.ProtocolName, tcpClientConnector.GetClientData(portData));
                 break;
             case "TCP SERVER":
                 tcpServerConnector.AddPort(portData);
