@@ -1,0 +1,38 @@
+{
+    "portDatas": [
+        {
+            "ProtocolName": "123",
+            "NetProtocol": "TCP Server",
+            "LocalPortDetails": {
+                "Port": "8888",
+                "Description": ""
+            },
+            "RemotePortDetails": {
+                "Port": "--",
+                "Description": ""
+            },
+            "TargetIP": "",
+            "IsConnected": true,
+            "COMReceived": 0,
+            "NetReceived": 0,
+            "MaskType": "original data"
+        },
+        {
+            "ProtocolName": "123",
+            "NetProtocol": "TCP Client",
+            "LocalPortDetails": {
+                "Port": "--",
+                "Description": ""
+            },
+            "RemotePortDetails": {
+                "Port": "1234",
+                "Description": ""
+            },
+            "TargetIP": "192.168.50.193",
+            "IsConnected": true,
+            "COMReceived": 0,
+            "NetReceived": 0,
+            "MaskType": "original data"
+        }
+    ]
+}
