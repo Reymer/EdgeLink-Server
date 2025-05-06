@@ -13,7 +13,48 @@
         "meta",
         "keep"
     ],
-    "buildTypeDatas": [],
-    "copyFolderDatas": [],
+    "buildTypeDatas": [
+        {
+            "typeName": "IOT-Server",
+            "defineSymbol": "",
+            "buildPath": "",
+            "fileName": "",
+            "supportVR": false,
+            "allowBuildFromCI": false,
+            "isCustomScenes": true,
+            "customSceneSettings": [
+                {
+                    "enable": true,
+                    "scenePath": "Assets/Scenes/Main.unity"
+                }
+            ]
+        }
+    ],
+    "copyFolderDatas": [
+        {
+            "PathSetting": {
+                "CustomPath": "",
+                "CustomFileName": "",
+                "Overwrite": true,
+                "RecursiveCopy": true
+            },
+            "isNeedCopy": true,
+            "SelectPath": "D:/Project/iot-server/GameData",
+            "RelativePath": "/GameData",
+            "buildTypeFlag": -1
+        },
+        {
+            "PathSetting": {
+                "CustomPath": "",
+                "CustomFileName": "",
+                "Overwrite": true,
+                "RecursiveCopy": true
+            },
+            "isNeedCopy": true,
+            "SelectPath": "D:/Project/iot-server/Setting",
+            "RelativePath": "/Setting",
+            "buildTypeFlag": -1
+        }
+    ],
     "copyFileDatas": []
 }
