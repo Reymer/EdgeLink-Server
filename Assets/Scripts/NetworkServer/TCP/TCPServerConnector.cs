@@ -131,8 +131,6 @@ public class TCPServerConnector
 
                 UnityMainThreadDispatcher.Instance().Enqueue(() =>
                     SafeExecution.Safe(() => portData.OnUpdate?.Invoke(portData), "TcpServerConnector.Connect.OnUpdate"));
-
-                LogHelper.LogToConsole($"TCP Server 已重新啟動: {portData.ProtocolName}");
             }
             catch (Exception ex)
             {
@@ -198,8 +196,8 @@ public class TCPServerConnector
                         serverData.RemoteEndPoint = client.Client.RemoteEndPoint as IPEndPoint;
                         serverData.portData.IsConnected = true;
 
-                        serverData.TotalConnections++;      
-                        serverData.CurrentConnections++;    
+                        serverData.TotalConnections++;
+                        serverData.CurrentConnections++;
 
                         serverData.portData.CurrentConnections = serverData.CurrentConnections;
                         serverData.portData.TotalConnections = serverData.TotalConnections;
@@ -208,10 +206,6 @@ public class TCPServerConnector
                         string localPort = serverData.portData.LocalPortDetails?.Port ?? "未知端口";
                         string remoteAddress = serverData.RemoteEndPoint?.ToString() ?? "未知IP";
                         NotifyForwardTargetStatusChange("CONNECT", serverData.portData);
-                        LogHelper.LogToConsole(
-                            $"TCP Server [{serverName}] (本地:{localPort}) 收到來自 {remoteAddress} 的新連線" +
-                            $"當前連線數: {serverData.CurrentConnections}");
-
                         UnityMainThreadDispatcher.Instance().Enqueue(() =>
                             SafeExecution.Safe(() => serverData.portData.OnUpdate?.Invoke(serverData.portData)));
                     });
@@ -270,10 +264,6 @@ public class TCPServerConnector
             string serverName = serverData.portData.ProtocolName ?? "未知名稱";
             string localPort = serverData.portData.LocalPortDetails?.Port ?? "未知端口";
             NotifyForwardTargetStatusChange("DISCONNECT", serverData.portData);
-            LogHelper.LogToConsole(
-                $"TCP Server [{serverName}] (本地:{localPort}) 有客戶端斷線，" +
-                $"當前連線數: {serverData.CurrentConnections}");
-
             UnityMainThreadDispatcher.Instance().Enqueue(() =>
                 SafeExecution.Safe(() => serverData.portData.OnUpdate?.Invoke(serverData.portData)));
         }
@@ -292,25 +282,15 @@ public class TCPServerConnector
             byte[] notifyBytes = Encoding.UTF8.GetBytes(notifyMessage + "\n");
 
             string forwardTargetProtocol = sourcePortData.ProtocolName; // TODO: 如果有更好的動態來源可以改這裡
-            var targetClients = NetworkMessageRouter.Instance.GetTcpClients(forwardTargetProtocol);
+            var targetClient = NetworkMessageRouter.Instance.GetTcpClient(forwardTargetProtocol);
 
-            foreach (var client in targetClients)
+            if (targetClient?.tcpClient?.Connected == true)
             {
-                if (client?.tcpClient?.Connected == true)
-                {
-                    try
-                    {
-                        var stream = client.tcpClient.GetStream();
-                        stream.Write(notifyBytes, 0, notifyBytes.Length);
-                        LogHelper.LogToMonitor($"[Router] 已通知目標 [{forwardTargetProtocol}]：來源 [{sourcePortData.ProtocolName}] {status}");
-                    }
-                    catch (Exception ex)
-                    {
-                        LogHelper.LogToConsole($"[Router] 通知目標 {forwardTargetProtocol} 失敗: {ex.Message}", isError: true);
-                    }
-                }
-            }
+                var stream = targetClient.tcpClient.GetStream();
+                stream.Write(notifyBytes, 0, notifyBytes.Length);
 
+                LogHelper.LogToMonitor($"[Router] 已通知目標 [{forwardTargetProtocol}]：來源 [{sourcePortData.ProtocolName}] {status}");
+            }
         }
         catch (Exception ex)
         {
@@ -348,7 +328,6 @@ public class TCPServerConnector
                 string remaining = bufferString[(lastNewlineIndex + 1)..];
                 dataBuffer.Clear();
                 dataBuffer.Append(remaining);
-
 
                 foreach (var line in processable.Split('\n'))
                 {

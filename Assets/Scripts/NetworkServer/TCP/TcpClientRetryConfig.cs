@@ -1,26 +1,11 @@
-using System;
-
-[Serializable]
-public class TcpClientRetryConfig
+﻿public class TcpClientRetryConfig
 {
-    /// <summary>
-    /// 首次連線重試次數
-    /// </summary>
-    public int MaxRetryFirst = 3;
-    /// <summary>
-    /// 首次連線重試次數
-    /// </summary>
-    public int MaxRetrySubsequent = 10;
-    /// <summary>
-    /// 首次連線延遲 (ms)
-    /// </summary>
-    public int InitialDelayMs = 2000;
-    /// <summary>
-    /// 指數回退最大延遲 (ms)
-    /// </summary>
-    public int MaxDelayMs = 30000;
-    /// <summary>
-    /// 心跳間隔 (ms)
-    /// </summary>
-    public int HeartbeatIntervalMs = 5000;
+    /// <summary>首次連線最大重試次數，設為 -1 表示無限</summary>
+    public int MaxRetryFirst { get; set; } = -1;
+
+    /// <summary>重連最大重試次數，設為 -1 表示無限</summary>
+    public int MaxRetrySubsequent { get; set; } = -1;
+
+    public int InitialDelayMs { get; set; } = 1000;
+    public int HeartbeatIntervalMs { get; set; } = 5000;
 }
