@@ -211,7 +211,6 @@ public class TCPClientConnector
 
             try
             {
-                // 嘗試小寫入確認連線（0-byte write）
                 var stream = clientData.tcpClient.GetStream();
                 if (stream.CanWrite)
                 {
