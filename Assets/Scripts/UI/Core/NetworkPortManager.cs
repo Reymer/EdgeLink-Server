@@ -76,8 +76,11 @@ public class NetworkPortManager
     /// <returns></returns>
     public PortData AddPortData(PortData portData)
     {
+        var type = ParseProtocolType(portData.NetProtocol);
+        string key = GetPortKey(portData);
         var data = new PortData
         {
+            Key = key,
             ProtocolName = portData.ProtocolName,
             NetProtocol = portData.NetProtocol,
             LocalPortDetails = new PortDetails { Port = portData.LocalPortDetails.Port },
@@ -89,9 +92,6 @@ public class NetworkPortManager
             OnUpdate = OnUpdate,
             MaskType = portData.MaskType,
         };
-
-        var type = ParseProtocolType(data.NetProtocol);
-        string key = GetPortKey(data);
 
         portRegistry.Add(type, key, data);
         networkConnectorCore.AddPort(data);

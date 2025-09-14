@@ -19,7 +19,7 @@ public class TCPClientConnector
     /// </summary>
     public void AddPort(PortData portData)
     {
-        if (!tcpClientDatas.ContainsKey(portData.ProtocolName))
+        if (!tcpClientDatas.ContainsKey(portData.Key))
         {
             var clientData = new TCPClientData
             {
@@ -27,11 +27,11 @@ public class TCPClientConnector
                 tcpClient = new TcpClient(),
                 CancellationTokenSource = new CancellationTokenSource()
             };
-            tcpClientDatas[portData.ProtocolName] = clientData;
-            NetworkMessageRouter.Instance.RegisterTcpClient(portData.ProtocolName, clientData);
+            tcpClientDatas[portData.Key] = clientData;
+            NetworkMessageRouter.Instance.RegisterTcpClient(portData.Key, clientData);
         }
 
-        _ = ConnectWithRetryAsync(tcpClientDatas[portData.ProtocolName], isFirstConnect: true);
+        _ = ConnectWithRetryAsync(tcpClientDatas[portData.Key], isFirstConnect: true);
     }
 
     /// <summary>
@@ -39,14 +39,14 @@ public class TCPClientConnector
     /// </summary>
     public void Connect(PortData portData)
     {
-        if (tcpClientDatas.TryGetValue(portData.ProtocolName, out var clientData))
+        if (tcpClientDatas.TryGetValue(portData.Key, out var clientData))
         {
             ResetClientConnection(clientData);
             _ = ConnectWithRetryAsync(clientData, isFirstConnect: true);
         }
         else
         {
-            LogHelper.LogToConsole($"找不到 TCP Client: {portData.ProtocolName}，請先 AddPort", isError: true);
+            LogHelper.LogToConsole($"找不到 TCP Client: {portData.ProtocolName}，請先新增", isError: true);
         }
     }
 
@@ -55,7 +55,7 @@ public class TCPClientConnector
     /// </summary>
     public void Disconnect(PortData portData)
     {
-        if (tcpClientDatas.TryGetValue(portData.ProtocolName, out var clientData))
+        if (tcpClientDatas.TryGetValue(portData.Key, out var clientData))
         {
             ResetClientConnection(clientData);
             portData.IsConnected = false;
@@ -68,12 +68,12 @@ public class TCPClientConnector
     /// </summary>
     public void RemovePort(PortData portData)
     {
-        if (tcpClientDatas.TryRemove(portData.ProtocolName, out var clientData))
+        if (tcpClientDatas.TryRemove(portData.Key, out var clientData))
         {
             ResetClientConnection(clientData);
             clientData.Dispose();
             portData.IsConnected = false;
-            NetworkMessageRouter.Instance.UnregisterTcpClient(portData.ProtocolName);
+            NetworkMessageRouter.Instance.UnregisterTcpClient(portData.Key);
             LogHelper.LogToConsole($"已刪除 TCP Client: {portData.ProtocolName}");
         }
     }
@@ -83,7 +83,7 @@ public class TCPClientConnector
     /// </summary>
     public void RestartPort(PortData portData)
     {
-        if (tcpClientDatas.TryGetValue(portData.ProtocolName, out var clientData))
+        if (tcpClientDatas.TryGetValue(portData.Key, out var clientData))
         {
             LogHelper.LogToConsole($"重新啟動 TCP Client: {portData.ProtocolName}");
             Disconnect(portData);

@@ -3,6 +3,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using UnityEngine.Assertions.Must;
 
 /// <summary>
 /// 網路訊息路由器
@@ -20,20 +21,20 @@ public class NetworkMessageRouter
     /// <summary>
     /// 註冊 TCP Client
     /// </summary>
-    /// <param name="protocolName"></param>
+    /// <param name="protocolKey"></param>
     /// <param name="clientData"></param>
-    public void RegisterTcpClient(string protocolName, TCPClientData clientData)
+    public void RegisterTcpClient(string protocolKey, TCPClientData clientData)
     {
-        tcpClients[protocolName] = clientData;
+        tcpClients[protocolKey] = clientData;
     }
 
     /// <summary>
     /// 註銷 TCP Client
     /// </summary>
     /// <param name="protocolName"></param>
-    public void UnregisterTcpClient(string protocolName)
+    public void UnregisterTcpClient(string protocolKey)
     {
-        tcpClients.TryRemove(protocolName, out _);
+        tcpClients.TryRemove(protocolKey, out _);
     }
 
     /// <summary>
@@ -222,31 +223,51 @@ public class NetworkMessageRouter
     {
         if (string.IsNullOrEmpty(protocolName)) return;
 
-        if (tcpClients.TryGetValue(protocolName, out var client) && client?.tcpClient?.Connected == true)
-        {
-            try
-            {
-                await client.tcpClient.GetStream().WriteAsync(data, 0, data.Length);
-                string parsedMessage = Encoding.UTF8.GetString(data);
-                RouterLogHelper.LogSend(client.portData, MonitorTargetType.TCPClient, parsedMessage);
 
-            }
-            catch (Exception ex)
+        if(data == null || data.Length == 0) return;
+        foreach(var tcpClient in tcpClients.Values)
+        {
+            if(tcpClient.portData.ProtocolName == protocolName && tcpClient.portData.IsConnected) //確認連線狀態以及協議名稱
             {
                 try
                 {
-                    client.tcpClient?.Close();
-                    client.tcpClient?.Dispose();
+                    await tcpClient.tcpClient.GetStream().WriteAsync(data, 0, data.Length);
+                    string parsedMessage = Encoding.UTF8.GetString(data);
+                    RouterLogHelper.LogSend(tcpClient.portData, MonitorTargetType.TCPClient, parsedMessage);
                 }
-                catch { }
+                catch(Exception ex)
+                {
+                    try
+                    {
+                        tcpClient.tcpClient?.Close();
+                        tcpClient.tcpClient?.Dispose();
+                    }
+                    catch { }
 
-                client.tcpClient = null;
-                client.portData.IsConnected = false;
+                    tcpClient.tcpClient = null;
+                    tcpClient.portData.IsConnected = false;
 
-                UnityMainThreadDispatcher.Instance()?.Enqueue(() =>
-                    SafeExecution.Safe(() => client.portData.OnUpdate?.Invoke(client.portData)));
+                    UnityMainThreadDispatcher.Instance()?.Enqueue(() =>
+                        SafeExecution.Safe(() => tcpClient.portData.OnUpdate?.Invoke(tcpClient.portData)));
+                }
             }
         }
+
+
+        //if (tcpClients.TryGetValue(protocolName, out var client) && client?.tcpClient?.Connected == true)
+        //{
+        //    try
+        //    {
+        //        await client.tcpClient.GetStream().WriteAsync(data, 0, data.Length);
+        //        string parsedMessage = Encoding.UTF8.GetString(data);
+        //        RouterLogHelper.LogSend(client.portData, MonitorTargetType.TCPClient, parsedMessage);
+
+        //    }
+        //    catch (Exception ex)
+        //    {
+
+        //    }
+        //}
     }
 
     /// <summary>

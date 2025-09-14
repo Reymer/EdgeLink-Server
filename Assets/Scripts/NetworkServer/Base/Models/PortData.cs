@@ -17,6 +17,7 @@ public class PortDatas
 [Serializable]
 public class PortData
 {
+    public string Key;
     public string ProtocolName;
     public string NetProtocol;
     public PortDetails LocalPortDetails;
