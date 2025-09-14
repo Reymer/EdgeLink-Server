@@ -120,7 +120,7 @@ public class Table : MonoBehaviour
 
     #endregion
 
-    #region 設定面具類型
+    #region 設定遮罩類型
 
     private void SetMaskType(int index)
     {
