@@ -29,6 +29,16 @@ public class PortData
     public string MaskType;
 
     /// <summary>
+    /// RobotTo10 轉發目標 IP（如果為空則使用預設值）
+    /// </summary>
+    public string ForwardTargetIP;
+
+    /// <summary>
+    /// RobotTo10 轉發目標端口（如果為 0 則使用預設值）
+    /// </summary>
+    public int ForwardTargetPort;
+
+    /// <summary>
     /// 以下都是運行時屬性，不要序列化
     /// </summary>
     [NonSerialized] public int CurrentConnections;

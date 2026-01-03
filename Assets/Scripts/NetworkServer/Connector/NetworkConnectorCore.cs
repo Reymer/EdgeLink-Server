@@ -1,11 +1,15 @@
-﻿using System.Threading.Tasks;
+﻿using System.Collections.Generic;
+using System.Threading.Tasks;
 using DevKit.Console;
 
 public class NetworkConnectorCore
 {
-    private readonly UdpConnector udpConnector = new();
-    private readonly TCPServerConnector tcpServerConnector = new();
-    private readonly TCPClientConnector tcpClientConnector = new();
+    private readonly Dictionary<string, NetworkConnectorBase> connectors = new()
+    {
+        { "UDP", new UdpConnector() },
+        { "TCP SERVER", new TCPServerConnector() },
+        { "TCP CLIENT", new TCPClientConnector() }
+    };
 
     /// <summary>
     /// 初始化
@@ -23,21 +27,21 @@ public class NetworkConnectorCore
     /// <param name="portData"></param>
     public void AddPort(PortData portData)
     {
-        switch (portData.NetProtocol.ToUpperInvariant())
+        string protocol = portData.NetProtocol.ToUpperInvariant();
+
+        if (connectors.TryGetValue(protocol, out var connector))
         {
-            case "UDP":
-                udpConnector.AddPort(portData);
-                break;
-            case "TCP CLIENT":
-                tcpClientConnector.AddPort(portData);
-                break;
-            case "TCP SERVER":
-                tcpServerConnector.AddPort(portData);
-                NetworkMessageRouter.Instance.RegisterTcpServer(portData.ProtocolName, tcpServerConnector.GetServerData(portData));
-                break;
-            default:
-                LogHelper.LogToConsole($"無法識別的連接類型: {portData.NetProtocol}", isError: true);
-                break;
+            connector.AddPort(portData);
+
+            // TCP Server 需要額外註冊到路由器
+            if (protocol == "TCP SERVER" && connector is TCPServerConnector tcpServer)
+            {
+                NetworkMessageRouter.Instance.RegisterTcpServer(portData.ProtocolName, tcpServer.GetServerData(portData));
+            }
+        }
+        else
+        {
+            LogHelper.LogToConsole($"無法識別的連接類型: {portData.NetProtocol}", isError: true);
         }
     }
 
@@ -45,16 +49,11 @@ public class NetworkConnectorCore
     /// 重啟端口
     /// </summary>
     /// <param name="portData"></param>
-    public void RestartPort(PortData portData)
+    public async Task RestartPort(PortData portData)
     {
-        switch (portData.NetProtocol.ToUpperInvariant())
+        if (connectors.TryGetValue(portData.NetProtocol.ToUpperInvariant(), out var connector))
         {
-            case "TCP CLIENT":
-                tcpClientConnector.RestartPort(portData);
-                break;
-            case "TCP SERVER":
-                tcpServerConnector.RestartPort(portData);
-                break;
+            await connector.RestartPort(portData);
         }
     }
 
@@ -64,14 +63,9 @@ public class NetworkConnectorCore
     /// <param name="portData"></param>
     public void Connected(PortData portData)
     {
-        switch (portData.NetProtocol.ToUpperInvariant())
+        if (connectors.TryGetValue(portData.NetProtocol.ToUpperInvariant(), out var connector))
         {
-            case "TCP CLIENT":
-                tcpClientConnector.Connect(portData);
-                break;
-            case "TCP SERVER":
-                tcpServerConnector.Connect(portData);
-                break;
+            connector.Connect(portData);
         }
     }
 
@@ -79,19 +73,11 @@ public class NetworkConnectorCore
     /// 斷開連接端口
     /// </summary>
     /// <param name="portData"></param>
-    public void Disconnected(PortData portData)
+    public async Task Disconnected(PortData portData)
     {
-        switch (portData.NetProtocol.ToUpperInvariant())
+        if (connectors.TryGetValue(portData.NetProtocol.ToUpperInvariant(), out var connector))
         {
-            case "UDP":
-                udpConnector.Disconnect(portData);
-                break;
-            case "TCP CLIENT":
-                tcpClientConnector.Disconnect(portData);
-                break;
-            case "TCP SERVER":
-                tcpServerConnector.Disconnect(portData);
-                break;
+            await connector.Disconnect(portData);
         }
     }
 
@@ -99,20 +85,19 @@ public class NetworkConnectorCore
     /// 停止
     /// </summary>
     /// <param name="portData"></param>
-    public void Stop(PortData portData)
+    public async Task Stop(PortData portData)
     {
-        switch (portData.NetProtocol.ToUpperInvariant())
+        string protocol = portData.NetProtocol.ToUpperInvariant();
+
+        if (connectors.TryGetValue(protocol, out var connector))
         {
-            case "UDP":
-                udpConnector.Disconnect(portData);
-                break;
-            case "TCP CLIENT":
-                tcpClientConnector.RemovePort(portData);
-                break;
-            case "TCP SERVER":
-                tcpServerConnector.RemovePort(portData);
+            await connector.RemovePort(portData);
+
+            // TCP Server 需要額外從路由器註銷
+            if (protocol == "TCP SERVER")
+            {
                 NetworkMessageRouter.Instance.UnregisterTcpServer(portData.ProtocolName);
-                break;
+            }
         }
     }
 
@@ -130,7 +115,7 @@ public class NetworkConnectorCore
         else if (portData.NetProtocol.ToUpperInvariant() == "TCP CLIENT")
             MonitorManager.Instance.SetMonitorPort(portData, MonitorTargetType.TCPClient);
         else
-            LogHelper.LogToConsole($"[Monitor] 不支援的監控協議類型: {portData.NetProtocol}", isError: true);
+            MonitorManager.Instance.SetMonitorPort(portData, MonitorTargetType.UDP);
     }
 
     /// <summary>
@@ -139,12 +124,15 @@ public class NetworkConnectorCore
     /// <returns></returns>
     private async Task ShutdownClientsAsync()
     {
-        await tcpClientConnector.ShutdownAsync();
-        await udpConnector.ShutdownAsync();
-        await tcpServerConnector.ShutdownAsync();
+        var tasks = new List<Task>();
+        foreach (var connector in connectors.Values)
+        {
+            tasks.Add(connector.ShutdownAsync());
+        }
+        await Task.WhenAll(tasks);
     }
 
-    public async void UnInit()
+    public async Task UnInit()
     {
         await ShutdownClientsAsync();
     }

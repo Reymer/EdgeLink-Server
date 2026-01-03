@@ -1,12 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
-using System.Net.Sockets;
-using DevKit;
 using DevKit.Console;
 using DevKit.Tool;
-using Newtonsoft.Json;
 using UnityEngine;
 
 public class NetworkPortManager
@@ -153,7 +149,7 @@ public class NetworkPortManager
     /// 刪除網路協定資料
     /// </summary>
     /// <param name="portData"></param>
-    public void RemovePortData(PortData portData)
+    public async System.Threading.Tasks.Task RemovePortData(PortData portData)
     {
         var type = ParseProtocolType(portData.NetProtocol);
         string key = GetPortKey(portData);
@@ -162,7 +158,7 @@ public class NetworkPortManager
         if (data != null)
         {
             data.OnUpdate -= OnUpdate;
-            networkConnectorCore.Stop(data);
+            await networkConnectorCore.Stop(data);
             portRegistry.Remove(type, key);
             SaveData();
         }
@@ -181,18 +177,18 @@ public class NetworkPortManager
     /// 斷線方法
     /// </summary>
     /// <param name="portData"></param>
-    public void DisconnectedPort(PortData portData)
+    public async System.Threading.Tasks.Task DisconnectedPort(PortData portData)
     {
-        networkConnectorCore.Disconnected(portData);
+        await networkConnectorCore.Disconnected(portData);
     }
 
     /// <summary>
     /// 更換遮罩
     /// </summary>
     /// <param name="portData"></param>
-    public void MaskSwitch(PortData portData)
+    public async System.Threading.Tasks.Task MaskSwitch(PortData portData)
     {
-        networkConnectorCore.RestartPort(portData);
+        await networkConnectorCore.RestartPort(portData);
     }
 
     /// <summary>
@@ -276,9 +272,9 @@ public class NetworkPortManager
     /// <summary>
     /// 釋放資源
     /// </summary>
-    public void UnInit()
+    public async System.Threading.Tasks.Task UnInit()
     {
-        networkConnectorCore.UnInit();
+        await networkConnectorCore.UnInit();
         foreach (var data in portRegistry.GetAll())
         {
             data.OnUpdate -= OnUpdate;

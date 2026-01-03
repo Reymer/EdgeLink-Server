@@ -10,6 +10,8 @@ public class AsyncMessageQueue<T>
 {
     private readonly ConcurrentQueue<T> queue = new();
     private readonly SemaphoreSlim semaphoreSlim = new(0);
+    private const int MAX_QUEUE_SIZE = 10000; // 最大佇列大小
+    private int currentCount = 0;
 
     /// <summary>
     /// 放入佇列
@@ -17,6 +19,14 @@ public class AsyncMessageQueue<T>
     /// <param name="item"></param>
     public void Enqueue(T item)
     {
+        // 檢查佇列大小限制
+        if (System.Threading.Interlocked.Increment(ref currentCount) > MAX_QUEUE_SIZE)
+        {
+            System.Threading.Interlocked.Decrement(ref currentCount);
+            UnityEngine.Debug.LogWarning($"[安全] 訊息佇列已達到最大容量 {MAX_QUEUE_SIZE}，丟棄新訊息");
+            return;
+        }
+
         queue.Enqueue(item);
         semaphoreSlim.Release();
     }
@@ -29,7 +39,15 @@ public class AsyncMessageQueue<T>
     public async Task<T> DequeueAsync(CancellationToken cancellationToken = default)
     {
         await semaphoreSlim.WaitAsync(cancellationToken);
-        queue.TryDequeue(out var item);
+        if (queue.TryDequeue(out var item))
+        {
+            System.Threading.Interlocked.Decrement(ref currentCount);
+        }
         return item;
     }
+
+    /// <summary>
+    /// 獲取當前佇列大小
+    /// </summary>
+    public int Count => currentCount;
 }

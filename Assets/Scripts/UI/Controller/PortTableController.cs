@@ -66,14 +66,13 @@ public class PortTableController : IPortTableHandler
     public void OnUpdate(PortData portData)
     {
         if (manualAddGuard.IsRunning) return;
-
         spawner.RefreshAndRecreateTables(uiCollector);
         NetworkPortManager.Instance.InstantiateTables(spawner, uiCollector);
     }
 
-    public void OnRemove(PortData portData)
+    public async void OnRemove(PortData portData)
     {
-        ExecuteWithRefresh(() => NetworkPortManager.Instance.RemovePortData(portData));
+        await ExecuteWithRefreshAsync(async () => await NetworkPortManager.Instance.RemovePortData(portData));
     }
 
     public void OnConnect(PortData portData)
@@ -81,14 +80,14 @@ public class PortTableController : IPortTableHandler
         ExecuteWithRefresh(() => NetworkPortManager.Instance.ConnectPort(portData));
     }
 
-    public void OnDisconnectedPort(PortData portData)
+    public async void OnDisconnectedPort(PortData portData)
     {
-        ExecuteWithRefresh(() => NetworkPortManager.Instance.DisconnectedPort(portData));
+        await ExecuteWithRefreshAsync(async () => await NetworkPortManager.Instance.DisconnectedPort(portData));
     }
 
-    public void OnMaskType(PortData portData)
+    public async void OnMaskType(PortData portData)
     {
-        ExecuteWithRefresh(() => NetworkPortManager.Instance.MaskSwitch(portData));
+        await ExecuteWithRefreshAsync(async () => await NetworkPortManager.Instance.MaskSwitch(portData));
     }
 
     public void OnMonitorConsole(PortData portData)
@@ -100,6 +99,13 @@ public class PortTableController : IPortTableHandler
     {
         spawner.RefreshAndRecreateTables(uiCollector);
         action();
+        NetworkPortManager.Instance.RefreshAndRecreateTables(spawner, uiCollector);
+    }
+
+    private async System.Threading.Tasks.Task ExecuteWithRefreshAsync(System.Func<System.Threading.Tasks.Task> asyncAction)
+    {
+        spawner.RefreshAndRecreateTables(uiCollector);
+        await asyncAction();
         NetworkPortManager.Instance.RefreshAndRecreateTables(spawner, uiCollector);
     }
 }

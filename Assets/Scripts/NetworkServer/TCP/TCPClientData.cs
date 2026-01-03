@@ -12,26 +12,69 @@ public class TCPClientData : DisposableBase
 
     protected override void DisposeManagedResources()
     {
+        // ✅ 修復：先取消 CancellationTokenSource，心跳任務會自動停止
         if (CancellationTokenSource != null)
         {
             if (!CancellationTokenSource.IsCancellationRequested)
                 CancellationTokenSource.Cancel();
 
-            try { CancellationTokenSource.Dispose(); } catch { }
+            try
+            {
+                CancellationTokenSource.Dispose();
+            }
+            catch (System.ObjectDisposedException)
+            {
+                // 已經被釋放，靜默忽略
+            }
+            catch (System.Exception ex)
+            {
+                // 只記錄非預期的異常
+                UnityEngine.Debug.LogError($"[TCPClientData] 釋放 CancellationTokenSource 時發生非預期錯誤: {ex.Message}");
+            }
             CancellationTokenSource = null;
+        }
+
+        // ✅ 改進：等待心跳任務完成（最多等待 500ms）
+        if (HeartbeatTask != null && !HeartbeatTask.IsCompleted)
+        {
+            try
+            {
+                // 使用 Wait 等待任務完成，最多 500ms
+                HeartbeatTask.Wait(500);
+            }
+            catch (System.AggregateException)
+            {
+                // 任務可能因為 OperationCanceledException 而結束，這是正常的
+            }
+            catch (System.Exception)
+            {
+                // 靜默忽略其他異常（資源清理階段）
+            }
+
+            HeartbeatTask = null;
         }
 
         if (tcpClient != null)
         {
-            try { tcpClient.Close(); } catch { }
-            try { tcpClient.Dispose(); } catch { }
-            tcpClient = null;
-        }
+            try
+            {
+                tcpClient.Close();
+            }
+            catch (System.Exception)
+            {
+                // 關閉失敗通常可忽略
+            }
 
-        if (HeartbeatTask != null)
-        {
-            try { HeartbeatTask.Dispose(); } catch { }
-            HeartbeatTask = null;
+            try
+            {
+                tcpClient.Dispose();
+            }
+            catch (System.Exception)
+            {
+                // 釋放失敗通常可忽略
+            }
+
+            tcpClient = null;
         }
     }
 }

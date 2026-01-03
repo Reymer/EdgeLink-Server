@@ -1,12 +1,11 @@
-using static NetworkPortManager;
-
 /// <summary>
 /// 監控目標類型
 /// </summary>
 public enum MonitorTargetType
 {
     TCPServer,
-    TCPClient
+    TCPClient,
+    UDP
 }
 
 public class MonitorManager

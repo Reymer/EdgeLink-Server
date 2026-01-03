@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.Linq;
 using System.Net.Sockets;
 using System.Threading;
@@ -8,16 +9,43 @@ using System.Threading.Tasks;
 /// <summary>
 /// TCP Client 連線管理器
 /// </summary>
-public class TCPClientConnector
+public class TCPClientConnector : NetworkConnectorBase
 {
     private readonly ConcurrentDictionary<string, TCPClientData> tcpClientDatas = new();
     public Action<PortData> OnReconnectSuccess;
     public Action<PortData> OnReconnectFailed;
 
     /// <summary>
+    /// 安全地解析端口號
+    /// </summary>
+    private bool TryParsePort(string portString, out int port, string context = "")
+    {
+        port = 0;
+        if (string.IsNullOrWhiteSpace(portString))
+        {
+            LogHelper.LogToConsole($"[{context}] 端口為空", isError: true);
+            return false;
+        }
+
+        if (!int.TryParse(portString, out port))
+        {
+            LogHelper.LogToConsole($"[{context}] 無效的端口格式: {portString}", isError: true);
+            return false;
+        }
+
+        if (port < 1 || port > 65535)
+        {
+            LogHelper.LogToConsole($"[{context}] 端口超出範圍 (1-65535): {port}", isError: true);
+            return false;
+        }
+
+        return true;
+    }
+
+    /// <summary>
     /// 新增 TCP Client
     /// </summary>
-    public void AddPort(PortData portData)
+    public override void AddPort(PortData portData)
     {
         if (!tcpClientDatas.ContainsKey(portData.Key))
         {
@@ -37,7 +65,7 @@ public class TCPClientConnector
     /// <summary>
     /// 主動重新連線 TCP Client
     /// </summary>
-    public void Connect(PortData portData)
+    public override void Connect(PortData portData)
     {
         if (tcpClientDatas.TryGetValue(portData.Key, out var clientData))
         {
@@ -53,7 +81,7 @@ public class TCPClientConnector
     /// <summary>
     /// 主動斷線 TCP Client
     /// </summary>
-    public void Disconnect(PortData portData)
+    public override Task Disconnect(PortData portData)
     {
         if (tcpClientDatas.TryGetValue(portData.Key, out var clientData))
         {
@@ -61,12 +89,13 @@ public class TCPClientConnector
             portData.IsConnected = false;
             LogHelper.LogToConsole($"TCP Client 已斷線: {portData.ProtocolName}");
         }
+        return Task.CompletedTask;
     }
 
     /// <summary>
     /// 移除 TCP Client
     /// </summary>
-    public void RemovePort(PortData portData)
+    public override Task RemovePort(PortData portData)
     {
         if (tcpClientDatas.TryRemove(portData.Key, out var clientData))
         {
@@ -76,18 +105,19 @@ public class TCPClientConnector
             NetworkMessageRouter.Instance.UnregisterTcpClient(portData.Key);
             LogHelper.LogToConsole($"已刪除 TCP Client: {portData.ProtocolName}");
         }
+        return Task.CompletedTask;
     }
 
     /// <summary>
     /// 重啟 TCP Client
     /// </summary>
-    public void RestartPort(PortData portData)
+    public override async Task RestartPort(PortData portData)
     {
         if (tcpClientDatas.TryGetValue(portData.Key, out var clientData))
         {
             LogHelper.LogToConsole($"重新啟動 TCP Client: {portData.ProtocolName}");
-            Disconnect(portData);
-            _ = ConnectWithRetryAsync(clientData, isFirstConnect: true);
+            await Disconnect(portData);
+            await ConnectWithRetryAsync(clientData, isFirstConnect: true);
         }
     }
 
@@ -102,16 +132,42 @@ public class TCPClientConnector
     /// <summary>
     /// 關閉所有 TCP Client
     /// </summary>
-    public async Task ShutdownAsync()
+    public override async Task ShutdownAsync()
     {
-        var tasks = tcpClientDatas.Values.Select(clientData => Task.Run(() =>
+        UnityEngine.Debug.Log($"[TCPClient] 開始關閉 {tcpClientDatas.Count} 個 TCP Client");
+
+        // 先取消所有重連任務
+        foreach (var clientData in tcpClientDatas.Values)
         {
-            ResetClientConnection(clientData);
-            clientData.Dispose();
-        })).ToList();
+            try
+            {
+                clientData.CancellationTokenSource?.Cancel();
+            }
+            catch (System.Exception ex)
+            {
+                UnityEngine.Debug.LogWarning($"[TCPClient] 取消任務時發生錯誤: {ex.Message}");
+            }
+        }
+
+        // 等待一小段時間讓任務停止
+        await Task.Delay(100);
+
+        // 釋放資源
+        foreach (var clientData in tcpClientDatas.Values)
+        {
+            try
+            {
+                ResetClientConnection(clientData);
+                clientData.Dispose();
+            }
+            catch (System.Exception ex)
+            {
+                UnityEngine.Debug.LogWarning($"[TCPClient] 釋放資源時發生錯誤: {ex.Message}");
+            }
+        }
 
         tcpClientDatas.Clear();
-        await Task.WhenAll(tasks);
+        UnityEngine.Debug.Log("[TCPClient] 所有 TCP Client 已關閉");
     }
 
     /// <summary>
@@ -130,11 +186,19 @@ public class TCPClientConnector
         {
             try
             {
+                // 驗證遠端端口
+                if (!TryParsePort(portData.RemotePortDetails.Port, out int remotePort, "ConnectWithRetry"))
+                {
+                    portData.IsConnected = false;
+                    LogHelper.LogToConsole($"TCP Client [{portData.ProtocolName}] 遠端端口無效，停止重連。", isError: true);
+                    return;
+                }
+
                 // 先安全 Close 舊的 tcpClient
                 clientData.tcpClient?.Close();
                 clientData.tcpClient?.Dispose();
                 clientData.tcpClient = new TcpClient();
-                var connectTask = clientData.tcpClient.ConnectAsync(portData.TargetIP, int.Parse(portData.RemotePortDetails.Port));
+                var connectTask = clientData.tcpClient.ConnectAsync(portData.TargetIP, remotePort);
                 var timeoutTask = Task.Delay(5000, token);
 
                 if (await Task.WhenAny(connectTask, timeoutTask) == timeoutTask)
@@ -171,8 +235,8 @@ public class TCPClientConnector
             catch (Exception ex)
             {
                 portData.IsConnected = false;
-
-                UnityMainThreadDispatcher.Instance()?.Enqueue(() => portData.OnUpdate?.Invoke(portData)); // ✅ 加這行通知 UI
+                LogHelper.LogToConsole(ex.ToString() );
+                UnityMainThreadDispatcher.Instance()?.Enqueue(() => portData.OnUpdate?.Invoke(portData));
             }
 
 
@@ -195,40 +259,57 @@ public class TCPClientConnector
         var portData = clientData.portData;
         var token = clientData.CancellationTokenSource.Token;
 
-        while (!token.IsCancellationRequested)
+        try
         {
-            var cfg = NetworkPortManager.Instance.GetTcpClientRetryConfig();
-            await Task.Delay(cfg.HeartbeatIntervalMs, token);
-
-            if (IsSocketDisconnected(clientData.tcpClient))
+            while (!token.IsCancellationRequested)
             {
-                LogHelper.LogToConsole($"[Heartbeat] TCP Client [{portData.ProtocolName}] socket 判斷為斷線，啟動重連流程。");
-                portData.IsConnected = false;
-                UnityMainThreadDispatcher.Instance()?.Enqueue(() => portData.OnUpdate?.Invoke(portData)); // 告知 UI
-                _ = ConnectWithRetryAsync(clientData, isFirstConnect: false);
-                break;
-            }
+                var cfg = NetworkPortManager.Instance.GetTcpClientRetryConfig();
+                await Task.Delay(cfg.HeartbeatIntervalMs, token);
 
-            try
-            {
-                var stream = clientData.tcpClient.GetStream();
-                if (stream.CanWrite)
+                if (IsSocketDisconnected(clientData.tcpClient))
                 {
-                    await stream.WriteAsync(Array.Empty<byte>(), 0, 0, token); // 0-byte Ping
+                    LogHelper.LogToConsole($"[Heartbeat] TCP Client [{portData.ProtocolName}] socket 判斷為斷線，啟動重連流程。");
+                    portData.IsConnected = false;
+                    UnityMainThreadDispatcher.Instance()?.Enqueue(() => portData.OnUpdate?.Invoke(portData));
+                    _ = ConnectWithRetryAsync(clientData, isFirstConnect: false);
+                    break;
                 }
-                else
-                {
-                    throw new Exception("Stream 不可寫入");
-                }
-            }
-            catch (Exception ex)
-            {
-                LogHelper.LogToConsole($"[Heartbeat] TCP Client [{portData.ProtocolName}] 心跳失敗: {ex.Message}", isError: true);
-                portData.IsConnected = false;
 
-                _ = ConnectWithRetryAsync(clientData, isFirstConnect: false);
-                break; // 停止目前心跳
+                try
+                {
+                    var stream = clientData.tcpClient.GetStream();
+                    if (stream.CanWrite)
+                    {
+                        await stream.WriteAsync(Array.Empty<byte>(), 0, 0, token);
+                    }
+                    else
+                    {
+                        throw new Exception("Stream 不可寫入");
+                    }
+                }
+                catch (OperationCanceledException)
+                {
+                    // ✅ 取消操作是正常的，直接跳出
+                    break;
+                }
+                catch (Exception ex)
+                {
+                    LogHelper.LogToConsole($"[Heartbeat] TCP Client [{portData.ProtocolName}] 心跳失敗: {ex.Message}", isError: true);
+                    portData.IsConnected = false;
+
+                    _ = ConnectWithRetryAsync(clientData, isFirstConnect: false);
+                    break;
+                }
             }
+        }
+        catch (OperationCanceledException)
+        {
+            // ✅ 心跳任務被取消（正常關閉流程，不需要日誌）
+        }
+        catch (Exception ex)
+        {
+            // ✅ 記錄未預期的異常
+            LogHelper.LogToConsole($"[Heartbeat] TCP Client [{portData.ProtocolName}] 心跳任務異常: {ex.Message}", isError: true);
         }
     }
 
@@ -291,6 +372,7 @@ public class TCPClientConnector
             }
             catch (Exception ex)
             {
+                LogHelper.LogToConsole(ex.ToString());
             }
 
             clientData.tcpClient?.Close();
@@ -300,7 +382,7 @@ public class TCPClientConnector
         {
             LogHelper.LogToConsole($"重置 TcpClient 發生錯誤: {ex.Message}", isError: true);
         }
-
+        
         clientData.CancellationTokenSource = new CancellationTokenSource();
         clientData.tcpClient = new TcpClient();
     }
