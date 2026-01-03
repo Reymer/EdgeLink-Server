@@ -232,10 +232,24 @@ public class TCPClientConnector : NetworkConnectorBase
                     throw new Exception("TCP Connect失敗");
                 }
             }
+            catch (TimeoutException)
+            {
+                // ✅ P1.4: 連接超時，準備重試（不記錄，避免日誌過多）
+                portData.IsConnected = false;
+                UnityMainThreadDispatcher.Instance()?.Enqueue(() => portData.OnUpdate?.Invoke(portData));
+            }
+            catch (SocketException ex)
+            {
+                // ✅ P1.4: Socket 異常，記錄錯誤碼
+                portData.IsConnected = false;
+                LogHelper.LogToConsole($"[ConnectWithRetry] TCP Client [{portData.ProtocolName}] Socket錯誤: {ex.SocketErrorCode}");
+                UnityMainThreadDispatcher.Instance()?.Enqueue(() => portData.OnUpdate?.Invoke(portData));
+            }
             catch (Exception ex)
             {
+                // ✅ P1.4: 其他異常，只記錄訊息而非完整堆疊
                 portData.IsConnected = false;
-                LogHelper.LogToConsole(ex.ToString() );
+                LogHelper.LogToConsole($"[ConnectWithRetry] TCP Client [{portData.ProtocolName}] 連接失敗: {ex.Message}");
                 UnityMainThreadDispatcher.Instance()?.Enqueue(() => portData.OnUpdate?.Invoke(portData));
             }
 
@@ -347,8 +361,21 @@ public class TCPClientConnector : NetworkConnectorBase
             Socket socket = client.Client;
             return socket.Poll(0, SelectMode.SelectRead) && socket.Available == 0;
         }
-        catch
+        catch (ObjectDisposedException)
         {
+            // ✅ P1.3: Socket 已被釋放，視為已斷線
+            return true;
+        }
+        catch (SocketException ex)
+        {
+            // ✅ P1.3: Socket 異常，記錄並視為已斷線
+            LogHelper.LogToConsole($"[IsSocketDisconnected] SocketException: {ex.SocketErrorCode}");
+            return true;
+        }
+        catch (Exception ex)
+        {
+            // ✅ P1.3: 未預期的異常，記錄並視為已斷線
+            LogHelper.LogToConsole($"[IsSocketDisconnected] 未預期異常: {ex.Message}", isError: true);
             return true;
         }
     }
@@ -360,30 +387,43 @@ public class TCPClientConnector : NetworkConnectorBase
     /// <param name="clientData"></param>
     private void ResetClientConnection(TCPClientData clientData)
     {
+        // ✅ P0.4 修復：正確釋放資源，避免泄漏
         try
         {
-            clientData.CancellationTokenSource?.Cancel();
+            // 1. 取消並釋放舊的 CancellationTokenSource
+            if (clientData.CancellationTokenSource != null)
+            {
+                try
+                {
+                    clientData.CancellationTokenSource.Cancel();
+                    clientData.CancellationTokenSource.Dispose();
+                }
+                catch (ObjectDisposedException)
+                {
+                    // 已釋放，忽略
+                }
+            }
 
+            // 2. 關閉並釋放 TcpClient（會自動釋放 Stream）
             try
             {
-                var stream = clientData.tcpClient?.GetStream();
-                stream?.Close();
-                stream?.Dispose();
+                clientData.tcpClient?.Close();
+                clientData.tcpClient?.Dispose();
             }
             catch (Exception ex)
             {
-                LogHelper.LogToConsole(ex.ToString());
+                LogHelper.LogToConsole($"關閉 TcpClient 時發生錯誤: {ex.Message}");
             }
-
-            clientData.tcpClient?.Close();
-            clientData.tcpClient?.Dispose();
         }
         catch (Exception ex)
         {
             LogHelper.LogToConsole($"重置 TcpClient 發生錯誤: {ex.Message}", isError: true);
         }
-        
-        clientData.CancellationTokenSource = new CancellationTokenSource();
-        clientData.tcpClient = new TcpClient();
+        finally
+        {
+            // 3. 創建新的實例
+            clientData.CancellationTokenSource = new CancellationTokenSource();
+            clientData.tcpClient = new TcpClient();
+        }
     }
 }

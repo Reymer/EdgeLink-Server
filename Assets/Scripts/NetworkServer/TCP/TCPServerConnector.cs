@@ -59,10 +59,10 @@ public class TCPServerConnector : NetworkConnectorBase
                     return;
                 }
 
+                // ✅ P0.1/P0.3 修復：使用 Dispose() 正確釋放資源，移除同步阻塞
                 portData.IsConnected = false;
-                existingServer.CancellationTokenSource?.Cancel();
-                existingServer.tcpListener?.Stop();
-                Task.Delay(100).Wait();
+                existingServer.Dispose();
+                tcpServers.TryRemove(portData.ProtocolName, out _);
             }
 
             try
@@ -301,7 +301,10 @@ public class TCPServerConnector : NetworkConnectorBase
                 serverData.portData.TotalReceivedBytes = serverData.TotalReceivedBytes;
             }
         }
-        catch (OperationCanceledException) { }
+        catch (OperationCanceledException)
+        {
+            // ✅ P1.1: 任務被取消，客戶端連接正常關閉
+        }
         finally
         {
             client?.Close();
@@ -414,7 +417,10 @@ public class TCPServerConnector : NetworkConnectorBase
                 }
             }
         }
-        catch (OperationCanceledException) { }
+        catch (OperationCanceledException)
+        {
+            // ✅ P1.1: 任務被取消，ProcessPacketsAsync 正常終止
+        }
     }
 
     /// <summary>

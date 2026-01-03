@@ -66,8 +66,10 @@ public class PortTableController : IPortTableHandler
     public void OnUpdate(PortData portData)
     {
         if (manualAddGuard.IsRunning) return;
-        spawner.RefreshAndRecreateTables(uiCollector);
-        NetworkPortManager.Instance.InstantiateTables(spawner, uiCollector);
+
+        // ✅ 只更新動態 UI，不重新創建 Table
+        // 這樣不會打斷用戶的下拉選單操作或其他交互
+        spawner.UpdateTableDynamicUI(portData);
     }
 
     public async void OnRemove(PortData portData)

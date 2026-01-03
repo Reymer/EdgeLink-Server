@@ -42,11 +42,14 @@ public class TCPServerData : DisposableBase
 
     public void DecrementCurrentConnections()
     {
-        Interlocked.Decrement(ref currentConnections);
-        if (currentConnections < 0)
+        // ✅ P1.2 修復：使用原子操作避免競態條件
+        int newValue;
+        int currentValue;
+        do
         {
-            Interlocked.Exchange(ref currentConnections, 0);
-        }
+            currentValue = currentConnections;
+            newValue = currentValue > 0 ? currentValue - 1 : 0;
+        } while (Interlocked.CompareExchange(ref currentConnections, newValue, currentValue) != currentValue);
     }
 
     // 字節計數的原子操作

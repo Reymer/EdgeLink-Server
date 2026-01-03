@@ -30,7 +30,7 @@ public class Table : MonoBehaviour
         networkSettingsUi = FindObjectOfType<NetworkSettingsUI>(true);
         currentPortData = portData;
         maskType = portData.MaskType;
-        UpdateUI(currentPortData);         
+        UpdateUI(currentPortData);
     }
 
     #endregion
@@ -57,45 +57,85 @@ public class Table : MonoBehaviour
 
     #region UI 更新
 
+    /// <summary>
+    /// 完整更新 UI（初始化時調用）
+    /// </summary>
     private void UpdateUI(PortData portData)
     {
+        // 靜態數據（不常變）
         SetValue(UIKey.table_nameText, portData.ProtocolName);
         SetValue(UIKey.table_prococolText, portData.NetProtocol);
         SetValue(UIKey.table_remoteText, portData.RemotePortDetails.Port);
         SetValue(UIKey.table_localPortText, portData.LocalPortDetails.Port);
-        SetValue(UIKey.table_COMReceived, portData.COMReceived.ToString());
-        SetValue(UIKey.table_netReceived, portData.NetReceived.ToString());
         SetValue(UIKey.table_ForwardTargetText, portData.TargetIP);
-        var localize_Text = uiCollector.GetAsset<UILocalizeTMP_Text>(UIKey.table_netReceivedStatusRoot);
-        localize_Text.SetKey(GetIsConnecting(portData));
         CreateMaskData();
 
+        // ✅ 根據 portData.MaskType 設置正確的索引
         var dropdown = uiCollector.GetAsset<TMP_Dropdown>(UIKey.table_DropdownMask);
         int index = GetIndexOfMaskType(maskType);
         dropdown.value = index;
         dropdown.RefreshShownValue();
+
+        // 動態數據
+        UpdateDynamicUI(portData);
+    }
+
+    /// <summary>
+    /// 只更新動態 UI（連接狀態、數據量等）
+    /// 這個方法不會打斷用戶的下拉選單操作
+    /// </summary>
+    public void UpdateDynamicUI(PortData portData)
+    {
+        // 更新 PortData 引用（可能已變化）
+        currentPortData = portData;
+
+        // 只更新會變化的數據
+        SetValue(UIKey.table_COMReceived, portData.COMReceived.ToString());
+        SetValue(UIKey.table_netReceived, portData.NetReceived.ToString());
+
+        // 更新連接狀態
+        var localize_Text = uiCollector.GetAsset<UILocalizeTMP_Text>(UIKey.table_netReceivedStatusRoot);
+        localize_Text.SetKey(GetIsConnecting(portData));
     }
 
     private void CreateMaskData()
     {
-        var data = networkSettingsUi.GetAllOptions();
         var dropdown = uiCollector.GetAsset<TMP_Dropdown>(UIKey.table_DropdownMask);
+        var localizeDropdown = dropdown.GetComponent<UILocalizeTMP_Dropdown>();
 
-        dropdown.ClearOptions();
-        dropdown.AddOptions(data);
+        if (localizeDropdown != null)
+        {
+            // 初始化組件（如果還沒初始化）
+            localizeDropdown.Init();
+
+            // 從 MaskTypeManager 獲取所有遮罩的本地化鍵
+            var localizationKeys = MaskTypeManager.Instance.GetLocalizationKeys();
+
+            localizeDropdown.SetKey(localizationKeys);
+        }
+        else
+        {
+            // 後備方案：如果沒有 UILocalizeTMP_Dropdown 組件，使用傳統方法
+            var data = networkSettingsUi.GetAllOptions();
+            dropdown.ClearOptions();
+            dropdown.AddOptions(data);
+        }
     }
 
+    /// <summary>
+    /// 根據 maskType 查找對應的索引
+    /// </summary>
     private int GetIndexOfMaskType(string maskType)
     {
-        var data = networkSettingsUi.GetAllOptions();
-        for (int i = 0; i < data.Count; i++)
+        var maskIds = MaskTypeManager.Instance.GetMaskTypeIds();
+        for (int i = 0; i < maskIds.Count; i++)
         {
-            if (data[i].text == maskType)
+            if (maskIds[i] == maskType)
             {
                 return i;
             }
         }
-        return 0;
+        return 0;  // 如果找不到，返回第一個
     }
 
     private string GetIsConnecting(PortData portData)
@@ -124,17 +164,20 @@ public class Table : MonoBehaviour
 
     private void SetMaskType(int index)
     {
-        var data = networkSettingsUi.GetAllOptions();
+        // 從索引獲取對應的遮罩 ID
+        var maskIds = MaskTypeManager.Instance.GetMaskTypeIds();
 
-        if (index < 0 || index >= data.Count)
+        if (index < 0 || index >= maskIds.Count)
         {
-            Debug.LogWarning($"Index {index} is out of bounds for available options.");
+            Debug.LogWarning($"[Table] Index {index} is out of bounds for available mask types.");
             return;
         }
 
-        maskType = data[index].text;
+        maskType = maskIds[index];
         currentPortData.MaskType = maskType;
         HandleAction(OnMask);
+
+        Debug.Log($"[Table] 設定遮罩類型: {maskType}");
     }
 
     #endregion

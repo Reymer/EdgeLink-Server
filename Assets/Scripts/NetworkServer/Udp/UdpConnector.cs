@@ -77,11 +77,10 @@ public class UdpConnector : NetworkConnectorBase
                     return;
                 }
 
-                SafeExecution.Safe(() => existingServerData.CancellationTokenSource?.Cancel(), "UdpConnector.CancelOldToken");
-                SafeExecution.Safe(() => existingServerData.udpClient?.Dispose(), "UdpConnector.DisposeOldUdp");
-                existingServerData.udpClient = null;
+                // ✅ P0.2 修復：使用 Dispose() 正確釋放資源，移除同步阻塞
                 portData.IsConnected = false;
-                SafeExecution.Safe(() => Task.Delay(100).Wait(), "UdpConnector.WaitDispose");
+                existingServerData.Dispose();
+                udpClients.TryRemove(portData.ProtocolName, out _);
             }
 
             try

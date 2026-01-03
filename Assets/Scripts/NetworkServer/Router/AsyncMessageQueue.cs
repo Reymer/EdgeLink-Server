@@ -11,7 +11,7 @@ public class AsyncMessageQueue<T>
     private readonly ConcurrentQueue<T> queue = new();
     private readonly SemaphoreSlim semaphoreSlim = new(0);
     private const int MAX_QUEUE_SIZE = 10000; // 最大佇列大小
-    private int currentCount = 0;
+    private volatile int currentCount = 0;  // ✅ P0.5 修復：添加 volatile 確保可見性
 
     /// <summary>
     /// 放入佇列

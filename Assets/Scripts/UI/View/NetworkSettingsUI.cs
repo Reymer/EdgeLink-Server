@@ -34,6 +34,7 @@ public class NetworkSettingsUI : MonoBehaviour
         Init();
         Subscribe();
         SetUpLanguageDropdown();
+        SetUpMaskTypeDropdown();
     }
 
     private void Update()
@@ -88,10 +89,12 @@ public class NetworkSettingsUI : MonoBehaviour
         languageDropdown.AddOptions(shownNames.ToList());
         languageDropdown.onValueChanged.AddListener(OnUserChangeLanguage);
     }
+
     private void OnUserChangeLanguage(int index)
     {
         Localization.Instance.SetCurrentLanguage(index);
     }
+
     #endregion
 
     #endregion
@@ -107,6 +110,10 @@ public class NetworkSettingsUI : MonoBehaviour
     {
         if (uiCollector.GetAsset<GameObject>(key).activeSelf) return;
         Clear();
+
+        // 打開對話框時刷新遮罩列表（以防有新協定註冊）
+        RefreshMaskTypeDropdown();
+
         SetUiStatus(true, key);
     }
 
@@ -148,6 +155,69 @@ public class NetworkSettingsUI : MonoBehaviour
 
     #region 端口和 IP 管理
 
+    /// <summary>
+    /// 設置遮罩類型下拉選單（只在初始化時調用）
+    /// </summary>
+    private void SetUpMaskTypeDropdown()
+    {
+        RefreshMaskTypeDropdown();
+    }
+
+    /// <summary>
+    /// 刷新遮罩類型下拉選單（使用 UILocalizeTMP_Dropdown 組件）
+    /// 只在以下情況調用：
+    /// 1. 初始化時
+    /// 2. 用戶手動點擊刷新按鈕時
+    /// 3. 打開新增端口對話框時
+    /// 4. 協定列表變化時
+    /// </summary>
+    public void RefreshMaskTypeDropdown()
+    {
+        var dropdown = uiCollector.GetAsset<TMP_Dropdown>(UIKey.UI_DropdownMask);
+        var localizeDropdown = dropdown.GetComponent<UILocalizeTMP_Dropdown>();
+
+        if (localizeDropdown == null)
+        {
+            Debug.LogWarning("[NetworkSettingsUI] UILocalizeTMP_Dropdown 組件未找到，請確保已添加到 Dropdown 上");
+            return;
+        }
+
+        // 初始化組件（如果還沒初始化）
+        localizeDropdown.Init();
+
+        // 從 MaskTypeManager 獲取所有遮罩的本地化鍵
+        var localizationKeys = MaskTypeManager.Instance.GetLocalizationKeys();
+
+        // 調試信息
+        Debug.Log($"[NetworkSettingsUI] 遮罩數量: {localizationKeys.Length}");
+        for (int i = 0; i < localizationKeys.Length; i++)
+        {
+            Debug.Log($"[NetworkSettingsUI] 本地化鍵 [{i}]: {localizationKeys[i]}");
+        }
+
+        // 保存當前選擇的索引
+        int currentIndex = dropdown.value;
+
+        // 更新 UILocalizeTMP_Dropdown 的本地化鍵
+        localizeDropdown.SetKey(localizationKeys);
+
+        // 嘗試恢復之前的選擇
+        if (currentIndex >= 0 && currentIndex < localizationKeys.Length)
+        {
+            dropdown.value = currentIndex;
+        }
+        else
+        {
+            dropdown.value = 0;
+        }
+
+        dropdown.RefreshShownValue();
+        Debug.Log($"[NetworkSettingsUI] 遮罩列表已更新，共 {localizationKeys.Length} 個遮罩");
+    }
+
+    /// <summary>
+    /// 獲取所有遮罩選項（供 Table 使用）
+    /// </summary>
     public List<TMP_Dropdown.OptionData> GetAllOptions()
     {
         var dropdown = uiCollector.GetAsset<TMP_Dropdown>(UIKey.UI_DropdownMask);
@@ -290,19 +360,18 @@ public class NetworkSettingsUI : MonoBehaviour
 
     private void OnMaskDropdownValueChanged(int index)
     {
-        switch (index)
+        // 從索引獲取對應的遮罩 ID（而不是顯示名稱）
+        var maskIds = MaskTypeManager.Instance.GetMaskTypeIds();
+
+        if (index >= 0 && index < maskIds.Count)
         {
-            case 0:
-                maskType = "original data";
-                break;
-            case 1:
-                maskType = "Robot to 10";
-                break;
-            case 2:
-                maskType = "Robot to 16";
-                break;
+            maskType = maskIds[index];
+            Debug.Log($"[NetworkSettingsUI] 選擇遮罩類型: {maskType}");
         }
-        Debug.Log(maskType);
+        else
+        {
+            Debug.LogWarning($"[NetworkSettingsUI] 無效的遮罩索引: {index}");
+        }
     }
 
     private void OnConfirm()
