@@ -1,21 +1,21 @@
-Key|zh-TW,繁體中文|en-US,English┤
-Name|名稱|Name┤
-NetProtocol|網絡協議|Protocol┤
-RemotePort|遠端端口|Remote Port┤
-LocalPort|本地端口|Local Port┤
-ForwardTarget|轉發目標|Target┤
-NetState|網絡狀態|State┤
-Mask|遮罩|Mask┤
-Exit|退出|Exit┤
-RemoteIP|遠端位址|Remote IP┤
-Save|儲存|Save┤
-Cancel|取消|Cancel┤
-EnterName|輸入名稱|Enter Name┤
-EnterIp|輸入位址|Enter IP address┤
-EnterRemotePort|輸入遠端端口|Enter Remote Port┤
-EnterLocalPort|輸入本地端口|Enter Local Port┤
-Connecting|連接中|Connecting┤
-NotConnecting|未連接|Not Connecting┤
-OriginalData|原始資料|original data┤
-Robot10|機器人-十進制|Robot 10┤
-Robot16|機器人-十六進制|Robot 16┤
+Key|zh-TW,繁體中文|en-US,English|ja-JP,日本語|de-DE,Deutsch|fr-FR,Français|es-ES,Español|pt-BR,Português|vi-VN,Tiếng Việt┤
+Name|名稱|Name|名前|Name|Nom|Nombre|Nome|Tên┤
+NetProtocol|網絡協議|Network Protocol|ネットワークプロトコル|Netzwerkprotokoll|Protocole réseau|Protocolo de red|Protocolo de rede|Giao thức mạng┤
+RemotePort|遠端端口|Remote Port|リモートポート|Remote-Port|Port distant|Puerto remoto|Porta remota|Cổng từ xa┤
+LocalPort|本地端口|Local Port|ローカルポート|Lokaler Port|Port local|Puerto local|Porta local|Cổng cục bộ┤
+ForwardTarget|轉發目標|Forward Target|転送先|Weiterleitungsziel|Cible de transfert|Destino de reenvío|Destino de encaminhamento|Mục tiêu chuyển tiếp┤
+NetState|網絡狀態|Network State|ネットワーク状態|Netzwerkstatus|État du réseau|Estado de red|Estado da rede|Trạng thái mạng┤
+Mask|遮罩|Mask|マスク|Maske|Masque|Máscara|Máscara|Mặt nạ┤
+Exit|退出|Exit|終了|Beenden|Quitter|Salir|Sair|Thoát┤
+RemoteIP|遠端位址|Remote Address|リモートアドレス|Remote-Adresse|Adresse distante|Dirección remota|Endereço remoto|Địa chỉ từ xa┤
+Save|儲存|Save|保存|Speichern|Enregistrer|Guardar|Salvar|Lưu┤
+Cancel|取消|Cancel|キャンセル|Abbrechen|Annuler|Cancelar|Cancelar|Hủy┤
+EnterName|輸入名稱|Enter Name|名前を入力|Name eingeben|Entrer le nom|Ingrese nombre|Digite o nome|Nhập tên┤
+EnterIp|輸入位址|Enter Address|アドレスを入力|Adresse eingeben|Entrer l'adresse|Ingrese dirección|Digite o endereço|Nhập địa chỉ┤
+EnterRemotePort|輸入遠端端口|Enter Remote Port|リモートポートを入力|Remote-Port eingeben|Entrer le port distant|Ingrese puerto remoto|Digite a porta remota|Nhập cổng từ xa┤
+EnterLocalPort|輸入本地端口|Enter Local Port|ローカルポートを入力|Lokalen Port eingeben|Entrer le port local|Ingrese puerto local|Digite a porta local|Nhập cổng cục bộ┤
+Connecting|連接中|Connecting|接続中|Verbinden|Connexion en cours|Conectando|Conectando|Đang kết nối┤
+NotConnecting|未連接|Not Connected|未接続|Nicht verbunden|Non connecté|No conectado|Não conectado|Chưa kết nối┤
+OriginalData|原始資料|Original Data|元データ|Originaldaten|Données originales|Datos originales|Dados originais|Dữ liệu gốc┤
+Robot10|機器人-十進制|Robot-Decimal|ロボット-10進数|Roboter-Dezimal|Robot-Décimal|Robot-Decimal|Robô-Decimal|Robot-Thập phân┤
+Robot16|機器人-十六進制|Robot-Hexadecimal|ロボット-16進数|Roboter-Hexadezimal|Robot-Hexadécimal|Robot-Hexadecimal|Robô-Hexadecimal|Robot-Thập lục phân┤
