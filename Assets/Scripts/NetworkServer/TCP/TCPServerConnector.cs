@@ -84,7 +84,6 @@ public class TCPServerConnector : NetworkConnectorBase
                 };
 
                 tcpServers[portData.ProtocolName] = serverData;
-                LogHelper.LogToConsole($"在端口 {portData.LocalPortDetails.Port} 上啟動了 TCP Server。");
 
                 Task.Run(() => AcceptClientsAsync(serverData));
                 Task.Run(() => ProcessPacketsAsync(serverData));
@@ -207,9 +206,6 @@ public class TCPServerConnector : NetworkConnectorBase
 
                 UnityMainThreadDispatcher.Instance().Enqueue(() =>
                     SafeExecution.Safe(() => portData.OnUpdate?.Invoke(portData), "TcpServerConnector.Disconnect.OnUpdate"));
-
-                LogHelper.LogToConsole($"TCP Server 已斷線: {portData.ProtocolName}");
-
             }
             catch (Exception ex)
             {

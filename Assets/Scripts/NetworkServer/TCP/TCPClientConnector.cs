@@ -87,7 +87,6 @@ public class TCPClientConnector : NetworkConnectorBase
         {
             ResetClientConnection(clientData);
             portData.IsConnected = false;
-            LogHelper.LogToConsole($"TCP Client 已斷線: {portData.ProtocolName}");
         }
         return Task.CompletedTask;
     }

@@ -180,7 +180,7 @@ public class NetworkMessageRouter
             // 只在找不到任何匹配時記錄警告（錯誤情況）
             if (targets.Count == 0)
             {
-                LogHelper.LogToConsole($"[Router] 警告：找不到任何匹配 {protocolName} 的 TCP Client", isError: true);
+                return;
             }
         }
 
