@@ -46,6 +46,7 @@ public static class RouterLogHelper
         {
             MonitorTargetType.TCPServer => "TCP Server",
             MonitorTargetType.TCPClient => "TCP Client",
+            MonitorTargetType.UDP => "UDP",
             _ => "Unknown"
         };
     }

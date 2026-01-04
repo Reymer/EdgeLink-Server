@@ -1,11 +1,12 @@
+using System;
 using System.Collections.Concurrent;
 using System.Net;
+using System.Net.Http;
 using System.Net.Sockets;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using UnityEngine;
-using System;
 
 /// <summary>
 /// UDP 連接器
@@ -102,8 +103,6 @@ public class UdpConnector : NetworkConnectorBase
                 };
 
                 udpClients[portData.ProtocolName] = newServerData;
-
-                LogHelper.LogToConsole($"在端口 {portData.RemotePortDetails.Port} 上啟動了 UDP 伺服器端。");
 
                 Task.Run(() => SafeExecution.SafeAsync(() => ReceiveUdpMessages(newServerData), "UdpConnector.ReceiveUdpMessages"));
 
@@ -263,19 +262,16 @@ public class UdpConnector : NetworkConnectorBase
 
                 udpData.portData.COMReceived += messageLength;
                 udpData.SourceData = message;
-
-                LogHelper.LogToMonitor($"名稱: {udpData.portData.ProtocolName}。收到來自: {result.RemoteEndPoint} 的訊息，大小: {messageLength} bytes, 訊息: {message}");
-
+                RouterLogHelper.LogReceive(udpData.portData, MonitorTargetType.UDP, message);
                 await sendClient.SendAsync(result.Buffer, messageLength, sendEndPoint);
                 udpData.portData.NetReceived += messageLength;
-
-                LogHelper.LogToMonitor($"名稱: {udpData.portData.ProtocolName}。傳送到: {sendEndPoint}, 大小: {messageLength} bytes, 訊息: {message}");
+                RouterLogHelper.LogSend(udpData.portData, MonitorTargetType.UDP, message);
                 UnityMainThreadDispatcher.Instance().Enqueue(() => udpData.portData.OnUpdate?.Invoke(udpData.portData));
             }
         }
         catch (Exception ex)
         {
-            LogHelper.LogToConsole($"接收 UDP 訊息時發生錯誤: {ex.Message}");
+            Debug.LogException(ex);
         }
 
         udpData.Dispose();

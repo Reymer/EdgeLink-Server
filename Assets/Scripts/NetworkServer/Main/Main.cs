@@ -23,14 +23,14 @@ public class Main : MonoBehaviour
         {
             var exception = args.ExceptionObject as System.Exception;
             Debug.LogError($"[Critical] 未處理的域異常: {exception?.Message}\n{exception?.StackTrace}");
-            LogHelper.LogToConsole($"[Critical] 未處理的域異常: {exception?.Message}", isError: true);
+            //LogHelper.LogToConsole($"[Critical] 未處理的域異常: {exception?.Message}", isError: true);
         };
 
         // 捕獲未觀察的 Task 異常（最關鍵！）
         System.Threading.Tasks.TaskScheduler.UnobservedTaskException += (sender, args) =>
         {
             Debug.LogError($"[Critical] 未觀察的 Task 異常: {args.Exception.Message}\n{args.Exception.StackTrace}");
-            LogHelper.LogToConsole($"[Critical] 未觀察的 Task 異常: {args.Exception.Message}", isError: true);
+            //LogHelper.LogToConsole($"[Critical] 未觀察的 Task 異常: {args.Exception.Message}", isError: true);
 
             // 標記為已處理，防止應用崩潰
             args.SetObserved();

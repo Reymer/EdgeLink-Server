@@ -84,7 +84,6 @@ public class TCPServerConnector : NetworkConnectorBase
                 };
 
                 tcpServers[portData.ProtocolName] = serverData;
-                LogHelper.LogToConsole($"在端口 {portData.LocalPortDetails.Port} 上啟動了 TCP Server。");
 
                 Task.Run(() => AcceptClientsAsync(serverData));
                 Task.Run(() => ProcessPacketsAsync(serverData));
