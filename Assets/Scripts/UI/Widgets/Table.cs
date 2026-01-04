@@ -3,13 +3,12 @@ using DevKit.Tool;
 using System;
 using TMPro;
 using UnityEngine;
-using static NetworkPortManager;
 
 public class Table : MonoBehaviour
 {
     #region 欄位
 
-    private UICollector uiCollector;
+    public UICollector uiCollector;
     private PortData currentPortData;
     private string maskType;
     public event Action<PortData> OnDelete;
@@ -25,7 +24,6 @@ public class Table : MonoBehaviour
 
     public void Init(PortData portData)
     {
-        uiCollector = GetComponent<UICollector>();
         Subscribe();
         networkSettingsUi = FindObjectOfType<NetworkSettingsUI>(true);
         currentPortData = portData;
@@ -101,9 +99,8 @@ public class Table : MonoBehaviour
     private void CreateMaskData()
     {
         var dropdown = uiCollector.GetAsset<TMP_Dropdown>(UIKey.table_DropdownMask);
-        var localizeDropdown = dropdown.GetComponent<UILocalizeTMP_Dropdown>();
-
-        if (localizeDropdown != null)
+        
+        if (dropdown.TryGetComponent<UILocalizeTMP_Dropdown>(out var localizeDropdown))
         {
             // 初始化組件（如果還沒初始化）
             localizeDropdown.Init();

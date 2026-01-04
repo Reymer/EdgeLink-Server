@@ -106,7 +106,7 @@ public class UdpConnector : NetworkConnectorBase
 
                 Task.Run(() => SafeExecution.SafeAsync(() => ReceiveUdpMessages(newServerData), "UdpConnector.ReceiveUdpMessages"));
 
-                UnityMainThreadDispatcher.Instance().Enqueue(() =>
+                MainThreadDispatcher.Instance().Enqueue(() =>
                     SafeExecution.Safe(() => portData.OnUpdate?.Invoke(portData), "UdpConnector.OnUpdate"));
             }
             catch (SocketException ex) when (ex.SocketErrorCode == SocketError.AddressAlreadyInUse)
@@ -159,7 +159,7 @@ public class UdpConnector : NetworkConnectorBase
 
                     LogHelper.LogToConsole($"UDP 已重新連接，端口 {portData.RemotePortDetails.Port}");
 
-                    UnityMainThreadDispatcher.Instance().Enqueue(() =>
+                    MainThreadDispatcher.Instance().Enqueue(() =>
                         SafeExecution.Safe(() => portData.OnUpdate?.Invoke(portData), "UdpConnector.OnUpdate"));
                 }
                 catch (Exception ex)
@@ -213,7 +213,7 @@ public class UdpConnector : NetworkConnectorBase
             LogHelper.LogToConsole($"斷開 UDP 連接失敗，端口 {portData.RemotePortDetails.Port}: {ex.Message}", isError: true);
         }
 
-        UnityMainThreadDispatcher.Instance().Enqueue(() => portData.OnUpdate?.Invoke(portData));
+        MainThreadDispatcher.Instance().Enqueue(() => portData.OnUpdate?.Invoke(portData));
     }
 
     /// <summary>
@@ -266,7 +266,7 @@ public class UdpConnector : NetworkConnectorBase
                 await sendClient.SendAsync(result.Buffer, messageLength, sendEndPoint);
                 udpData.portData.NetReceived += messageLength;
                 RouterLogHelper.LogSend(udpData.portData, MonitorTargetType.UDP, message);
-                UnityMainThreadDispatcher.Instance().Enqueue(() => udpData.portData.OnUpdate?.Invoke(udpData.portData));
+                MainThreadDispatcher.Instance().Enqueue(() => udpData.portData.OnUpdate?.Invoke(udpData.portData));
             }
         }
         catch (Exception ex)
@@ -299,7 +299,7 @@ public class UdpConnector : NetworkConnectorBase
 
                 LogHelper.LogToConsole($"已移除 UDP 端口: {portData.ProtocolName}");
 
-                UnityMainThreadDispatcher.Instance().Enqueue(() => portData.OnUpdate?.Invoke(portData));
+                MainThreadDispatcher.Instance().Enqueue(() => portData.OnUpdate?.Invoke(portData));
             }
             catch (Exception ex)
             {

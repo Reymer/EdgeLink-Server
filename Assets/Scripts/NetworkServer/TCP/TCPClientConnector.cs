@@ -217,8 +217,7 @@ public class TCPClientConnector : NetworkConnectorBase
 
                     portData.IsConnected = true;
                     LogHelper.LogToConsole($"TCP Client [{portData.ProtocolName}] 成功連接到 {portData.TargetIP}:{portData.RemotePortDetails.Port}");
-
-                    UnityMainThreadDispatcher.Instance()?.Enqueue(() => portData.OnUpdate?.Invoke(portData));
+                    MainThreadDispatcher.Instance()?.Enqueue(() => portData.OnUpdate?.Invoke(portData));
                     OnReconnectSuccess?.Invoke(portData);
                     clientData.HeartbeatTask?.Dispose();
                     clientData.HeartbeatTask = StartHeartbeatAsync(clientData);
@@ -235,21 +234,21 @@ public class TCPClientConnector : NetworkConnectorBase
             {
                 // ✅ P1.4: 連接超時，準備重試（不記錄，避免日誌過多）
                 portData.IsConnected = false;
-                UnityMainThreadDispatcher.Instance()?.Enqueue(() => portData.OnUpdate?.Invoke(portData));
+                MainThreadDispatcher.Instance()?.Enqueue(() => portData.OnUpdate?.Invoke(portData));
             }
             catch (SocketException ex)
             {
                 // ✅ P1.4: Socket 異常，記錄錯誤碼
                 portData.IsConnected = false;
                 LogHelper.LogToConsole($"[ConnectWithRetry] TCP Client [{portData.ProtocolName}] Socket錯誤: {ex.SocketErrorCode}");
-                UnityMainThreadDispatcher.Instance()?.Enqueue(() => portData.OnUpdate?.Invoke(portData));
+                MainThreadDispatcher.Instance()?.Enqueue(() => portData.OnUpdate?.Invoke(portData));
             }
             catch (Exception ex)
             {
                 // ✅ P1.4: 其他異常，只記錄訊息而非完整堆疊
                 portData.IsConnected = false;
                 LogHelper.LogToConsole($"[ConnectWithRetry] TCP Client [{portData.ProtocolName}] 連接失敗: {ex.Message}");
-                UnityMainThreadDispatcher.Instance()?.Enqueue(() => portData.OnUpdate?.Invoke(portData));
+                MainThreadDispatcher.Instance()?.Enqueue(() => portData.OnUpdate?.Invoke(portData));
             }
 
 
@@ -283,7 +282,7 @@ public class TCPClientConnector : NetworkConnectorBase
                 {
                     LogHelper.LogToConsole($"[Heartbeat] TCP Client [{portData.ProtocolName}] socket 判斷為斷線，啟動重連流程。");
                     portData.IsConnected = false;
-                    UnityMainThreadDispatcher.Instance()?.Enqueue(() => portData.OnUpdate?.Invoke(portData));
+                    MainThreadDispatcher.Instance()?.Enqueue(() => portData.OnUpdate?.Invoke(portData));
                     _ = ConnectWithRetryAsync(clientData, isFirstConnect: false);
                     break;
                 }

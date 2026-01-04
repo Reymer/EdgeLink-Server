@@ -1,5 +1,6 @@
 using DevKit.Console;
 using DevKit.Tool;
+using System.Threading.Tasks;
 using UnityEngine;
 public class ManualAddGuard
 {
@@ -20,11 +21,10 @@ public class PortTableController : IPortTableHandler
     private readonly ManualAddGuard manualAddGuard = new();
     private PortTableSpawner spawner;
 
-    public PortTableController(UICollector uiCollector, ConsoleUI consoleUI, NetworkPortTableUIManager uiManager)
+    public PortTableController(UICollector uiCollector, ConsoleUI consoleUI)
     {
         this.uiCollector = uiCollector;
         this.consoleUI = consoleUI;
-        this.uiManager = uiManager;
     }
 
     public void Init()
@@ -66,9 +66,6 @@ public class PortTableController : IPortTableHandler
     public void OnUpdate(PortData portData)
     {
         if (manualAddGuard.IsRunning) return;
-
-        // ✅ 只更新動態 UI，不重新創建 Table
-        // 這樣不會打斷用戶的下拉選單操作或其他交互
         spawner.UpdateTableDynamicUI(portData);
     }
 
@@ -79,19 +76,13 @@ public class PortTableController : IPortTableHandler
 
     public void OnConnect(PortData portData)
     {
-        // 連線操作
         NetworkPortManager.Instance.ConnectPort(portData);
-
-        // ✅ 只更新動態 UI，不重新創建 Table
         spawner.UpdateTableDynamicUI(portData);
     }
 
     public async void OnDisconnectedPort(PortData portData)
     {
-        // 斷線操作
         await NetworkPortManager.Instance.DisconnectedPort(portData);
-
-        // ✅ 只更新動態 UI，不重新創建 Table
         spawner.UpdateTableDynamicUI(portData);
     }
 
@@ -105,16 +96,9 @@ public class PortTableController : IPortTableHandler
         NetworkPortManager.Instance.OnMonitorConsole(portData);
     }
 
-    private void ExecuteWithRefresh(System.Action action)
+    private async Task ExecuteWithRefreshAsync(System.Func<System.Threading.Tasks.Task> asyncAction)
     {
-        spawner.RefreshAndRecreateTables(uiCollector);
-        action();
-        NetworkPortManager.Instance.RefreshAndRecreateTables(spawner, uiCollector);
-    }
-
-    private async System.Threading.Tasks.Task ExecuteWithRefreshAsync(System.Func<System.Threading.Tasks.Task> asyncAction)
-    {
-        spawner.RefreshAndRecreateTables(uiCollector);
+        spawner.RefreshAndRecreateTables();
         await asyncAction();
         NetworkPortManager.Instance.RefreshAndRecreateTables(spawner, uiCollector);
     }

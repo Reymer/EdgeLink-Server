@@ -58,7 +58,7 @@ public class PortTableSpawner : MonoBehaviour
     /// 刪除所有端口表格
     /// </summary>
     /// <param name="uiCollector"></param>
-    public void RefreshAndRecreateTables(UICollector uiCollector)
+    public void RefreshAndRecreateTables()
     {
         foreach (var table in activeTables)
         {

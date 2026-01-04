@@ -24,7 +24,7 @@ public static class LogHelper
     /// </summary>
     public static void LogToMonitor(string message)
     {
-        UnityMainThreadDispatcher.Instance().Enqueue(() =>
+        MainThreadDispatcher.Instance().Enqueue(() =>
         {
             if (monitor != null)
             {
@@ -54,7 +54,7 @@ public static class LogHelper
 
         try
         {
-            var dispatcher = UnityMainThreadDispatcher.Instance();
+            var dispatcher = MainThreadDispatcher.Instance();
 
             if (dispatcher != null)
             {

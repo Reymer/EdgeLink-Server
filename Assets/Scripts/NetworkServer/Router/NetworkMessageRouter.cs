@@ -217,7 +217,7 @@ public class NetworkMessageRouter
             {
                 // 連接已失效，更新狀態
                 tcpClient.portData.IsConnected = false;
-                UnityMainThreadDispatcher.Instance()?.Enqueue(() =>
+                MainThreadDispatcher.Instance()?.Enqueue(() =>
                     SafeExecution.Safe(() => tcpClient.portData.OnUpdate?.Invoke(tcpClient.portData)));
                 return;
             }
@@ -263,7 +263,7 @@ public class NetworkMessageRouter
             tcpClient.tcpClient = null;
             tcpClient.portData.IsConnected = false;
 
-            UnityMainThreadDispatcher.Instance()?.Enqueue(() =>
+            MainThreadDispatcher.Instance()?.Enqueue(() =>
                 SafeExecution.Safe(() => tcpClient.portData.OnUpdate?.Invoke(tcpClient.portData)));
         }
     }

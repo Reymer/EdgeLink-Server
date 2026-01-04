@@ -13,7 +13,7 @@ public class NetworkPortTableUIManager : MonoBehaviour
     {
         consoleUI = GameObject.FindObjectOfType<ConsoleUI>(true);
         networkSettingUI = GameObject.FindObjectOfType<NetworkSettingsUI>(true);
-        portTableController = new PortTableController(uiCollector, consoleUI, this);
+        portTableController = new PortTableController(uiCollector, consoleUI);
         portTableController.Init();
 
         networkSettingUI.Confirm += portTableController.OnConfirm;

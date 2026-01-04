@@ -2024,9 +2024,9 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: original data
+  m_text: 
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
+  m_fontAsset: {fileID: 11400000, guid: 8e439dc8b01e0274f847bdfc5b0c80e8, type: 2}
   m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
@@ -2090,7 +2090,7 @@ MonoBehaviour:
   m_margin: {x: 0, y: 0, z: 0, w: 0}
   m_isUsingLegacyAnimationComponent: 0
   m_isVolumetricText: 0
-  m_hasFontAssetChanged: 0
+  m_hasFontAssetChanged: 1
   m_baseMaterial: {fileID: 0}
   m_maskOffset: {x: 0, y: 0, z: 0, w: 0}
 --- !u!222 &260268378
@@ -5890,6 +5890,10 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 8999831501503176601, guid: b57a99b73b035874f861c8bd1cee5424, type: 3}
+      propertyPath: uiCollector
+      value: 
+      objectReference: {fileID: 821128897}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -5905,6 +5909,17 @@ GameObject:
   m_CorrespondingSourceObject: {fileID: 8999831501503176582, guid: b57a99b73b035874f861c8bd1cee5424, type: 3}
   m_PrefabInstance: {fileID: 821128893}
   m_PrefabAsset: {fileID: 0}
+--- !u!114 &821128897 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 8999831501503176600, guid: b57a99b73b035874f861c8bd1cee5424, type: 3}
+  m_PrefabInstance: {fileID: 821128893}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 821128895}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 42abc5c8b98d99b4998c7331e6051819, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!1 &830473322
 GameObject:
   m_ObjectHideFlags: 0
@@ -7198,6 +7213,7 @@ GameObject:
   - component: {fileID: 966490031}
   - component: {fileID: 966490030}
   - component: {fileID: 966490029}
+  - component: {fileID: 966490032}
   m_Layer: 5
   m_Name: Dropdown
   m_TagString: Untagged
@@ -7325,6 +7341,19 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 966490027}
   m_CullTransparentMesh: 1
+--- !u!114 &966490032
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 966490027}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: bdc6e716f98b8bd4fa6efe8323861d01, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  keys: []
 --- !u!1001 &969075371
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -10704,9 +10733,9 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: Option A
+  m_text: 
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 8be367abfe378bf4a8ddcd4dade22d1b, type: 2}
+  m_fontAsset: {fileID: 11400000, guid: 8e439dc8b01e0274f847bdfc5b0c80e8, type: 2}
   m_sharedMaterial: {fileID: -7205142576462855118, guid: 8be367abfe378bf4a8ddcd4dade22d1b, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
@@ -10770,7 +10799,7 @@ MonoBehaviour:
   m_margin: {x: 0, y: 0, z: 0, w: 0}
   m_isUsingLegacyAnimationComponent: 0
   m_isVolumetricText: 0
-  m_hasFontAssetChanged: 0
+  m_hasFontAssetChanged: 1
   m_baseMaterial: {fileID: 0}
   m_maskOffset: {x: 0, y: 0, z: 0, w: 0}
 --- !u!222 &1495405011

@@ -88,7 +88,7 @@ public class TCPServerConnector : NetworkConnectorBase
                 Task.Run(() => AcceptClientsAsync(serverData));
                 Task.Run(() => ProcessPacketsAsync(serverData));
 
-                UnityMainThreadDispatcher.Instance().Enqueue(() =>
+                MainThreadDispatcher.Instance().Enqueue(() =>
                     SafeExecution.Safe(() => portData.OnUpdate?.Invoke(portData), "TcpServerConnector.OnUpdate"));
             }
             catch (SocketException ex) when (ex.SocketErrorCode == SocketError.AddressAlreadyInUse)
@@ -126,7 +126,7 @@ public class TCPServerConnector : NetworkConnectorBase
 
             LogHelper.LogToConsole($"已刪除 TCP Server：{portData.ProtocolName}");
 
-            UnityMainThreadDispatcher.Instance().Enqueue(() =>
+            MainThreadDispatcher.Instance().Enqueue(() =>
                 SafeExecution.Safe(() => portData.OnUpdate?.Invoke(portData), "TcpServerConnector.RemovePort.OnUpdate"));
         }
         catch (Exception ex)
@@ -171,7 +171,7 @@ public class TCPServerConnector : NetworkConnectorBase
                 Task.Run(() => AcceptClientsAsync(serverData));
                 Task.Run(() => ProcessPacketsAsync(serverData));
 
-                UnityMainThreadDispatcher.Instance().Enqueue(() =>
+                MainThreadDispatcher.Instance().Enqueue(() =>
                     SafeExecution.Safe(() => portData.OnUpdate?.Invoke(portData), "TcpServerConnector.Connect.OnUpdate"));
             }
             catch (Exception ex)
@@ -204,7 +204,7 @@ public class TCPServerConnector : NetworkConnectorBase
 
                 await Task.Delay(100);
 
-                UnityMainThreadDispatcher.Instance().Enqueue(() =>
+                MainThreadDispatcher.Instance().Enqueue(() =>
                     SafeExecution.Safe(() => portData.OnUpdate?.Invoke(portData), "TcpServerConnector.Disconnect.OnUpdate"));
             }
             catch (Exception ex)
@@ -254,7 +254,7 @@ public class TCPServerConnector : NetworkConnectorBase
                         string localPort = serverData.portData.LocalPortDetails?.Port ?? "未知端口";
                         string remoteAddress = serverData.RemoteEndPoint?.ToString() ?? "未知IP";
                         NotifyForwardTargetStatusChange("CONNECT", serverData.portData);
-                        UnityMainThreadDispatcher.Instance().Enqueue(() =>
+                        MainThreadDispatcher.Instance().Enqueue(() =>
                             SafeExecution.Safe(() => serverData.portData.OnUpdate?.Invoke(serverData.portData)));
                     });
 
@@ -316,7 +316,7 @@ public class TCPServerConnector : NetworkConnectorBase
             string serverName = serverData.portData.ProtocolName ?? "未知名稱";
             string localPort = serverData.portData.LocalPortDetails?.Port ?? "未知端口";
             NotifyForwardTargetStatusChange("DISCONNECT", serverData.portData);
-            UnityMainThreadDispatcher.Instance().Enqueue(() =>
+            MainThreadDispatcher.Instance().Enqueue(() =>
                 SafeExecution.Safe(() => serverData.portData.OnUpdate?.Invoke(serverData.portData)));
         }
     }

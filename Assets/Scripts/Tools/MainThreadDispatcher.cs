@@ -2,18 +2,18 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 
-public class UnityMainThreadDispatcher : MonoBehaviour
+public class MainThreadDispatcher : MonoBehaviour
 {
-    private static UnityMainThreadDispatcher instance = null;
+    private static MainThreadDispatcher instance = null;
     private static readonly Queue<Action> executionQueue = new();
     private static bool isQuitting = false;
 
     /// <summary>
-    /// 獲取 UnityMainThreadDispatcher 實例
+    /// 獲取 MainThreadDispatcher 實例
     /// </summary>
     /// <returns></returns>
     /// <exception cref="Exception"></exception>
-    public static UnityMainThreadDispatcher Instance()
+    public static MainThreadDispatcher Instance()
     {
         if (isQuitting)
         {

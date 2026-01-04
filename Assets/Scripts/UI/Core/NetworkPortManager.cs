@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 using DevKit.Console;
 using DevKit.Tool;
 using UnityEngine;
@@ -9,7 +10,6 @@ public class NetworkPortManager
 {
     private static readonly Lazy<NetworkPortManager> instance = new(() => new NetworkPortManager());
     public static NetworkPortManager Instance => instance.Value;
-    private readonly string filePath;
     public NetworkConnectorCore networkConnectorCore = new(); // 網路連接器核心
     private readonly PortDataStorageService storageService; // 儲存端口資料的服務
     private readonly NetPortRegistry portRegistry = new();  // 註冊端口的服務
@@ -143,13 +143,11 @@ public class NetworkPortManager
         return !portRegistry.Contains(type, key);
     }
 
-
-
     /// <summary>
     /// 刪除網路協定資料
     /// </summary>
     /// <param name="portData"></param>
-    public async System.Threading.Tasks.Task RemovePortData(PortData portData)
+    public async Task RemovePortData(PortData portData)
     {
         var type = ParseProtocolType(portData.NetProtocol);
         string key = GetPortKey(portData);
@@ -272,7 +270,7 @@ public class NetworkPortManager
     /// <summary>
     /// 釋放資源
     /// </summary>
-    public async System.Threading.Tasks.Task UnInit()
+    public async Task UnInit()
     {
         await networkConnectorCore.UnInit();
         foreach (var data in portRegistry.GetAll())
