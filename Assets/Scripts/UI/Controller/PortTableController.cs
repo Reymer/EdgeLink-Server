@@ -79,12 +79,20 @@ public class PortTableController : IPortTableHandler
 
     public void OnConnect(PortData portData)
     {
-        ExecuteWithRefresh(() => NetworkPortManager.Instance.ConnectPort(portData));
+        // 連線操作
+        NetworkPortManager.Instance.ConnectPort(portData);
+
+        // ✅ 只更新動態 UI，不重新創建 Table
+        spawner.UpdateTableDynamicUI(portData);
     }
 
     public async void OnDisconnectedPort(PortData portData)
     {
-        await ExecuteWithRefreshAsync(async () => await NetworkPortManager.Instance.DisconnectedPort(portData));
+        // 斷線操作
+        await NetworkPortManager.Instance.DisconnectedPort(portData);
+
+        // ✅ 只更新動態 UI，不重新創建 Table
+        spawner.UpdateTableDynamicUI(portData);
     }
 
     public async void OnMaskType(PortData portData)
