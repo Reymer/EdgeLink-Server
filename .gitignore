@@ -74,6 +74,18 @@ crashlytics-build.properties
 /[Aa]ssets/[Ss]treamingAssets/aa.meta
 /[Aa]ssets/[Ss]treamingAssets/aa/*
 
+# MaskEditorApp build artifacts
+MaskEditorApp/build/
+MaskEditorApp/dist/
+MaskEditorApp/MaskEditor.html
+
+# IDE / AI
+.vscode/
+.claude/
+
+# Local temp
+tempPath.txt
+
 #Fmod
 */fmod_editor.log
 vr-training-tfaz/Assets/Plugins/FMOD/Cache/Editor/FMODStudioCache.asset
