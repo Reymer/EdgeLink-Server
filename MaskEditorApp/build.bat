@@ -5,14 +5,18 @@ pip install -r requirements.txt
 
 echo.
 echo === 複製 HTML ===
-copy /Y "..\WebUI\MaskEditor.html" "MaskEditor.html"
+copy /Y "..\IOT-Server\WebUI\MaskEditor.html" "MaskEditor.html"
+
+echo.
+echo === 生成 Icon ===
+python gen_icon.py
 
 echo.
 echo === 打包 exe ===
 pyinstaller --onefile --noconsole ^
   --add-data "MaskEditor.html;." ^
   --name MaskEditor ^
-  --icon NONE ^
+  --icon MaskEditor.ico ^
   main.py
 
 echo.
