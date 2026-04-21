@@ -109,6 +109,11 @@
     padding:5px 9px;cursor:pointer;color:var(--text-2);display:flex;align-items:center;
     gap:5px;font-size:12px;font-family:inherit;transition:all .14s}
   .theme-btn:hover{background:var(--bg)}
+  .lang-sel{background:none;border:1px solid var(--border);border-radius:var(--r-sm);
+    padding:4px 7px;cursor:pointer;color:var(--text-2);font-size:12px;font-family:inherit;
+    transition:all .14s;width:auto}
+  .lang-sel:focus{box-shadow:none;border-color:var(--pri)}
+  [data-theme="dark"] .lang-sel{background:#161b22;color:var(--text-2);border-color:var(--border)}
   [data-theme="dark"] .icon-sun{display:block}
   [data-theme="dark"] .icon-moon{display:none}
   .icon-sun{display:none}.icon-moon{display:block}
@@ -132,9 +137,15 @@
         <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
       </svg>
     </div>
-    <span class="h-title">遮罩定義編輯器</span>
-    <span class="h-badge">離線版</span>
+    <span class="h-title" data-i18n="title"></span>
+    <span class="h-badge" data-i18n="badge"></span>
   </div>
+  <div style="display:flex;align-items:center;gap:8px">
+  <select class="lang-sel" onchange="setLang(this.value)" id="lang-sel">
+    <option value="zh-TW">繁中</option>
+    <option value="en-US">EN</option>
+    <option value="ja-JP">日本語</option>
+  </select>
   <button class="theme-btn" onclick="toggleTheme()">
     <svg class="icon-moon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
       <path d="M21 12.79A9 9 0 1111.21 3a7 7 0 009.79 9.79z"/>
@@ -147,6 +158,7 @@
       <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
     </svg>
   </button>
+  </div>
 </header>
 
 <div class="main">
@@ -154,14 +166,14 @@
   <!-- 基本資訊 -->
   <div class="card">
     <div class="card-hd">
-      <span class="card-title">遮罩資訊</span>
+      <span class="card-title" data-i18n="maskInfo"></span>
       <div style="display:flex;gap:8px">
         <button class="btn btn-ghost btn-sm" onclick="importFile()">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
             <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
             <polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
           </svg>
-          載入 JSON
+          <span data-i18n="loadJson"></span>
         </button>
       </div>
     </div>
@@ -169,12 +181,12 @@
       <div class="file-meta">
         <div>
           <div class="field-lbl">Mask ID <span style="color:var(--danger)">*</span></div>
-          <input id="maskId" placeholder="例：SENSOR_V2" oninput="validateId()">
+          <input id="maskId" data-i18n-ph="maskIdPh" oninput="validateId()">
           <div class="err" id="id-err"></div>
         </div>
         <div>
-          <div class="field-lbl">描述（選填）</div>
-          <input id="desc" placeholder="說明這個遮罩的用途">
+          <div class="field-lbl" data-i18n="descLabel"></div>
+          <input id="desc" data-i18n-ph="descPh">
         </div>
       </div>
     </div>
@@ -183,12 +195,12 @@
   <!-- 定義編輯器 -->
   <div class="card">
     <div class="card-hd">
-      <span class="card-title">協定定義</span>
+      <span class="card-title" data-i18n="protoDef"></span>
     </div>
     <div class="card-bd">
       <div class="tabs">
-        <button class="tab on" id="tab-text" onclick="switchMode('text')">文字模式</button>
-        <button class="tab" id="tab-bin" onclick="switchMode('binary')">二進位模式</button>
+        <button class="tab on" id="tab-text" onclick="switchMode('text')" data-i18n="textMode"></button>
+        <button class="tab" id="tab-bin" onclick="switchMode('binary')" data-i18n="binaryMode"></button>
       </div>
       <div class="steps">
 
@@ -200,23 +212,21 @@
           </div>
           <div id="s1-text">
             <div class="sample-row">
-              <textarea id="sample" placeholder="例：ID:2;TEMP:36.5;HUM:80" oninput="reparse()"></textarea>
-              <button class="btn btn-ghost btn-sm" onclick="autoDetect()" style="white-space:nowrap;align-self:flex-start">
-                自動偵測
-              </button>
+              <textarea id="sample" data-i18n-ph="samplePh" oninput="reparse()"></textarea>
+              <button class="btn btn-ghost btn-sm" onclick="autoDetect()" style="white-space:nowrap;align-self:flex-start" data-i18n="autoDetect"></button>
             </div>
             <div class="delim-row">
-              <div class="dlm"><label>欄位分隔符</label><input id="fd" value=";" oninput="reparse()"></div>
-              <div class="dlm"><label>KV 分隔符</label><input id="kv" value=":" oninput="reparse()"></div>
+              <div class="dlm"><label data-i18n="fieldDelim"></label><input id="fd" value=";" oninput="reparse()"></div>
+              <div class="dlm"><label data-i18n="kvDelim"></label><input id="kv" value=":" oninput="reparse()"></div>
             </div>
             <div class="fields-row" id="fields"></div>
           </div>
           <div id="s1-bin" style="display:none">
             <table class="btable">
-              <thead><tr><th>欄位名稱</th><th>Offset</th><th>Length</th><th>型別</th><th></th></tr></thead>
+              <thead><tr><th data-i18n="fieldName"></th><th>Offset</th><th>Length</th><th data-i18n="type"></th><th></th></tr></thead>
               <tbody id="bin-body"></tbody>
             </table>
-            <button class="btn btn-ghost btn-sm" onclick="addBinRow()">+ 新增欄位</button>
+            <button class="btn btn-ghost btn-sm" onclick="addBinRow()" data-i18n="addField"></button>
           </div>
         </div>
 
@@ -224,28 +234,28 @@
         <div class="step">
           <div class="step-hd">
             <div class="step-n">2</div>
-            <div class="step-t">定義輸出格式 <small>點擊欄位名稱可插入</small></div>
+            <div class="step-t"><span data-i18n="defineOutput"></span> <small data-i18n="clickToInsert"></small></div>
           </div>
           <div class="chips" id="chips">
             <span class="chip raw" onclick="insertChip('{raw}')">{raw}</span>
           </div>
-          <input id="tmpl" class="tmpl-input" placeholder="{raw} 或 ID={ID}&amp;T={TEMP}" oninput="updatePreview()">
+          <input id="tmpl" class="tmpl-input" data-i18n-ph="tmplPh" oninput="updatePreview()">
         </div>
 
         <!-- ③ 即時預覽 -->
         <div class="step">
           <div class="step-hd">
             <div class="step-n">3</div>
-            <div class="step-t">即時預覽</div>
+            <div class="step-t" data-i18n="preview"></div>
           </div>
           <div class="preview-grid">
             <div>
-              <div class="preview-lbl">輸入</div>
-              <div class="pbox muted" id="prev-in">（等待輸入）</div>
+              <div class="preview-lbl" data-i18n="input"></div>
+              <div class="pbox muted" id="prev-in"></div>
             </div>
             <div class="arrow">→</div>
             <div>
-              <div class="preview-lbl">輸出</div>
+              <div class="preview-lbl" data-i18n="output"></div>
               <div class="pbox muted" id="prev-out">—</div>
             </div>
           </div>
@@ -258,15 +268,15 @@
   <!-- 匯出 -->
   <div class="export-zone">
     <div>
-      <div style="font-weight:600;font-size:13px;color:var(--text)">匯出定義 JSON</div>
-      <div class="export-hint">將此檔案交給 IoT Server 管理員，從網頁介面匯入</div>
+      <div style="font-weight:600;font-size:13px;color:var(--text)" data-i18n="exportTitle"></div>
+      <div class="export-hint" data-i18n="exportHint"></div>
     </div>
     <button class="btn btn-ok" onclick="exportJson()">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
         <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
         <polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
       </svg>
-      下載 JSON
+      <span data-i18n="downloadJson"></span>
     </button>
   </div>
 
@@ -285,6 +295,145 @@ function toggleTheme(){
   localStorage.setItem('mask-editor-theme', d ? 'light' : 'dark');
 }
 
+// ── i18n ───────────────────────────────────────────────
+const LANGS = {
+  'zh-TW': {
+    title:        '遮罩定義編輯器',
+    badge:        '離線版',
+    maskInfo:     '遮罩資訊',
+    loadJson:     '載入 JSON',
+    maskIdPh:     '例：SENSOR_V2',
+    descLabel:    '描述（選填）',
+    descPh:       '說明這個遮罩的用途',
+    protoDef:     '協定定義',
+    textMode:     '文字模式',
+    binaryMode:   '二進位模式',
+    pasteData:    '貼上韌體範例資料',
+    defBinary:    '定義二進位欄位結構',
+    samplePh:     '例：ID:2;TEMP:36.5;HUM:80',
+    autoDetect:   '自動偵測',
+    fieldDelim:   '欄位分隔符',
+    kvDelim:      'KV 分隔符',
+    fieldName:    '欄位名稱',
+    type:         '型別',
+    addField:     '+ 新增欄位',
+    defineOutput: '定義輸出格式',
+    clickToInsert:'點擊欄位名稱可插入',
+    tmplPh:       '{raw} 或 ID={ID}&T={TEMP}',
+    preview:      '即時預覽',
+    input:        '輸入',
+    output:       '輸出',
+    waitInput:    '（等待輸入）',
+    rawPassthru:  '（raw 直通）',
+    binaryTest:   '（二進位模式請在實際裝置測試）',
+    noField:      '未解析到欄位，請確認分隔符',
+    placeholderWarn: '⚠ 佔位符 {p} 無對應欄位 → 實際輸出為空字串',
+    exportTitle:  '匯出定義 JSON',
+    exportHint:   '將此檔案交給 IoT Server 管理員，從網頁介面匯入',
+    downloadJson: '下載 JSON',
+    errIdEmpty:   'Mask ID 不能為空',
+    errPasteFirst:'請先貼上範例資料',
+    errJsonFmt:   'JSON 格式錯誤',
+  },
+  'en-US': {
+    title:        'Mask Definition Editor',
+    badge:        'Offline',
+    maskInfo:     'Mask Info',
+    loadJson:     'Load JSON',
+    maskIdPh:     'e.g. SENSOR_V2',
+    descLabel:    'Description (optional)',
+    descPh:       'Describe the purpose of this mask',
+    protoDef:     'Protocol Definition',
+    textMode:     'Text',
+    binaryMode:   'Binary',
+    pasteData:    'Paste firmware sample data',
+    defBinary:    'Define binary field structure',
+    samplePh:     'e.g. ID:2;TEMP:36.5;HUM:80',
+    autoDetect:   'Auto Detect',
+    fieldDelim:   'Field delimiter',
+    kvDelim:      'KV separator',
+    fieldName:    'Field name',
+    type:         'Type',
+    addField:     '+ Add Field',
+    defineOutput: 'Define output format',
+    clickToInsert:'Click field name to insert',
+    tmplPh:       '{raw} or ID={ID}&T={TEMP}',
+    preview:      'Live Preview',
+    input:        'Input',
+    output:       'Output',
+    waitInput:    '(waiting for input)',
+    rawPassthru:  '(raw passthrough)',
+    binaryTest:   '(binary mode: test on device)',
+    noField:      'No fields parsed, check delimiters',
+    placeholderWarn: '⚠ Placeholder {p} has no matching field → outputs empty string',
+    exportTitle:  'Export Definition JSON',
+    exportHint:   'Send this file to the IoT Server admin to import via the web UI',
+    downloadJson: 'Download JSON',
+    errIdEmpty:   'Mask ID is required',
+    errPasteFirst:'Please paste sample data first',
+    errJsonFmt:   'Invalid JSON format',
+  },
+  'ja-JP': {
+    title:        'マスク定義エディター',
+    badge:        'オフライン',
+    maskInfo:     'マスク情報',
+    loadJson:     'JSON を読み込む',
+    maskIdPh:     '例：SENSOR_V2',
+    descLabel:    '説明（任意）',
+    descPh:       'このマスクの用途を説明してください',
+    protoDef:     'プロトコル定義',
+    textMode:     'テキスト',
+    binaryMode:   'バイナリ',
+    pasteData:    'ファームウェアサンプルを貼り付け',
+    defBinary:    'バイナリフィールド構造を定義',
+    samplePh:     '例：ID:2;TEMP:36.5;HUM:80',
+    autoDetect:   '自動検出',
+    fieldDelim:   'フィールド区切り文字',
+    kvDelim:      'KV 区切り文字',
+    fieldName:    'フィールド名',
+    type:         '型',
+    addField:     '+ フィールドを追加',
+    defineOutput: '出力形式を定義',
+    clickToInsert:'フィールド名をクリックして挿入',
+    tmplPh:       '{raw} または ID={ID}&T={TEMP}',
+    preview:      'リアルタイムプレビュー',
+    input:        '入力',
+    output:       '出力',
+    waitInput:    '（入力待ち）',
+    rawPassthru:  '（rawパススルー）',
+    binaryTest:   '（バイナリ：実機でテスト）',
+    noField:      'フィールドが解析できません、区切り文字を確認してください',
+    placeholderWarn: '⚠ プレースホルダー {p} に対応フィールドなし → 空文字列を出力',
+    exportTitle:  '定義 JSON をエクスポート',
+    exportHint:   'このファイルを IoT Server 管理者に渡し、Web UI からインポートしてください',
+    downloadJson: 'JSON をダウンロード',
+    errIdEmpty:   'マスク ID は必須です',
+    errPasteFirst:'先にサンプルデータを貼り付けてください',
+    errJsonFmt:   'JSON 形式エラー',
+  }
+};
+
+let lang = localStorage.getItem('mask-editor-lang') || 'zh-TW';
+function t(k) { return (LANGS[lang] || LANGS['zh-TW'])[k] || k; }
+
+function applyI18n() {
+  document.querySelectorAll('[data-i18n]').forEach(el => el.textContent = t(el.dataset.i18n));
+  document.querySelectorAll('[data-i18n-ph]').forEach(el => el.placeholder = t(el.dataset.i18nPh));
+  document.getElementById('lang-sel').value = lang;
+  document.getElementById('prev-in').textContent = t('waitInput');
+  document.getElementById('s1t').textContent = mode === 'text' ? t('pasteData') : t('defBinary');
+  document.title = t('title');
+}
+
+function setLang(l) {
+  lang = l;
+  localStorage.setItem('mask-editor-lang', l);
+  applyI18n();
+  reparse();
+}
+
+applyI18n();
+
 let mode = 'text', binIdx = 0;
 
 // ── Mode ───────────────────────────────────────────────
@@ -294,21 +443,21 @@ function switchMode(m) {
   document.getElementById('tab-bin').classList.toggle('on', m === 'binary');
   document.getElementById('s1-text').style.display = m === 'text' ? '' : 'none';
   document.getElementById('s1-bin').style.display  = m === 'binary' ? '' : 'none';
-  document.getElementById('s1t').textContent = m === 'text' ? '貼上韌體範例資料' : '定義二進位欄位結構';
+  document.getElementById('s1t').textContent = m === 'text' ? t('pasteData') : t('defBinary');
   updateChips(); updatePreview();
 }
 
 // ── Validate ───────────────────────────────────────────
 function validateId() {
   const v = document.getElementById('maskId').value.trim();
-  document.getElementById('id-err').textContent = v ? '' : 'Mask ID 不能為空';
+  document.getElementById('id-err').textContent = v ? '' : t('errIdEmpty');
   return !!v;
 }
 
 // ── Auto-detect ────────────────────────────────────────
 function autoDetect() {
   const s = document.getElementById('sample').value.trim();
-  if (!s) { alert('請先貼上範例資料'); return; }
+  if (!s) { alert(t('errPasteFirst')); return; }
   let best = { score: 0, fd: ';', kv: ':' };
   for (const fd of [';', ',', '|', '\t'])
     for (const kv of [':', '=']) {
@@ -326,13 +475,13 @@ function autoDetect() {
 function reparse() {
   const s = document.getElementById('sample').value.trim();
   const pIn = document.getElementById('prev-in');
-  pIn.textContent = s || '（等待輸入）';
+  pIn.textContent = s || t('waitInput');
   pIn.className = s ? 'pbox' : 'pbox muted';
   const f = parseText(s);
   const names = Object.keys(f);
   document.getElementById('fields').innerHTML = names.length
     ? names.map(k => `<span class="ftag">${esc(k)} = ${esc(f[k])}</span>`).join('')
-    : (s ? '<span class="fhint">未解析到欄位，請確認分隔符</span>' : '');
+    : (s ? `<span class="fhint">${t('noField')}</span>` : '');
   updateChips(names); updatePreview(s, f);
 }
 
@@ -372,16 +521,16 @@ function updatePreview(raw, fields) {
   const out  = document.getElementById('prev-out');
   const s    = raw ?? document.getElementById('sample').value.trim();
   if (!tmpl || tmpl === '{raw}') {
-    out.textContent = s || '（raw 直通）'; out.className = s ? 'pbox' : 'pbox muted'; return;
+    out.textContent = s || t('rawPassthru'); out.className = s ? 'pbox' : 'pbox muted'; return;
   }
   if (mode === 'binary') {
-    out.textContent = '（二進位模式請在實際裝置測試）'; out.className = 'pbox muted'; return;
+    out.textContent = t('binaryTest'); out.className = 'pbox muted'; return;
   }
   const f = fields ?? parseText(s);
   let res = tmpl;
   for (const [k, v] of Object.entries(f)) res = res.split(`{${k}}`).join(v);
   const bad = res.match(/\{[^}]+\}/);
-  if (bad) { out.textContent = `⚠ 佔位符 ${bad[0]} 無對應欄位 → 實際輸出為空字串`; out.className = 'pbox warn'; }
+  if (bad) { out.textContent = t('placeholderWarn').replace('{p}', bad[0]); out.className = 'pbox warn'; }
   else     { out.textContent = res; out.className = 'pbox'; }
 }
 
@@ -476,7 +625,7 @@ function onFileLoad(e) {
         document.getElementById('bin-body').innerHTML = d.binaryFields.map(f => binRow(binIdx++, f)).join('');
       }
       reparse();
-    } catch { alert('JSON 格式錯誤'); }
+    } catch { alert(t('errJsonFmt')); }
   };
   reader.readAsText(file);
   e.target.value = '';
