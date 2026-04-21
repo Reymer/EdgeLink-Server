@@ -3,6 +3,7 @@ using DevKit.Tool;
 using System;
 using TMPro;
 using UnityEngine;
+using UnityEngine.UI;
 
 public class Table : MonoBehaviour
 {
@@ -44,6 +45,22 @@ public class Table : MonoBehaviour
 
         var dropdown = uiCollector.GetAsset<TMP_Dropdown>(UIKey.table_DropdownMask);
         dropdown.onValueChanged.AddListener(SetMaskType);
+
+        MaskTypeManager.Instance.OnMaskTypesChanged += OnMaskTypesChanged;
+    }
+
+    private void OnDestroy()
+    {
+        MaskTypeManager.Instance.OnMaskTypesChanged -= OnMaskTypesChanged;
+    }
+
+    private void OnMaskTypesChanged()
+    {
+        CreateMaskData();
+        var dropdown = uiCollector.GetAsset<TMP_Dropdown>(UIKey.table_DropdownMask);
+        int index = GetIndexOfMaskType(currentPortData.MaskType);
+        dropdown.SetValueWithoutNotify(index);
+        dropdown.RefreshShownValue();
     }
 
     private void HandleAction(Action<PortData> action)
@@ -68,10 +85,16 @@ public class Table : MonoBehaviour
         SetValue(UIKey.table_ForwardTargetText, portData.TargetIP);
         CreateMaskData();
 
-        // ✅ 根據 portData.MaskType 設置正確的索引
+        // TCP Client / UDP 可互動切換遮罩；TCP Server 只顯示當前遮罩（不可切換）
         var dropdown = uiCollector.GetAsset<TMP_Dropdown>(UIKey.table_DropdownMask);
-        int index = GetIndexOfMaskType(maskType);
-        dropdown.value = index;
+        bool isTcpServer = portData.NetProtocol == "TCP Server";
+        dropdown.gameObject.SetActive(true);
+        dropdown.interactable = !isTcpServer;
+        // TCP Server：隱藏背景框，讓遮罩名稱以純文字呈現
+        var bg = dropdown.GetComponent<UnityEngine.UI.Image>();
+        if (bg != null) bg.enabled = !isTcpServer;
+        int maskIndex = GetIndexOfMaskType(maskType);
+        dropdown.SetValueWithoutNotify(maskIndex);
         dropdown.RefreshShownValue();
 
         // 動態數據
@@ -84,16 +107,22 @@ public class Table : MonoBehaviour
     /// </summary>
     public void UpdateDynamicUI(PortData portData)
     {
-        // 更新 PortData 引用（可能已變化）
         currentPortData = portData;
 
-        // 只更新會變化的數據
         SetValue(UIKey.table_COMReceived, portData.COMReceived.ToString());
         SetValue(UIKey.table_netReceived, portData.NetReceived.ToString());
 
-        // 更新連接狀態
         var localize_Text = uiCollector.GetAsset<UILocalizeTMP_Text>(UIKey.table_netReceivedStatusRoot);
         localize_Text.SetKey(GetIsConnecting(portData));
+
+        // 同步 mask 下拉選單選中值（web 端改了 MaskType 時確保 Unity UI 跟進）
+        var dropdown = uiCollector.GetAsset<TMP_Dropdown>(UIKey.table_DropdownMask);
+        int maskIdx = GetIndexOfMaskType(portData.MaskType);
+        if (dropdown.value != maskIdx)
+        {
+            dropdown.SetValueWithoutNotify(maskIdx);
+            dropdown.RefreshShownValue();
+        }
     }
 
     private void CreateMaskData()
@@ -161,7 +190,8 @@ public class Table : MonoBehaviour
 
     private void SetMaskType(int index)
     {
-        // 從索引獲取對應的遮罩 ID
+        if (currentPortData?.NetProtocol == "TCP Server") return;
+
         var maskIds = MaskTypeManager.Instance.GetMaskTypeIds();
 
         if (index < 0 || index >= maskIds.Count)
@@ -170,7 +200,10 @@ public class Table : MonoBehaviour
             return;
         }
 
-        maskType = maskIds[index];
+        string newMaskType = maskIds[index];
+        if (newMaskType == currentPortData.MaskType) return;
+
+        maskType = newMaskType;
         currentPortData.MaskType = maskType;
         HandleAction(OnMask);
 

@@ -1,5 +1,8 @@
+using Cysharp.Threading.Tasks;
+using DevKit;
 using DevKit.Console;
 using DevKit.Tool;
+using iotserver;
 using System.Threading.Tasks;
 using UnityEngine;
 public class ManualAddGuard
@@ -16,7 +19,6 @@ public class PortTableController : IPortTableHandler
 {
     private readonly UICollector uiCollector;
     private readonly ConsoleUI consoleUI;
-    private readonly NetworkPortTableUIManager uiManager;
 
     private readonly ManualAddGuard manualAddGuard = new();
     private PortTableSpawner spawner;
@@ -59,7 +61,7 @@ public class PortTableController : IPortTableHandler
         }
         else
         {
-            consoleUI.AddLog($"端口或名稱已重複");
+            consoleUI.AddLog(Localization.Instance.GetText(LanguageKeys.Log_DuplicatePort));
         }
     }
 
@@ -67,6 +69,21 @@ public class PortTableController : IPortTableHandler
     {
         if (manualAddGuard.IsRunning) return;
         spawner.UpdateTableDynamicUI(portData);
+    }
+
+    public void OnPortAdded(PortData portData)
+    {
+        if (manualAddGuard.IsRunning) return;
+        UniTask.Post(() => spawner.InstantiatePortTable(uiCollector, portData), PlayerLoopTiming.Update);
+    }
+
+    public void OnPortRemoved(PortData portData)
+    {
+        UniTask.Post(() =>
+        {
+            spawner.RefreshAndRecreateTables();
+            NetworkPortManager.Instance.RefreshAndRecreateTables(spawner, uiCollector);
+        }, PlayerLoopTiming.Update);
     }
 
     public async void OnRemove(PortData portData)
@@ -86,9 +103,9 @@ public class PortTableController : IPortTableHandler
         spawner.UpdateTableDynamicUI(portData);
     }
 
-    public async void OnMaskType(PortData portData)
+    public void OnMaskType(PortData portData)
     {
-        await ExecuteWithRefreshAsync(async () => await NetworkPortManager.Instance.MaskSwitch(portData));
+        _ = NetworkPortManager.Instance.MaskSwitch(portData);
     }
 
     public void OnMonitorConsole(PortData portData)

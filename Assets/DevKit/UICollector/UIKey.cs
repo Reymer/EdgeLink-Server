@@ -42,6 +42,8 @@ namespace DevKit.Tool
         public const string UI_NetProtocolDropdowm = "UI_NetProtocolDropdowm";
         
         public const string UI_DropdownMask = "UI_DropdownMask";
+
+        public const string UI_MaskRow = "UI_MaskRow";
         
         public const string UI_RemotePortInput = "UI_RemotePortInput";
         

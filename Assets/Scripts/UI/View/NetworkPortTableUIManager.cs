@@ -18,6 +18,8 @@ public class NetworkPortTableUIManager : MonoBehaviour
 
         networkSettingUI.Confirm += portTableController.OnConfirm;
         NetworkPortManager.Instance.PortDataUpdated += portTableController.OnUpdate;
+        NetworkPortManager.Instance.PortDataAdded   += portTableController.OnPortAdded;
+        NetworkPortManager.Instance.PortDataRemoved += portTableController.OnPortRemoved;
 
         portTableController.LoadAndRenderPortTables();
     }
@@ -28,5 +30,7 @@ public class NetworkPortTableUIManager : MonoBehaviour
             networkSettingUI.Confirm -= portTableController.OnConfirm;
 
         NetworkPortManager.Instance.PortDataUpdated -= portTableController.OnUpdate;
+        NetworkPortManager.Instance.PortDataAdded   -= portTableController.OnPortAdded;
+        NetworkPortManager.Instance.PortDataRemoved -= portTableController.OnPortRemoved;
     }
 }

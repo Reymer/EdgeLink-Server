@@ -1,15 +1,17 @@
-﻿using DevKit.Tool;
+﻿using DevKit;
+using DevKit.Tool;
 using System;
 using UnityEngine;
 using TMPro;
 using DevKit.Console;
 using System.Net.Sockets;
 using System.Net;
+using iotserver;
 using Random = System.Random;
 using System.Collections.Generic;
 using System.Linq;
-using DevKit;
 
+[DefaultExecutionOrder(-100)]
 public class NetworkSettingsUI : MonoBehaviour
 {
     #region 欄位
@@ -31,6 +33,7 @@ public class NetworkSettingsUI : MonoBehaviour
 
     private void Start()
     {
+        RestoreLanguage();
         Init();
         Subscribe();
         SetUpLanguageDropdown();
@@ -83,15 +86,27 @@ public class NetworkSettingsUI : MonoBehaviour
     }
 
     #region 多語系
+
+    private const string LanguagePrefKey = "SelectedLanguageIndex";
+
+    private void RestoreLanguage()
+    {
+        int savedIndex = PlayerPrefs.GetInt(LanguagePrefKey, 0);
+        Localization.Instance.SetCurrentLanguage(savedIndex);
+    }
+
     private void SetUpLanguageDropdown()
     {
         string[] shownNames = Localization.Instance.GetAllLanguageShownNames();
         languageDropdown.AddOptions(shownNames.ToList());
+        languageDropdown.SetValueWithoutNotify(Localization.Instance.GetCurrentLanguageIndex());
         languageDropdown.onValueChanged.AddListener(OnUserChangeLanguage);
     }
 
     private void OnUserChangeLanguage(int index)
     {
+        PlayerPrefs.SetInt(LanguagePrefKey, index);
+        PlayerPrefs.Save();
         Localization.Instance.SetCurrentLanguage(index);
     }
 
@@ -125,8 +140,10 @@ public class NetworkSettingsUI : MonoBehaviour
         uiCollector.GetAsset<TMP_InputField>(UIKey.UI_TargetIPInput).text = string.Empty;
         uiCollector.GetAsset<TMP_Dropdown>(UIKey.UI_NetProtocolDropdowm).value = 0;
         uiCollector.GetAsset<TMP_Dropdown>(UIKey.UI_NetProtocolDropdowm).RefreshShownValue();
-        uiCollector.GetAsset<TMP_Dropdown>(UIKey.UI_DropdownMask).value = 0;
-        uiCollector.GetAsset<TMP_Dropdown>(UIKey.UI_DropdownMask).RefreshShownValue();
+        var maskDropdown = uiCollector.GetAsset<TMP_Dropdown>(UIKey.UI_DropdownMask);
+        maskDropdown.value = 0;
+        maskDropdown.RefreshShownValue();
+        SetMaskDropdownInteractable(true);
         remotePort = null;
         localPort = null;
         targetIP = null;
@@ -150,6 +167,14 @@ public class NetworkSettingsUI : MonoBehaviour
             uiCollector.SetActive(uiKey, status);
         }
     }
+
+    private void SetMaskDropdownInteractable(bool interactable)
+    {
+        var dropdown = uiCollector.GetAsset<TMP_Dropdown>(UIKey.UI_DropdownMask);
+        if (dropdown != null)
+            dropdown.interactable = interactable;
+    }
+
 
     #endregion
 
@@ -178,7 +203,7 @@ public class NetworkSettingsUI : MonoBehaviour
 
         if (localizeDropdown == null)
         {
-            Debug.LogWarning("[NetworkSettingsUI] UILocalizeTMP_Dropdown 組件未找到，請確保已添加到 Dropdown 上");
+            Debug.LogWarning("[NetworkSettingsUI] UILocalizeTMP_Dropdown component not found on Dropdown");
             return;
         }
 
@@ -189,11 +214,6 @@ public class NetworkSettingsUI : MonoBehaviour
         var localizationKeys = MaskTypeManager.Instance.GetLocalizationKeys();
 
         // 調試信息
-        Debug.Log($"[NetworkSettingsUI] 遮罩數量: {localizationKeys.Length}");
-        for (int i = 0; i < localizationKeys.Length; i++)
-        {
-            Debug.Log($"[NetworkSettingsUI] 本地化鍵 [{i}]: {localizationKeys[i]}");
-        }
 
         // 保存當前選擇的索引
         int currentIndex = dropdown.value;
@@ -212,7 +232,6 @@ public class NetworkSettingsUI : MonoBehaviour
         }
 
         dropdown.RefreshShownValue();
-        Debug.Log($"[NetworkSettingsUI] 遮罩列表已更新，共 {localizationKeys.Length} 個遮罩");
     }
 
     /// <summary>
@@ -315,6 +334,7 @@ public class NetworkSettingsUI : MonoBehaviour
                 SetUiStatus(false, UIKey.UI_LocalPortsMask);
                 uiCollector.GetAsset<TMP_InputField>(UIKey.UI_RemotePortInput).text = string.Empty;
                 uiCollector.GetAsset<TMP_InputField>(UIKey.UI_LocalPortInput).text = string.Empty;
+                SetMaskDropdownInteractable(true);
                 break;
             case 1:
                 protocolType = "TCP Server";
@@ -324,6 +344,10 @@ public class NetworkSettingsUI : MonoBehaviour
                 SetUiStatus(true, UIKey.UI_TargetIPMask);
                 SetUiStatus(true, UIKey.UI_RemotePortsMask);
                 SetUiStatus(false, UIKey.UI_LocalPortsMask);
+                SetMaskDropdownInteractable(false);
+                maskType = "OriginalData";
+                uiCollector.GetAsset<TMP_Dropdown>(UIKey.UI_DropdownMask).value = 0;
+                uiCollector.GetAsset<TMP_Dropdown>(UIKey.UI_DropdownMask).RefreshShownValue();
                 break;
             case 2:
                 protocolType = "TCP Client";
@@ -333,9 +357,9 @@ public class NetworkSettingsUI : MonoBehaviour
                 SetUiStatus(false, UIKey.UI_TargetIPMask);
                 SetUiStatus(false, UIKey.UI_RemotePortsMask);
                 SetUiStatus(true, UIKey.UI_LocalPortsMask);
+                SetMaskDropdownInteractable(true);
                 break;
         }
-        Debug.Log(protocolType);
     }
 
     private void OnNameInput(string name)
@@ -366,11 +390,9 @@ public class NetworkSettingsUI : MonoBehaviour
         if (index >= 0 && index < maskIds.Count)
         {
             maskType = maskIds[index];
-            Debug.Log($"[NetworkSettingsUI] 選擇遮罩類型: {maskType}");
         }
         else
         {
-            Debug.LogWarning($"[NetworkSettingsUI] 無效的遮罩索引: {index}");
         }
     }
 
@@ -383,7 +405,7 @@ public class NetworkSettingsUI : MonoBehaviour
 
         if (isAllEmpty)
         {
-            consoleUi.AddLog("尚未輸入，請檢查所有欄位。");
+            consoleUi.AddLog(Localization.Instance.GetText(LanguageKeys.Log_AllFieldsEmpty));
             return;
         }
 
@@ -391,7 +413,7 @@ public class NetworkSettingsUI : MonoBehaviour
 
         if (string.IsNullOrWhiteSpace(protocolName))
         {
-            consoleUi.AddLog("名稱不能為空，請檢查輸入。");
+            consoleUi.AddLog(Localization.Instance.GetText(LanguageKeys.Log_NameRequired));
             hasError = true;
         }
 
@@ -399,7 +421,7 @@ public class NetworkSettingsUI : MonoBehaviour
         {
             if (!remotePort.HasValue)
             {
-                consoleUi.AddLog("UDP 協議需要遠程端口號，請檢查輸入。");
+                consoleUi.AddLog(Localization.Instance.GetText(LanguageKeys.Log_UdpNeedsRemotePort));
                 hasError = true;
             }
         }
@@ -407,13 +429,13 @@ public class NetworkSettingsUI : MonoBehaviour
         {
             if (!remotePort.HasValue)
             {
-                consoleUi.AddLog("TCP Client 需要遠程端口號，請檢查輸入。");
+                consoleUi.AddLog(Localization.Instance.GetText(LanguageKeys.Log_TcpClientNeedsRemotePort));
                 hasError = true;
             }
 
             if (string.IsNullOrWhiteSpace(targetIP) || !IsValidIPv4(targetIP))
             {
-                consoleUi.AddLog("TCP Client 需要有效的目標 IP 地址，請檢查輸入。");
+                consoleUi.AddLog(Localization.Instance.GetText(LanguageKeys.Log_TcpClientNeedsIP));
                 hasError = true;
             }
         }
@@ -421,13 +443,13 @@ public class NetworkSettingsUI : MonoBehaviour
         {
             if (!localPort.HasValue)
             {
-                consoleUi.AddLog("TCP Server 需要本地端口號，請檢查輸入。");
+                consoleUi.AddLog(Localization.Instance.GetText(LanguageKeys.Log_TcpServerNeedsLocalPort));
                 hasError = true;
             }
         }
         else
         {
-            consoleUi.AddLog("未知的協議類型，請檢查選擇。");
+            consoleUi.AddLog(Localization.Instance.GetText(LanguageKeys.Log_UnknownProtocolType));
             hasError = true;
         }
 

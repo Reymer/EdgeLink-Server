@@ -2,8 +2,10 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using DevKit;
 using DevKit.Console;
 using DevKit.Tool;
+using iotserver;
 using UnityEngine;
 
 public class NetworkPortManager
@@ -14,11 +16,15 @@ public class NetworkPortManager
     private readonly PortDataStorageService storageService; // 儲存端口資料的服務
     private readonly NetPortRegistry portRegistry = new();  // 註冊端口的服務
     public Action<PortData> PortDataUpdated; // 端口資料更新事件
+    public Action<PortData> PortDataAdded;   // Web API 新增端口事件
+    public Action<PortData> PortDataRemoved; // Web API 刪除端口事件
     public TcpClientRetryConfig retryConfig; // 重試配置
 
     /// <summary>
     /// 註冊端口資料的服務
     /// </summary>
+    private int loadedPortCount = 0;
+
     private NetworkPortManager()
     {
         storageService = new PortDataStorageService();
@@ -32,15 +38,17 @@ public class NetworkPortManager
                 Debug.LogWarning("未載入任何 PortData，將不註冊任何端口資料");
                 return;
             }
-            LogHelper.LogToConsole($"成功載入 {ports.Count} 筆資料");
 
             foreach (var data in ports)
             {
                 data.OnUpdate += OnUpdate;
                 var type = ParseProtocolType(data.NetProtocol);
                 var key = GetPortKey(data);
+                data.Key = key;
                 portRegistry.Add(type, key, data);
             }
+
+            loadedPortCount = ports.Count;
         }
         catch (Exception ex)
         {
@@ -63,7 +71,14 @@ public class NetworkPortManager
     public void Init(ConsoleUI consoleUi, MonitorConsole monitorConsole)
     {
         networkConnectorCore.Init(consoleUi, monitorConsole);
+        if (loadedPortCount > 0)
+            LogHelper.LogToConsole(string.Format(Localization.Instance.GetText(LanguageKeys.Log_DataLoaded), loadedPortCount));
     }
+
+    /// <summary>
+    /// 取得所有 Port 資料（供 Web API 使用）
+    /// </summary>
+    public IEnumerable<PortData> GetAllPortDatas() => portRegistry.GetAll();
 
     /// <summary>
     /// 新增端口資料
@@ -92,6 +107,7 @@ public class NetworkPortManager
         portRegistry.Add(type, key, data);
         networkConnectorCore.AddPort(data);
         SaveData();
+        PortDataAdded?.Invoke(data);
         return data;
     }
 
@@ -158,7 +174,9 @@ public class NetworkPortManager
             data.OnUpdate -= OnUpdate;
             await networkConnectorCore.Stop(data);
             portRegistry.Remove(type, key);
+            data.OnUpdate = null;
             SaveData();
+            PortDataRemoved?.Invoke(data);
         }
     }
 
@@ -252,6 +270,7 @@ public class NetworkPortManager
             data.OnUpdate += OnUpdate;
             var type = ParseProtocolType(data.NetProtocol);
             string key = GetPortKey(data);
+            data.Key = key;
             portRegistry.Add(type, key, data);
         }
     }
