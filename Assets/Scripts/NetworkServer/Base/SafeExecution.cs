@@ -15,7 +15,7 @@ public static class SafeExecution
         }
         catch (Exception ex)
         {
-            UnityEngine.Debug.LogError($"[Safe:{context}] Exception: {ex.Message}");
+            UnityEngine.Debug.LogError($"[Safe:{context}] Exception: {ex}");
         }
     }
 
@@ -33,7 +33,7 @@ public static class SafeExecution
         }
         catch (Exception ex)
         {
-            UnityEngine.Debug.LogError($"[SafeAsync:{context}] Exception: {ex.Message}");
+            UnityEngine.Debug.LogError($"[SafeAsync:{context}] Exception: {ex}");
         }
     }
 

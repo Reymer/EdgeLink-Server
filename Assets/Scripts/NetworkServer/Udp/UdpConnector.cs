@@ -1,11 +1,12 @@
 using System;
 using System.Collections.Concurrent;
 using System.Net;
-using System.Net.Http;
 using System.Net.Sockets;
 using System.Text;
 using System.Threading;
-using System.Threading.Tasks;
+using Cysharp.Threading.Tasks;
+using DevKit;
+using iotserver;
 using UnityEngine;
 
 /// <summary>
@@ -14,58 +15,52 @@ using UnityEngine;
 public class UdpConnector : NetworkConnectorBase
 {
     private readonly ConcurrentDictionary<string, UdpData> udpClients = new();
+    private readonly IMainThreadDispatcher dispatcher;
 
-    /// <summary>
-    /// 安全地解析端口號
-    /// </summary>
+    public UdpConnector(IMainThreadDispatcher dispatcher = null)
+    {
+        this.dispatcher = dispatcher ?? new UnityDispatcherAdapter();
+    }
+
     private bool TryParsePort(string portString, out int port, string context = "")
     {
         port = 0;
         if (string.IsNullOrWhiteSpace(portString))
         {
-            LogHelper.LogToConsole($"[{context}] 端口為空", isError: true);
+            LogHelper.LogToConsole($"[{context}] {Localization.Instance.GetText(LanguageKeys.Log_PortEmpty)}", isError: true);
             return false;
         }
 
         if (!int.TryParse(portString, out port))
         {
-            LogHelper.LogToConsole($"[{context}] 無效的端口格式: {portString}", isError: true);
+            LogHelper.LogToConsole($"[{context}] {Localization.Instance.GetText(LanguageKeys.Log_InvalidPortFormat)}: {portString}", isError: true);
             return false;
         }
 
         if (port < 1 || port > 65535)
         {
-            LogHelper.LogToConsole($"[{context}] 端口超出範圍 (1-65535): {port}", isError: true);
+            LogHelper.LogToConsole($"[{context}] {Localization.Instance.GetText(LanguageKeys.Log_PortOutOfRange)}: {port}", isError: true);
             return false;
         }
 
         return true;
     }
 
-    /// <summary>
-    /// 安全地解析IP地址
-    /// </summary>
     private bool TryParseIP(string ipString, out IPAddress ipAddress, string context = "")
     {
         ipAddress = null;
         if (string.IsNullOrWhiteSpace(ipString))
-        {
             return true; // 允許空IP（廣播模式）
-        }
 
         if (!IPAddress.TryParse(ipString, out ipAddress))
         {
-            LogHelper.LogToConsole($"[{context}] 無效的IP地址: {ipString}", isError: true);
+            LogHelper.LogToConsole($"[{context}] {Localization.Instance.GetText(LanguageKeys.Log_InvalidIP)}: {ipString}", isError: true);
             return false;
         }
 
         return true;
     }
 
-    /// <summary>
-    /// 添加端口
-    /// </summary>
-    /// <param name="portData"></param>
     public override void AddPort(PortData portData)
     {
         SafeExecution.Safe(() =>
@@ -74,11 +69,10 @@ public class UdpConnector : NetworkConnectorBase
             {
                 if (portData.IsConnected)
                 {
-                    LogHelper.LogToConsole($"端口 {portData.RemotePortDetails.Port} 已經存在 UDP 伺服器，正在連接中。");
+                    LogHelper.LogToConsole($"{LogHelper.Tag("UDP", portData.ProtocolName)} {Localization.Instance.GetText(LanguageKeys.Log_AlreadyConnected)}");
                     return;
                 }
 
-                // ✅ P0.2 修復：使用 Dispose() 正確釋放資源，移除同步阻塞
                 portData.IsConnected = false;
                 existingServerData.Dispose();
                 udpClients.TryRemove(portData.ProtocolName, out _);
@@ -104,23 +98,23 @@ public class UdpConnector : NetworkConnectorBase
 
                 udpClients[portData.ProtocolName] = newServerData;
 
-                Task.Run(() => SafeExecution.SafeAsync(() => ReceiveUdpMessages(newServerData), "UdpConnector.ReceiveUdpMessages"));
+                ReceiveUdpMessages(newServerData).Forget(ex =>
+                    LogHelper.LogToConsole($"{LogHelper.Tag("UDP", portData.ProtocolName)} {Localization.Instance.GetText(LanguageKeys.Log_ReceiveMessagesUnexpectedError)}: {ex}", isError: true));
 
-                MainThreadDispatcher.Instance().Enqueue(() =>
+                dispatcher.Enqueue(() =>
                     SafeExecution.Safe(() => portData.OnUpdate?.Invoke(portData), "UdpConnector.OnUpdate"));
             }
             catch (SocketException ex) when (ex.SocketErrorCode == SocketError.AddressAlreadyInUse)
             {
-                LogHelper.LogToConsole($"端口 {portData.RemotePortDetails.Port} 已經被使用。", isError: true);
+                LogHelper.LogToConsole($"{LogHelper.Tag("UDP", portData.ProtocolName)} {Localization.Instance.GetText(LanguageKeys.Log_PortOccupied)}: {portData.RemotePortDetails.Port}", isError: true);
             }
             catch (Exception ex)
             {
-                LogHelper.LogToConsole($"初始化端口 {portData.RemotePortDetails.Port} 的 UDP 監聽器時發生錯誤: {ex.Message}", isError: true);
+                LogHelper.LogToConsole($"{LogHelper.Tag("UDP", portData.ProtocolName)} {Localization.Instance.GetText(LanguageKeys.Log_StartFailed)}: {ex.Message}", isError: true);
             }
 
         }, "UdpConnector.AddPort");
     }
-
 
     public override void Connect(PortData portData)
     {
@@ -128,22 +122,17 @@ public class UdpConnector : NetworkConnectorBase
         {
             if (udpClients.TryGetValue(portData.ProtocolName, out var udpData))
             {
-                // 如果已經連接，先斷開
                 if (portData.IsConnected)
                 {
-                    LogHelper.LogToConsole($"UDP {portData.ProtocolName} 已經連接中");
+                    LogHelper.LogToConsole($"{LogHelper.Tag("UDP", portData.ProtocolName)} {Localization.Instance.GetText(LanguageKeys.Log_AlreadyConnected)}");
                     return;
                 }
 
-                // 驗證端口
                 if (!TryParsePort(portData.RemotePortDetails.Port, out int remotePort, "Connect"))
-                {
                     return;
-                }
 
                 try
                 {
-                    // 重新創建 UDP Client 和 CancellationTokenSource
                     udpData.udpClient?.Close();
                     udpData.udpClient?.Dispose();
                     udpData.udpClient = new UdpClient(remotePort);
@@ -154,88 +143,76 @@ public class UdpConnector : NetworkConnectorBase
 
                     portData.IsConnected = true;
 
-                    // 重新啟動接收任務
-                    Task.Run(() => SafeExecution.SafeAsync(() => ReceiveUdpMessages(udpData), "UdpConnector.ReceiveUdpMessages"));
+                    ReceiveUdpMessages(udpData).Forget(ex =>
+                        LogHelper.LogToConsole($"{LogHelper.Tag("UDP", portData.ProtocolName)} {Localization.Instance.GetText(LanguageKeys.Log_ReceiveMessagesUnexpectedError)}: {ex}", isError: true));
 
-                    LogHelper.LogToConsole($"UDP 已重新連接，端口 {portData.RemotePortDetails.Port}");
+                    LogHelper.LogToConsole($"{LogHelper.Tag("UDP", portData.ProtocolName)} {Localization.Instance.GetText(LanguageKeys.Log_ReconnectSuccess)} → {portData.RemotePortDetails.Port}");
 
-                    MainThreadDispatcher.Instance().Enqueue(() =>
+                    dispatcher.Enqueue(() =>
                         SafeExecution.Safe(() => portData.OnUpdate?.Invoke(portData), "UdpConnector.OnUpdate"));
                 }
                 catch (Exception ex)
                 {
-                    LogHelper.LogToConsole($"UDP 重新連接失敗: {ex.Message}", isError: true);
+                    LogHelper.LogToConsole($"{LogHelper.Tag("UDP", portData.ProtocolName)} {Localization.Instance.GetText(LanguageKeys.Log_ReconnectFailed)}: {ex.Message}", isError: true);
                     portData.IsConnected = false;
                 }
             }
             else
             {
-                LogHelper.LogToConsole($"找不到 UDP: {portData.ProtocolName}，請先新增", isError: true);
+                LogHelper.LogToConsole($"{LogHelper.Tag("UDP", portData.ProtocolName)} {Localization.Instance.GetText(LanguageKeys.Log_NotFound)}", isError: true);
             }
         }, "UdpConnector.Connect");
     }
 
-
-
-    /// <summary>
-    /// 主動斷開連接（保留數據結構以便重新連接）
-    /// </summary>
-    /// <param name="portData"></param>
-    public override async Task Disconnect(PortData portData)
+    public override async UniTask Disconnect(PortData portData)
     {
         if (!udpClients.TryGetValue(portData.ProtocolName, out var udpData))
         {
-            LogHelper.LogToConsole($"未找到 UDP，端口 {portData.RemotePortDetails.Port}");
+            LogHelper.LogToConsole($"{LogHelper.Tag("UDP", portData.ProtocolName)} {Localization.Instance.GetText(LanguageKeys.Log_NotFound)}");
             return;
         }
 
         try
         {
-            // 取消接收任務
             udpData.CancellationTokenSource?.Cancel();
-            await Task.Delay(100); // 等待任務停止
+            await UniTask.Delay(300);
 
-            // 關閉 UDP Client 但不釋放 UdpData
             udpData.udpClient?.Close();
             udpData.udpClient?.Dispose();
             udpData.udpClient = null;
 
-            // 重新創建 CancellationTokenSource 以便重新連接
             udpData.CancellationTokenSource?.Dispose();
             udpData.CancellationTokenSource = new CancellationTokenSource();
 
             portData.IsConnected = false;
 
-            LogHelper.LogToConsole($"已斷開 UDP 連接，端口 {portData.RemotePortDetails.Port}");
+            LogHelper.LogToConsole($"{LogHelper.Tag("UDP", portData.ProtocolName)} {Localization.Instance.GetText(LanguageKeys.Log_Disconnected)}");
         }
         catch (Exception ex)
         {
-            LogHelper.LogToConsole($"斷開 UDP 連接失敗，端口 {portData.RemotePortDetails.Port}: {ex.Message}", isError: true);
+            LogHelper.LogToConsole($"{LogHelper.Tag("UDP", portData.ProtocolName)} {Localization.Instance.GetText(LanguageKeys.Log_ReconnectFailed)}: {ex}", isError: true);
         }
 
-        MainThreadDispatcher.Instance().Enqueue(() => portData.OnUpdate?.Invoke(portData));
+        dispatcher.Enqueue(() => portData.OnUpdate?.Invoke(portData));
     }
 
-    /// <summary>
-    /// 接收 UDP 訊息
-    /// </summary>
-    /// <param name="udpData"></param>
-    /// <returns></returns>
-    private async Task ReceiveUdpMessages(UdpData udpData)
+    private async UniTask ReceiveUdpMessages(UdpData udpData)
     {
-        // 驗證本地端口
         if (!TryParsePort(udpData.portData.LocalPortDetails.Port, out int localPort, "ReceiveUdpMessages"))
         {
-            LogHelper.LogToConsole($"UDP 接收失敗：無效的本地端口", isError: true);
+            LogHelper.LogToConsole($"{LogHelper.Tag("UDP", udpData.portData.ProtocolName)} {Localization.Instance.GetText(LanguageKeys.Log_InvalidPortFormat)}", isError: true);
             return;
         }
 
-        // 驗證目標IP（如果有）
         if (!TryParseIP(udpData.portData.TargetIP, out IPAddress targetIP, "ReceiveUdpMessages"))
         {
-            LogHelper.LogToConsole($"UDP 接收失敗：無效的目標IP", isError: true);
+            LogHelper.LogToConsole($"{LogHelper.Tag("UDP", udpData.portData.ProtocolName)} {Localization.Instance.GetText(LanguageKeys.Log_InvalidIP)}", isError: true);
             return;
         }
+
+        // 切換到 ThreadPool，避免每次 await 都回到 Unity PlayerLoop（每幀 16ms），
+        // 讓接收迴圈能以 I/O 速率運行而非受限於幀率。
+        await UniTask.SwitchToThreadPool();
 
         using var sendClient = new UdpClient();
         IPEndPoint sendEndPoint = string.IsNullOrWhiteSpace(udpData.portData.TargetIP)
@@ -246,122 +223,147 @@ public class UdpConnector : NetworkConnectorBase
             sendClient.EnableBroadcast = true;
 
         byte[] buffer = new byte[1024];
+        long lastUiUpdateTicks = 0;
+        const long UiUpdateIntervalTicks = TimeSpan.TicksPerMillisecond * 100; // UI 最多 10 次/秒
 
         try
         {
             while (!udpData.CancellationTokenSource.Token.IsCancellationRequested)
             {
-                var result = await SafeExecution.WithCancellation(udpData.udpClient.ReceiveAsync(), udpData.CancellationTokenSource.Token);
+                if (udpData.udpClient == null)
+                    break;
+
+                var result = await udpData.udpClient.ReceiveAsync()
+                    .AsUniTask(useCurrentSynchronizationContext: false)
+                    .AttachExternalCancellation(udpData.CancellationTokenSource.Token);
+
                 int messageLength = result.Buffer.Length;
 
                 if (messageLength > buffer.Length)
                     buffer = new byte[messageLength];
 
                 Array.Copy(result.Buffer, buffer, messageLength);
-                string message = Encoding.UTF8.GetString(buffer, 0, messageLength);
+
+                string message;
+                try
+                {
+                    message = Encoding.UTF8.GetString(buffer, 0, messageLength);
+                }
+                catch (Exception)
+                {
+                    message = Encoding.GetEncoding("UTF-8", EncoderFallback.ReplacementFallback, DecoderFallback.ReplacementFallback).GetString(buffer, 0, messageLength);
+                    LogHelper.LogToConsole($"{LogHelper.Tag("UDP", udpData.portData.ProtocolName)} {Localization.Instance.GetText(LanguageKeys.Log_InvalidUTF8)}", isError: true);
+                }
 
                 udpData.portData.COMReceived += messageLength;
                 udpData.SourceData = message;
-                RouterLogHelper.LogReceive(udpData.portData, MonitorTargetType.UDP, message);
-                await sendClient.SendAsync(result.Buffer, messageLength, sendEndPoint);
-                udpData.portData.NetReceived += messageLength;
-                RouterLogHelper.LogSend(udpData.portData, MonitorTargetType.UDP, message);
-                MainThreadDispatcher.Instance().Enqueue(() => udpData.portData.OnUpdate?.Invoke(udpData.portData));
+
+                string maskId = udpData.portData.MaskType?.Trim() ?? "OriginalData";
+                var def = MaskDefinitionManager.Instance.GetDefinition(maskId)
+                       ?? MaskDefinitionManager.Instance.GetDefinition("OriginalData");
+
+                bool anyOutput = false;
+                foreach (var rawLine in message.Split('\n'))
+                {
+                    string line = rawLine.Trim('\r', ' ');
+                    if (string.IsNullOrWhiteSpace(line)) continue;
+
+                    RouterLogHelper.LogReceive(udpData.portData, MonitorTargetType.UDP, line);
+
+                    byte[] lineBytes = Encoding.UTF8.GetBytes(line);
+                    string output = def != null ? MaskProcessor.Process(def, lineBytes, line) : line;
+                    if (string.IsNullOrEmpty(output)) continue;
+
+                    var outBytes = Encoding.UTF8.GetBytes(output.EndsWith("\n") ? output : output + "\n");
+                    // UDP send 寫入 OS buffer 後立即返回，不需等待確認
+                    sendClient.SendAsync(outBytes, outBytes.Length, sendEndPoint).AsUniTask(false).Forget();
+                    udpData.portData.NetReceived += outBytes.Length;
+                    RouterLogHelper.LogSend(udpData.portData, MonitorTargetType.UDP, output);
+                    anyOutput = true;
+                }
+
+                if (anyOutput)
+                {
+                    long now = DateTime.UtcNow.Ticks;
+                    if (now - lastUiUpdateTicks >= UiUpdateIntervalTicks)
+                    {
+                        lastUiUpdateTicks = now;
+                        dispatcher.Enqueue(() => udpData.portData.OnUpdate?.Invoke(udpData.portData));
+                    }
+                }
             }
+        }
+        catch (OperationCanceledException)
+        {
+            // 正常取消，不記錄
         }
         catch (Exception ex)
         {
             Debug.LogException(ex);
         }
 
-        udpData.Dispose();
-        Debug.Log($"UDP 接收器已在端口 {udpData.portData.RemotePortDetails.Port} 上關閉。");
+        // 接收迴圈結束（正常取消或錯誤）
     }
 
-    /// <summary>
-    /// 移除 UDP 端口（完全刪除）
-    /// </summary>
-    /// <param name="portData"></param>
-    /// <returns></returns>
-    public override async Task RemovePort(PortData portData)
+    public override async UniTask RemovePort(PortData portData)
     {
         if (udpClients.TryRemove(portData.ProtocolName, out var udpData))
         {
             try
             {
-                // 取消接收任務
                 udpData.CancellationTokenSource?.Cancel();
-                await Task.Delay(100); // 等待任務停止
+                await UniTask.Delay(300);
 
-                // 完全釋放所有資源
                 udpData.Dispose();
                 portData.IsConnected = false;
 
-                LogHelper.LogToConsole($"已移除 UDP 端口: {portData.ProtocolName}");
+                LogHelper.LogToConsole($"{LogHelper.Tag("UDP", portData.ProtocolName)} {Localization.Instance.GetText(LanguageKeys.Log_Removed)}");
 
-                MainThreadDispatcher.Instance().Enqueue(() => portData.OnUpdate?.Invoke(portData));
+                dispatcher.Enqueue(() => portData.OnUpdate?.Invoke(portData));
             }
             catch (Exception ex)
             {
-                LogHelper.LogToConsole($"移除 UDP 端口失敗: {ex.Message}", isError: true);
+                LogHelper.LogToConsole($"{LogHelper.Tag("UDP", portData.ProtocolName)} {Localization.Instance.GetText(LanguageKeys.Log_StartFailed)}: {ex}", isError: true);
             }
         }
         else
         {
-            LogHelper.LogToConsole($"未找到 UDP 端口: {portData.ProtocolName}");
+            LogHelper.LogToConsole($"{LogHelper.Tag("UDP", portData.ProtocolName)} {Localization.Instance.GetText(LanguageKeys.Log_NotFound)}");
         }
     }
 
-    /// <summary>
-    /// 重啟 UDP 端口
-    /// </summary>
-    /// <param name="portData"></param>
-    /// <returns></returns>
-    public override async Task RestartPort(PortData portData)
+    public override async UniTask RestartPort(PortData portData)
     {
         await Disconnect(portData);
-        await Task.Delay(200);
+        await UniTask.Delay(200);
         AddPort(portData);
     }
 
-    /// <summary>
-    /// 關閉所有 UDP 連接
-    /// </summary>
-    /// <returns></returns>
-    public override async Task ShutdownAsync()
+    public override async UniTask ShutdownAsync()
     {
-        UnityEngine.Debug.Log($"[UDP] 開始關閉 {udpClients.Count} 個 UDP 連接");
+        UnityEngine.Debug.Log($"[UDP] Shutting down {udpClients.Count} UDP connections");
 
-        // 先取消所有接收任務
         foreach (var udpData in udpClients.Values)
         {
-            try
+            try { udpData.CancellationTokenSource?.Cancel(); }
+            catch (Exception ex)
             {
-                udpData.CancellationTokenSource?.Cancel();
-            }
-            catch (System.Exception ex)
-            {
-                UnityEngine.Debug.LogWarning($"[UDP] 取消任務時發生錯誤: {ex.Message}");
+                UnityEngine.Debug.LogWarning($"[UDP] Error cancelling task: {ex.Message}");
             }
         }
 
-        // 等待一小段時間讓任務停止
-        await Task.Delay(100);
+        await UniTask.Delay(300);
 
-        // 釋放資源
         foreach (var udpData in udpClients.Values)
         {
-            try
+            try { udpData.Dispose(); }
+            catch (Exception ex)
             {
-                udpData.Dispose();
-            }
-            catch (System.Exception ex)
-            {
-                UnityEngine.Debug.LogWarning($"[UDP] 釋放資源時發生錯誤: {ex.Message}");
+                UnityEngine.Debug.LogWarning($"[UDP] Error disposing: {ex}");
             }
         }
 
         udpClients.Clear();
-        UnityEngine.Debug.Log("[UDP] 所有 UDP 連接已關閉");
+        UnityEngine.Debug.Log("[UDP] All UDP connections closed");
     }
 }

@@ -1,6 +1,8 @@
-﻿using System.Collections.Generic;
-using System.Threading.Tasks;
+using System.Collections.Generic;
+using Cysharp.Threading.Tasks;
+using DevKit;
 using DevKit.Console;
+using iotserver;
 
 public class NetworkConnectorCore
 {
@@ -11,20 +13,11 @@ public class NetworkConnectorCore
         { "TCP CLIENT", new TCPClientConnector() }
     };
 
-    /// <summary>
-    /// 初始化
-    /// </summary>
-    /// <param name="consoleUI"></param>
-    /// <param name="monitorConsole"></param>
     public void Init(ConsoleUI consoleUI, MonitorConsole monitorConsole)
     {
         LogHelper.Init(monitorConsole, consoleUI);
     }
 
-    /// <summary>
-    /// 添加端口
-    /// </summary>
-    /// <param name="portData"></param>
     public void AddPort(PortData portData)
     {
         string protocol = portData.NetProtocol.ToUpperInvariant();
@@ -32,80 +25,39 @@ public class NetworkConnectorCore
         if (connectors.TryGetValue(protocol, out var connector))
         {
             connector.AddPort(portData);
-
-            // TCP Server 需要額外註冊到路由器
-            if (protocol == "TCP SERVER" && connector is TCPServerConnector tcpServer)
-            {
-                NetworkMessageRouter.Instance.RegisterTcpServer(portData.ProtocolName, tcpServer.GetServerData(portData));
-            }
         }
         else
         {
-            LogHelper.LogToConsole($"無法識別的連接類型: {portData.NetProtocol}", isError: true);
+            LogHelper.LogToConsole($"{Localization.Instance.GetText(LanguageKeys.Log_UnknownProtocol)}: {portData.NetProtocol}", isError: true);
         }
     }
 
-    /// <summary>
-    /// 重啟端口
-    /// </summary>
-    /// <param name="portData"></param>
-    public async Task RestartPort(PortData portData)
+    public async UniTask RestartPort(PortData portData)
     {
         if (connectors.TryGetValue(portData.NetProtocol.ToUpperInvariant(), out var connector))
-        {
             await connector.RestartPort(portData);
-        }
     }
 
-    /// <summary>
-    /// 連接端口
-    /// </summary>
-    /// <param name="portData"></param>
     public void Connected(PortData portData)
     {
         if (connectors.TryGetValue(portData.NetProtocol.ToUpperInvariant(), out var connector))
-        {
             connector.Connect(portData);
-        }
     }
 
-    /// <summary>
-    /// 斷開連接端口
-    /// </summary>
-    /// <param name="portData"></param>
-    public async Task Disconnected(PortData portData)
+    public async UniTask Disconnected(PortData portData)
     {
         if (connectors.TryGetValue(portData.NetProtocol.ToUpperInvariant(), out var connector))
-        {
             await connector.Disconnect(portData);
-        }
     }
 
-    /// <summary>
-    /// 停止
-    /// </summary>
-    /// <param name="portData"></param>
-    public async Task Stop(PortData portData)
+    public async UniTask Stop(PortData portData)
     {
         string protocol = portData.NetProtocol.ToUpperInvariant();
 
         if (connectors.TryGetValue(protocol, out var connector))
-        {
             await connector.RemovePort(portData);
-
-            // TCP Server 需要額外從路由器註銷
-            if (protocol == "TCP SERVER")
-            {
-                NetworkMessageRouter.Instance.UnregisterTcpServer(portData.ProtocolName);
-            }
-        }
     }
 
-
-    /// <summary>
-    /// 監控控制台
-    /// </summary>
-    /// <param name="portData"></param>
     public void MonitorConsole(PortData portData)
     {
         MonitorCounter.Reset();
@@ -118,21 +70,15 @@ public class NetworkConnectorCore
             MonitorManager.Instance.SetMonitorPort(portData, MonitorTargetType.UDP);
     }
 
-    /// <summary>
-    /// 關閉所有客戶端
-    /// </summary>
-    /// <returns></returns>
-    private async Task ShutdownClientsAsync()
+    private async UniTask ShutdownClientsAsync()
     {
-        var tasks = new List<Task>();
+        var tasks = new List<UniTask>();
         foreach (var connector in connectors.Values)
-        {
             tasks.Add(connector.ShutdownAsync());
-        }
-        await Task.WhenAll(tasks);
+        await UniTask.WhenAll(tasks);
     }
 
-    public async Task UnInit()
+    public async UniTask UnInit()
     {
         await ShutdownClientsAsync();
     }

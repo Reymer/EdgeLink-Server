@@ -39,7 +39,7 @@ public class MonitorManager
     {
         return monitorPortData != null &&
                monitorType == incomingType &&
-               monitorPortData.ProtocolName == incomingPort.ProtocolName;
+               ReferenceEquals(monitorPortData, incomingPort);
     }
 
     /// <summary>

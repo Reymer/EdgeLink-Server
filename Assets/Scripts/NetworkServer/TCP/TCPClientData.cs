@@ -34,13 +34,12 @@ public class TCPClientData : DisposableBase
             CancellationTokenSource = null;
         }
 
-        // ✅ 改進：等待心跳任務完成（最多等待 500ms）
+        // 等待心跳任務回應取消（最多 2000ms，給 token 取消後的清理足夠時間）
         if (HeartbeatTask != null && !HeartbeatTask.IsCompleted)
         {
             try
             {
-                // 使用 Wait 等待任務完成，最多 500ms
-                HeartbeatTask.Wait(500);
+                HeartbeatTask.Wait(2000);
             }
             catch (System.AggregateException)
             {

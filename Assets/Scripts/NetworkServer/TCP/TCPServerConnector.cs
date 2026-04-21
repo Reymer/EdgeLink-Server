@@ -1,10 +1,12 @@
-﻿using System;
+using System;
 using System.Collections.Concurrent;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using System.Threading;
-using System.Threading.Tasks;
+using Cysharp.Threading.Tasks;
+using DevKit;
+using iotserver;
 using UnityEngine;
 
 /// <summary>
@@ -13,40 +15,39 @@ using UnityEngine;
 public class TCPServerConnector : NetworkConnectorBase
 {
     private readonly ConcurrentDictionary<string, TCPServerData> tcpServers = new();
-    private const int MAX_CONNECTIONS_PER_SERVER = 100; // 每個 TCP Server 的最大連接數
-    private const int MAX_BUFFER_SIZE = 1024 * 1024; // 最大緩衝區大小：1MB
+    private const int MAX_CONNECTIONS_PER_SERVER = 100;
+    private const int MAX_BUFFER_SIZE = 1024 * 1024;
+    private readonly IMainThreadDispatcher dispatcher;
 
-    /// <summary>
-    /// 安全地解析端口號
-    /// </summary>
+    public TCPServerConnector(IMainThreadDispatcher dispatcher = null)
+    {
+        this.dispatcher = dispatcher ?? new UnityDispatcherAdapter();
+    }
+
     private bool TryParsePort(string portString, out int port, string context = "")
     {
         port = 0;
         if (string.IsNullOrWhiteSpace(portString))
         {
-            LogHelper.LogToConsole($"[{context}] 端口為空", isError: true);
+            LogHelper.LogToConsole($"[{context}] {Localization.Instance.GetText(LanguageKeys.Log_PortEmpty)}", isError: true);
             return false;
         }
 
         if (!int.TryParse(portString, out port))
         {
-            LogHelper.LogToConsole($"[{context}] 無效的端口格式: {portString}", isError: true);
+            LogHelper.LogToConsole($"[{context}] {Localization.Instance.GetText(LanguageKeys.Log_InvalidPortFormat)}: {portString}", isError: true);
             return false;
         }
 
         if (port < 1 || port > 65535)
         {
-            LogHelper.LogToConsole($"[{context}] 端口超出範圍 (1-65535): {port}", isError: true);
+            LogHelper.LogToConsole($"[{context}] {Localization.Instance.GetText(LanguageKeys.Log_PortOutOfRange)}: {port}", isError: true);
             return false;
         }
 
         return true;
     }
 
-    /// <summary>
-    /// 添加端口
-    /// </summary>
-    /// <param name="portData"></param>
     public override void AddPort(PortData portData)
     {
         SafeExecution.Safe(() =>
@@ -55,11 +56,10 @@ public class TCPServerConnector : NetworkConnectorBase
             {
                 if (portData.IsConnected)
                 {
-                    LogHelper.LogToConsole($"TCP Server {portData.LocalPortDetails.Port} 已經存在並連接中。");
+                    LogHelper.LogToConsole($"{LogHelper.Tag("TCP Server", portData.ProtocolName)} {Localization.Instance.GetText(LanguageKeys.Log_AlreadyConnected)}");
                     return;
                 }
 
-                // ✅ P0.1/P0.3 修復：使用 Dispose() 正確釋放資源，移除同步阻塞
                 portData.IsConnected = false;
                 existingServer.Dispose();
                 tcpServers.TryRemove(portData.ProtocolName, out _);
@@ -85,32 +85,30 @@ public class TCPServerConnector : NetworkConnectorBase
 
                 tcpServers[portData.ProtocolName] = serverData;
 
-                Task.Run(() => AcceptClientsAsync(serverData));
-                Task.Run(() => ProcessPacketsAsync(serverData));
+                AcceptClientsAsync(serverData).Forget(ex =>
+                    LogHelper.LogToConsole($"{LogHelper.Tag("TCP Server", portData.ProtocolName)} {Localization.Instance.GetText(LanguageKeys.Log_AcceptClientsError)}: {ex}", isError: true));
+                ProcessPacketsAsync(serverData).Forget(ex =>
+                    LogHelper.LogToConsole($"{LogHelper.Tag("TCP Server", portData.ProtocolName)} {Localization.Instance.GetText(LanguageKeys.Log_ProcessPacketsError)}: {ex}", isError: true));
 
-                MainThreadDispatcher.Instance().Enqueue(() =>
+                dispatcher.Enqueue(() =>
                     SafeExecution.Safe(() => portData.OnUpdate?.Invoke(portData), "TcpServerConnector.OnUpdate"));
             }
             catch (SocketException ex) when (ex.SocketErrorCode == SocketError.AddressAlreadyInUse)
             {
-                LogHelper.LogToConsole($"TCP Server 端口 {portData.LocalPortDetails.Port} 已經被佔用。", isError: true);
+                LogHelper.LogToConsole($"{LogHelper.Tag("TCP Server", portData.ProtocolName)} {Localization.Instance.GetText(LanguageKeys.Log_PortOccupied)}: {portData.LocalPortDetails.Port}", isError: true);
             }
             catch (Exception ex)
             {
-                LogHelper.LogToConsole($"TCP Server 啟動錯誤: {ex.Message}", isError: true);
+                LogHelper.LogToConsole($"{LogHelper.Tag("TCP Server", portData.ProtocolName)} {Localization.Instance.GetText(LanguageKeys.Log_StartFailed)}: {ex.Message}", isError: true);
             }
         }, "TcpServerConnector.AddPort");
     }
 
-    /// <summary>
-    /// 刪除端口
-    /// </summary>
-    /// <param name="portData"></param>
-    public override async Task RemovePort(PortData portData)
+    public override async UniTask RemovePort(PortData portData)
     {
         if (!tcpServers.TryGetValue(portData.ProtocolName, out var serverData))
         {
-            LogHelper.LogToConsole($"未找到 TCP Server，無法刪除，端口 {portData.LocalPortDetails.Port}");
+            LogHelper.LogToConsole($"{LogHelper.Tag("TCP Server", portData.ProtocolName)} {Localization.Instance.GetText(LanguageKeys.Log_NotFound)}");
             return;
         }
 
@@ -120,36 +118,28 @@ public class TCPServerConnector : NetworkConnectorBase
             serverData.tcpListener?.Stop();
             portData.IsConnected = false;
 
-            await Task.Delay(100);
+            await UniTask.Delay(300);
             serverData.Dispose();
             tcpServers.TryRemove(portData.ProtocolName, out _);
 
-            LogHelper.LogToConsole($"已刪除 TCP Server：{portData.ProtocolName}");
+            LogHelper.LogToConsole($"{LogHelper.Tag("TCP Server", portData.ProtocolName)} {Localization.Instance.GetText(LanguageKeys.Log_Removed)}");
 
-            MainThreadDispatcher.Instance().Enqueue(() =>
+            dispatcher.Enqueue(() =>
                 SafeExecution.Safe(() => portData.OnUpdate?.Invoke(portData), "TcpServerConnector.RemovePort.OnUpdate"));
         }
         catch (Exception ex)
         {
-            LogHelper.LogToConsole($"刪除 TCP Server 失敗，端口 {portData.LocalPortDetails.Port}: {ex.Message}", isError: true);
+            LogHelper.LogToConsole($"{LogHelper.Tag("TCP Server", portData.ProtocolName)} {Localization.Instance.GetText(LanguageKeys.Log_RestartFailed)}: {ex.Message}", isError: true);
         }
     }
 
-    /// <summary>
-    /// 重啟端口
-    /// </summary>
-    /// <param name="portData"></param>
-    public override async Task RestartPort(PortData portData)
+    public override async UniTask RestartPort(PortData portData)
     {
-        await Task.Run(() => Disconnect(portData));
-        await Task.Delay(200);
+        await Disconnect(portData);
+        await UniTask.Delay(200);
         AddPort(portData);
     }
 
-    /// <summary>
-    /// 連接 TCP Server
-    /// </summary>
-    /// <param name="portData"></param>
     public override void Connect(PortData portData)
     {
         if (tcpServers.TryGetValue(portData.ProtocolName, out var serverData))
@@ -162,34 +152,33 @@ public class TCPServerConnector : NetworkConnectorBase
                     return;
                 }
 
-                serverData.tcpListener ??= new TcpListener(IPAddress.Any, localPort);
+                try { serverData.tcpListener?.Stop(); } catch { }
+                serverData.tcpListener = new TcpListener(IPAddress.Any, localPort);
                 serverData.tcpListener.Start();
                 serverData.CancellationTokenSource?.Dispose();
                 serverData.CancellationTokenSource = new CancellationTokenSource();
-                portData.IsConnected = true;
+                portData.IsConnected = false; // 等待 client 連入後由 AcceptClientsAsync 設為 true
 
-                Task.Run(() => AcceptClientsAsync(serverData));
-                Task.Run(() => ProcessPacketsAsync(serverData));
+                AcceptClientsAsync(serverData).Forget(ex =>
+                    LogHelper.LogToConsole($"{LogHelper.Tag("TCP Server", portData.ProtocolName)} {Localization.Instance.GetText(LanguageKeys.Log_AcceptClientsError)}: {ex}", isError: true));
+                ProcessPacketsAsync(serverData).Forget(ex =>
+                    LogHelper.LogToConsole($"{LogHelper.Tag("TCP Server", portData.ProtocolName)} {Localization.Instance.GetText(LanguageKeys.Log_ProcessPacketsError)}: {ex}", isError: true));
 
-                MainThreadDispatcher.Instance().Enqueue(() =>
+                dispatcher.Enqueue(() =>
                     SafeExecution.Safe(() => portData.OnUpdate?.Invoke(portData), "TcpServerConnector.Connect.OnUpdate"));
             }
             catch (Exception ex)
             {
-                LogHelper.LogToConsole($"TCP Server 重新啟動失敗: {ex.Message}", isError: true);
+                LogHelper.LogToConsole($"{LogHelper.Tag("TCP Server", portData.ProtocolName)} {Localization.Instance.GetText(LanguageKeys.Log_RestartFailed)}: {ex.Message}", isError: true);
             }
         }
         else
         {
-            LogHelper.LogToConsole($"找不到 TCP Server {portData.ProtocolName}。", isError: true);
+            LogHelper.LogToConsole($"{LogHelper.Tag("TCP Server", portData.ProtocolName)} {Localization.Instance.GetText(LanguageKeys.Log_NotFound)}", isError: true);
         }
     }
 
-    /// <summary>
-    /// 斷開 TCP Server 連接
-    /// </summary>
-    /// <param name="portData"></param>
-    public override async Task Disconnect(PortData portData)
+    public override async UniTask Disconnect(PortData portData)
     {
         if (tcpServers.TryGetValue(portData.ProtocolName, out var serverData))
         {
@@ -202,38 +191,53 @@ public class TCPServerConnector : NetworkConnectorBase
                 serverData.CancellationTokenSource = null;
                 portData.IsConnected = false;
 
-                await Task.Delay(100);
+                await UniTask.Delay(300);
 
-                MainThreadDispatcher.Instance().Enqueue(() =>
+                dispatcher.Enqueue(() =>
                     SafeExecution.Safe(() => portData.OnUpdate?.Invoke(portData), "TcpServerConnector.Disconnect.OnUpdate"));
             }
             catch (Exception ex)
             {
-                LogHelper.LogToConsole($"斷開 TCP Server 失敗: {ex.Message}", isError: true);
+                LogHelper.LogToConsole($"{LogHelper.Tag("TCP Server", portData.ProtocolName)} {Localization.Instance.GetText(LanguageKeys.Log_DisconnectFailed)}: {ex.Message}", isError: true);
             }
         }
     }
 
-    /// <summary>
-    /// 接受客戶端連接
-    /// </summary>
-    /// <param name="serverData"></param>
-    /// <returns></returns>
-    private async Task AcceptClientsAsync(TCPServerData serverData)
+    private async UniTask AcceptClientsAsync(TCPServerData serverData)
     {
+        await UniTask.SwitchToThreadPool();
         var token = serverData.CancellationTokenSource.Token;
         try
         {
             while (!token.IsCancellationRequested)
             {
-                var client = await SafeExecution.WithCancellation(serverData.tcpListener.AcceptTcpClientAsync(), token);
+                var acceptTask = serverData.tcpListener.AcceptTcpClientAsync();
+                TcpClient client;
+                try
+                {
+                    client = await acceptTask
+                        .AsUniTask(useCurrentSynchronizationContext: false).AttachExternalCancellation(token);
+                }
+                catch (OperationCanceledException)
+                {
+                    // 確保 acceptTask 的例外被 observe，避免 listener.Stop() 後觸發 UnobservedTaskException
+                    _ = acceptTask.ContinueWith(t => { _ = t.Exception; }, System.Threading.Tasks.TaskContinuationOptions.OnlyOnFaulted);
+                    break;
+                }
+                catch (ObjectDisposedException)
+                {
+                    break; // Listener 已被 Dispose，正常關閉
+                }
+                catch (System.Net.Sockets.SocketException)
+                {
+                    break; // Listener.Stop() 觸發，正常關閉
+                }
 
                 if (client != null)
                 {
-                    // 檢查連接數限制
                     if (serverData.CurrentConnections >= MAX_CONNECTIONS_PER_SERVER)
                     {
-                        LogHelper.LogToConsole($"[安全] TCP Server {serverData.portData.LocalPortDetails.Port} 已達到最大連接數 {MAX_CONNECTIONS_PER_SERVER}，拒絕新連接", isError: true);
+                        LogHelper.LogToConsole($"{LogHelper.Tag("TCP Server", serverData.portData.ProtocolName)} {Localization.Instance.GetText(LanguageKeys.Log_MaxConnections)} ({MAX_CONNECTIONS_PER_SERVER})", isError: true);
                         client?.Close();
                         continue;
                     }
@@ -243,39 +247,31 @@ public class TCPServerConnector : NetworkConnectorBase
                         serverData.RemoteEndPoint = client.Client.RemoteEndPoint as IPEndPoint;
                         serverData.portData.IsConnected = true;
 
-                        // 使用原子操作更新連接計數
                         serverData.IncrementTotalConnections();
                         serverData.IncrementCurrentConnections();
 
                         serverData.portData.CurrentConnections = serverData.CurrentConnections;
                         serverData.portData.TotalConnections = serverData.TotalConnections;
 
-                        string serverName = serverData.portData.ProtocolName ?? "未知名稱";
-                        string localPort = serverData.portData.LocalPortDetails?.Port ?? "未知端口";
-                        string remoteAddress = serverData.RemoteEndPoint?.ToString() ?? "未知IP";
                         NotifyForwardTargetStatusChange("CONNECT", serverData.portData);
-                        MainThreadDispatcher.Instance().Enqueue(() =>
+                        dispatcher.Enqueue(() =>
                             SafeExecution.Safe(() => serverData.portData.OnUpdate?.Invoke(serverData.portData)));
                     });
 
-                    _ = Task.Run(() => ReceiveClientAsync(client, serverData));
+                    ReceiveClientAsync(client, serverData).Forget(ex =>
+                        LogHelper.LogToConsole($"{LogHelper.Tag("TCP Server", serverData.portData.ProtocolName)} {Localization.Instance.GetText(LanguageKeys.Log_ReceiveClientError)}: {ex}", isError: true));
                 }
             }
         }
         catch (OperationCanceledException)
         {
-            Debug.Log($"TCP Server {serverData.portData.LocalPortDetails.Port} 已停止監聽。");
+            // 監聽已取消，正常關閉
         }
     }
 
-    /// <summary>
-    /// 接收客戶端數據
-    /// </summary>
-    /// <param name="client"></param>
-    /// <param name="serverData"></param>
-    /// <returns></returns>
-    private async Task ReceiveClientAsync(TcpClient client, TCPServerData serverData)
+    private async UniTask ReceiveClientAsync(TcpClient client, TCPServerData serverData)
     {
+        await UniTask.SwitchToThreadPool();
         var stream = client.GetStream();
         var token = serverData.CancellationTokenSource.Token;
         byte[] buffer = new byte[2048];
@@ -288,7 +284,6 @@ public class TCPServerConnector : NetworkConnectorBase
                 if (bytesRead <= 0)
                     break;
 
-                // 使用原子操作更新接收字節數
                 serverData.AddReceivedBytes(bytesRead);
 
                 byte[] packet = new byte[bytesRead];
@@ -299,13 +294,12 @@ public class TCPServerConnector : NetworkConnectorBase
         }
         catch (OperationCanceledException)
         {
-            // ✅ P1.1: 任務被取消，客戶端連接正常關閉
+            // 任務被取消，正常關閉
         }
         finally
         {
             client?.Close();
 
-            // 使用原子操作減少連接計數
             serverData.DecrementCurrentConnections();
 
             serverData.portData.IsConnected = serverData.CurrentConnections > 0;
@@ -313,62 +307,50 @@ public class TCPServerConnector : NetworkConnectorBase
             serverData.portData.TotalConnections = serverData.TotalConnections;
             serverData.portData.TotalReceivedBytes = serverData.TotalReceivedBytes;
 
-            string serverName = serverData.portData.ProtocolName ?? "未知名稱";
-            string localPort = serverData.portData.LocalPortDetails?.Port ?? "未知端口";
             NotifyForwardTargetStatusChange("DISCONNECT", serverData.portData);
-            MainThreadDispatcher.Instance().Enqueue(() =>
+            dispatcher.Enqueue(() =>
                 SafeExecution.Safe(() => serverData.portData.OnUpdate?.Invoke(serverData.portData)));
         }
     }
 
-    /// <summary>
-    /// 通知轉發目標狀態（異步非阻塞）
-    /// </summary>
-    /// <param name="status"></param>
-    /// <param name="sourcePortData"></param>
     private void NotifyForwardTargetStatusChange(string status, PortData sourcePortData)
     {
-        // ✅ 使用 fire-and-forget 異步通知，避免阻塞主流程
-        _ = Task.Run(async () =>
-        {
-            try
-            {
-                string notifyMessage = $"{status}:{sourcePortData.ProtocolName}";
-                byte[] notifyBytes = Encoding.UTF8.GetBytes(notifyMessage + "\n");
-
-                string forwardTargetProtocol = sourcePortData.ProtocolName; // TODO: 如果有更好的動態來源可以改這裡
-                var targetClient = NetworkMessageRouter.Instance.GetTcpClient(forwardTargetProtocol);
-
-                if (targetClient?.tcpClient?.Connected == true)
-                {
-                    var stream = targetClient.tcpClient.GetStream();
-
-                    // ✅ 使用異步寫入 + 1秒超時
-                    using var cts = new CancellationTokenSource(1000);
-                    await stream.WriteAsync(notifyBytes, 0, notifyBytes.Length, cts.Token);
-
-                    LogHelper.LogToMonitor($"[Router] 已通知目標 [{forwardTargetProtocol}]：來源 [{sourcePortData.ProtocolName}] {status}");
-                }
-            }
-            catch (OperationCanceledException)
-            {
-                // 超時，靜默處理
-            }
-            catch (Exception ex)
-            {
-                LogHelper.LogToConsole($"[Router] 通知目標 [{sourcePortData.ProtocolName}] {status} 失敗: {ex.Message}", isError: true);
-            }
-        });
+        NotifyAsync(status, sourcePortData).Forget();
     }
 
-
-    /// <summary>
-    /// 處理接收到的數據包
-    /// </summary>
-    /// <param name="serverData"></param>
-    /// <returns></returns>
-    private async Task ProcessPacketsAsync(TCPServerData serverData)
+    private async UniTask NotifyAsync(string status, PortData sourcePortData)
     {
+        await UniTask.SwitchToThreadPool();
+        try
+        {
+            string notifyMessage = $"{status}:{sourcePortData.ProtocolName}";
+            byte[] notifyBytes = Encoding.UTF8.GetBytes(notifyMessage + "\n");
+
+            string forwardTargetProtocol = sourcePortData.ProtocolName;
+            var targetClient = NetworkMessageRouter.Instance.GetTcpClient(forwardTargetProtocol);
+
+            if (targetClient?.tcpClient?.Connected == true)
+            {
+                var stream = targetClient.tcpClient.GetStream();
+                using var cts = new CancellationTokenSource(1000);
+                await stream.WriteAsync(notifyBytes, 0, notifyBytes.Length, cts.Token);
+
+                LogHelper.LogToMonitor($"[Router] {Localization.Instance.GetText(LanguageKeys.Log_NotifyTarget)} [{forwardTargetProtocol}]: [{sourcePortData.ProtocolName}] {status}");
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // 超時，靜默處理
+        }
+        catch (Exception ex)
+        {
+            LogHelper.LogToConsole($"[Router] {Localization.Instance.GetText(LanguageKeys.Log_NotifyFailed)} [{sourcePortData.ProtocolName}] {status}: {ex.Message}", isError: true);
+        }
+    }
+
+    private async UniTask ProcessPacketsAsync(TCPServerData serverData)
+    {
+        await UniTask.SwitchToThreadPool();
         var token = serverData.CancellationTokenSource.Token;
         var dataBuffer = new StringBuilder();
 
@@ -378,19 +360,34 @@ public class TCPServerConnector : NetworkConnectorBase
             {
                 byte[] packet = await serverData.asyncMessageQueue.DequeueAsync(token);
 
-                string receivedData = Encoding.UTF8.GetString(packet);
+                if (token.IsCancellationRequested || packet == null)
+                    break;
 
-                // 檢查緩衝區大小，防止記憶體耗盡攻擊
+                string receivedData;
+                try
+                {
+                    receivedData = Encoding.UTF8.GetString(packet);
+                }
+                catch (Exception)
+                {
+                    receivedData = Encoding.GetEncoding("UTF-8", EncoderFallback.ReplacementFallback, DecoderFallback.ReplacementFallback).GetString(packet);
+                    LogHelper.LogToConsole($"{LogHelper.Tag("TCP Server", serverData.portData.ProtocolName)} {Localization.Instance.GetText(LanguageKeys.Log_InvalidUTF8)}", isError: true);
+                }
+
+                if (receivedData.Length > MAX_BUFFER_SIZE)
+                {
+                    LogHelper.LogToConsole($"{LogHelper.Tag("TCP Server", serverData.portData.ProtocolName)} {Localization.Instance.GetText(LanguageKeys.Log_PacketDropped)} ({MAX_BUFFER_SIZE} bytes)", isError: true);
+                    dataBuffer.Clear();
+                    continue;
+                }
+
                 if (dataBuffer.Length + receivedData.Length > MAX_BUFFER_SIZE)
                 {
-                    LogHelper.LogToConsole($"[安全] TCP Server {serverData.portData.LocalPortDetails.Port} 緩衝區超過限制 ({MAX_BUFFER_SIZE} 字節)，清空緩衝區", isError: true);
+                    LogHelper.LogToConsole($"{LogHelper.Tag("TCP Server", serverData.portData.ProtocolName)} {Localization.Instance.GetText(LanguageKeys.Log_BufferOverflow)} ({MAX_BUFFER_SIZE} bytes)", isError: true);
                     dataBuffer.Clear();
-                    dataBuffer.Append(receivedData);
                 }
-                else
-                {
-                    dataBuffer.Append(receivedData);
-                }
+
+                dataBuffer.Append(receivedData);
 
                 string bufferString = dataBuffer.ToString();
                 int lastNewlineIndex = bufferString.LastIndexOf('\n');
@@ -408,36 +405,27 @@ public class TCPServerConnector : NetworkConnectorBase
                     string message = line.Trim();
                     if (!string.IsNullOrWhiteSpace(message))
                     {
-                        NetworkMessageRouter.Instance.RouteMessage(serverData, packet, message);
+                        byte[] lineBytes = Encoding.UTF8.GetBytes(message);
+                        await NetworkMessageRouter.Instance.RouteMessageAsync(serverData, lineBytes, message);
                     }
                 }
             }
         }
         catch (OperationCanceledException)
         {
-            // ✅ P1.1: 任務被取消，ProcessPacketsAsync 正常終止
+            // 任務被取消，正常終止
         }
     }
 
-    /// <summary>
-    /// 獲取 TCP Server 資料
-    /// </summary>
-    /// <param name="portData"></param>
-    /// <returns></returns>
     public TCPServerData GetServerData(PortData portData)
     {
         return tcpServers.TryGetValue(portData.ProtocolName, out var serverData) ? serverData : null;
     }
 
-    /// <summary>
-    /// 關閉所有 TCP Server
-    /// </summary>
-    /// <returns></returns>
-    public override async Task ShutdownAsync()
+    public override async UniTask ShutdownAsync()
     {
-        UnityEngine.Debug.Log($"[TCPServer] 開始關閉 {tcpServers.Count} 個 TCP Server");
+        UnityEngine.Debug.Log($"[TCPServer] Shutting down {tcpServers.Count} TCP servers");
 
-        // 先取消所有任務
         foreach (var server in tcpServers.Values)
         {
             try
@@ -445,29 +433,24 @@ public class TCPServerConnector : NetworkConnectorBase
                 server.CancellationTokenSource?.Cancel();
                 server.tcpListener?.Stop();
             }
-            catch (System.Exception ex)
+            catch (Exception ex)
             {
-                UnityEngine.Debug.LogWarning($"[TCPServer] 停止監聽器時發生錯誤: {ex.Message}");
+                UnityEngine.Debug.LogWarning($"[TCPServer] Error stopping listener: {ex.Message}");
             }
         }
 
-        // 等待一小段時間讓任務停止
-        await Task.Delay(100);
+        await UniTask.Delay(300);
 
-        // 釋放資源
         foreach (var server in tcpServers.Values)
         {
-            try
+            try { server.Dispose(); }
+            catch (Exception ex)
             {
-                server.Dispose();
-            }
-            catch (System.Exception ex)
-            {
-                UnityEngine.Debug.LogWarning($"[TCPServer] 釋放資源時發生錯誤: {ex.Message}");
+                UnityEngine.Debug.LogWarning($"[TCPServer] Error disposing: {ex.Message}");
             }
         }
 
         tcpServers.Clear();
-        UnityEngine.Debug.Log("[TCPServer] 所有 TCP Server 已關閉");
+        UnityEngine.Debug.Log("[TCPServer] All TCP servers closed");
     }
 }

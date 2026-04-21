@@ -4,12 +4,11 @@ public static class MonitorCounter
 
     public static int Next()
     {
-        counter++;
-        return counter;
+        return System.Threading.Interlocked.Increment(ref counter);
     }
 
     public static void Reset()
     {
-        counter = 0;
+        System.Threading.Interlocked.Exchange(ref counter, 0);
     }
 }
