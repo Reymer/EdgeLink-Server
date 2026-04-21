@@ -1,0 +1,1410 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>IoT Server</title>
+  <style>
+    :root {
+      --pri:        #4f46e5;
+      --pri-hover:  #4338ca;
+      --pri-light:  #eef2ff;
+      --pri-border: #c7d2fe;
+      --success:    #10b981;
+      --success-bg: #d1fae5;
+      --danger:     #ef4444;
+      --danger-bg:  #fee2e2;
+      --bg:         #f8fafc;
+      --card:       #ffffff;
+      --border:     #e2e8f0;
+      --border-2:   #cbd5e1;
+      --text:       #0f172a;
+      --text-2:     #475569;
+      --text-3:     #94a3b8;
+      --r:          8px;
+      --r-sm:       6px;
+      --sh:         0 1px 3px rgba(0,0,0,.07), 0 1px 2px rgba(0,0,0,.04);
+    }
+    [data-theme="dark"] {
+      --pri:        #818cf8;
+      --pri-hover:  #a5b4fc;
+      --pri-light:  #1e1b4b;
+      --pri-border: #4338ca;
+      --success:    #34d399;
+      --success-bg: #022c22;
+      --danger:     #f87171;
+      --danger-bg:  #450a0a;
+      --bg:         #0d1117;
+      --card:       #161b22;
+      --border:     #30363d;
+      --border-2:   #484f58;
+      --text:       #e6edf3;
+      --text-2:     #8b949e;
+      --text-3:     #6e7681;
+      --sh:         0 1px 4px rgba(0,0,0,.4);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); font-size: 14px; line-height: 1.5; }
+
+    /* ── Header ─────────────────────────────────────────── */
+    header { background: var(--card); border-bottom: 1px solid var(--border); height: 54px; padding: 0 24px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; }
+    .h-brand { display: flex; align-items: center; gap: 10px; }
+    .h-logo  { width: 30px; height: 30px; background: var(--pri); border-radius: 7px; display: flex; align-items: center; justify-content: center; }
+    .h-title { font-size: 15px; font-weight: 700; }
+    .h-badge { font-size: 11px; color: var(--text-3); background: var(--bg); border: 1px solid var(--border); border-radius: 20px; padding: 2px 9px; font-weight: 500; }
+    .h-status { display: flex; align-items: center; gap: 7px; font-size: 12px; color: var(--text-3); white-space: nowrap; flex-shrink: 0; }
+    .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--text-3); transition: background .3s; }
+    .dot.ok  { background: var(--success); }
+    .dot.err { background: var(--danger); }
+
+    /* ── Layout ─────────────────────────────────────────── */
+    .layout { display: grid; grid-template-columns: 270px 1fr; gap: 20px; padding: 20px 24px; max-width: 1400px; margin: 0 auto; }
+    .col-l { display: flex; flex-direction: column; gap: 16px; }
+    .col-r { display: flex; flex-direction: column; gap: 16px; }
+
+    /* ── Card ───────────────────────────────────────────── */
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: var(--r); box-shadow: var(--sh); }
+    .card-hd { padding: 13px 16px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+    .card-title { font-size: 13px; font-weight: 600; white-space: nowrap; }
+    .card-bd { padding: 14px 16px; }
+
+    /* ── Buttons ─────────────────────────────────────────── */
+    .btn { display: inline-flex; align-items: center; gap: 5px; border: none; border-radius: var(--r-sm); padding: 6px 13px; font-size: 13px; font-weight: 500; cursor: pointer; font-family: inherit; transition: all .14s; }
+    .btn-pri  { background: var(--pri); color: #fff; }
+    .btn-pri:hover  { background: var(--pri-hover); }
+    .btn-ok   { background: var(--success); color: #fff; }
+    .btn-ok:hover   { opacity: .88; }
+    .btn-del  { background: transparent; color: var(--text-3); border: 1px solid transparent; border-radius: 5px; padding: 3px 5px; }
+    .btn-del:hover  { background: var(--danger-bg); color: var(--danger); }
+    .btn-ghost { background: transparent; color: var(--text-2); border: 1px solid var(--border); }
+    .btn-ghost:hover { background: var(--bg); border-color: var(--border-2); }
+    .btn-sm { padding: 4px 10px; font-size: 12px; }
+    .btn-full { width: 100%; justify-content: center; }
+
+    /* ── Inputs ─────────────────────────────────────────── */
+    input, textarea, select {
+      border: 1px solid var(--border); border-radius: var(--r-sm); padding: 7px 10px;
+      font-size: 13px; font-family: inherit; color: var(--text); background: var(--card);
+      outline: none; transition: border-color .14s, box-shadow .14s; width: 100%;
+    }
+    input:focus, textarea:focus, select:focus { border-color: var(--pri); box-shadow: 0 0 0 3px rgba(99,102,241,.15); }
+
+    /* ── Dark mode theme toggle ──────────────────────────── */
+    .theme-btn { background: none; border: 1px solid var(--border); border-radius: var(--r-sm); padding: 5px 9px; cursor: pointer; color: var(--text-2); display: flex; align-items: center; gap: 5px; font-size: 12px; font-family: inherit; transition: all .14s; }
+    .theme-btn:hover { background: var(--bg); border-color: var(--border-2); }
+    .theme-btn .icon-sun, .theme-btn .icon-moon { width: 14px; height: 14px; }
+    [data-theme="dark"] .icon-sun  { display: block; }
+    [data-theme="dark"] .icon-moon { display: none; }
+    .icon-sun  { display: none; }
+    .icon-moon { display: block; }
+
+    /* ── Language selector ────────────────────────────────── */
+    .lang-sel { background: none; border: 1px solid var(--border); border-radius: var(--r-sm); padding: 4px 7px; cursor: pointer; color: var(--text-2); font-size: 12px; font-family: inherit; transition: all .14s; width: auto; }
+    .lang-sel:focus { box-shadow: none; border-color: var(--pri); }
+
+    /* dark 模式細部覆寫 */
+    [data-theme="dark"] .tab.on        { background: var(--card); box-shadow: 0 0 0 1px var(--border); color: var(--pri); }
+    [data-theme="dark"] .tabs          { background: #0d1117; border-color: var(--border); }
+    [data-theme="dark"] .pbox          { background: #0d1117; border-color: var(--border); }
+    [data-theme="dark"] .ftag          { background: #1c1204; border-color: #854d0e; color: #fcd34d; }
+    [data-theme="dark"] .chip          { background: #1e1b4b; border-color: #4338ca; color: #a5b4fc; }
+    [data-theme="dark"] .chip:hover    { background: #2d2a6e; }
+    [data-theme="dark"] .chip.raw      { background: #2e1065; border-color: #7c3aed; color: #c4b5fd; }
+    [data-theme="dark"] .chip.raw:hover{ background: #3b0764; }
+    [data-theme="dark"] .b-off         { background: #21262d; color: var(--text-3); }
+    [data-theme="dark"] .b-off::before { background: var(--text-3); }
+    [data-theme="dark"] .b-on          { background: var(--success-bg); color: #6ee7b7; }
+    [data-theme="dark"] .b-on::before  { background: var(--success); }
+    [data-theme="dark"] .proto-server  { background: #2d1a00; color: #fbbf24; }
+    [data-theme="dark"] .proto-client  { background: #1e1b4b; color: #a5b4fc; }
+    [data-theme="dark"] .proto-udp     { background: #082f49; color: #38bdf8; }
+    [data-theme="dark"] .mask-tag      { background: #1e1b4b; color: #a5b4fc; border-color: #4338ca; }
+    [data-theme="dark"] .m-badge       { background: var(--success-bg); color: #6ee7b7; }
+    [data-theme="dark"] .mask-item:hover { background: #1e1b4b; }
+    [data-theme="dark"] .mask-item.sel  { background: #1e1b4b; border-color: var(--pri-border); }
+    [data-theme="dark"] .ptable tr:hover td { background: #1c2128; }
+    [data-theme="dark"] .ptable th    { background: #0d1117; }
+    [data-theme="dark"] .step         { border-color: var(--border); background: var(--card); }
+    [data-theme="dark"] .btn-ghost    { border-color: var(--border); color: var(--text-2); }
+    [data-theme="dark"] .btn-ghost:hover { background: #21262d; }
+    [data-theme="dark"] .lang-sel     { background: #161b22; color: var(--text-2); border-color: var(--border); }
+
+    /* ── Mask sidebar ────────────────────────────────────── */
+    .mask-item { display: flex; align-items: center; gap: 9px; padding: 8px 10px; border-radius: var(--r-sm); cursor: pointer; transition: background .12s; border: 1px solid transparent; margin-bottom: 3px; }
+    .mask-item:hover { background: var(--pri-light); }
+    .mask-item.sel  { background: var(--pri-light); border-color: var(--pri-border); }
+    .m-avatar { width: 30px; height: 30px; border-radius: 7px; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; flex-shrink: 0; background: var(--pri-light); color: var(--pri); }
+    .m-avatar.def { background: var(--success-bg); color: #065f46; }
+    .m-name  { flex: 1; font-size: 13px; font-weight: 500; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .m-badge { font-size: 10px; color: #065f46; background: var(--success-bg); border-radius: 10px; padding: 1px 7px; font-weight: 600; flex-shrink: 0; }
+    .add-form { display: flex; flex-direction: column; gap: 7px; padding-top: 12px; border-top: 1px solid var(--border); }
+    .err { color: var(--danger); font-size: 12px; margin-top: 4px; min-height: 14px; }
+
+    /* ── Mode tabs ───────────────────────────────────────── */
+    .tabs { display: flex; background: var(--bg); border: 1px solid var(--border); border-radius: var(--r-sm); padding: 3px; gap: 2px; width: fit-content; margin-bottom: 16px; }
+    .tab { padding: 5px 18px; font-size: 13px; font-weight: 500; cursor: pointer; border-radius: 4px; color: var(--text-2); border: none; background: transparent; font-family: inherit; transition: all .14s; }
+    .tab.on { background: #fff; color: var(--pri); box-shadow: var(--sh); }
+
+    /* ── Step blocks ─────────────────────────────────────── */
+    .steps { display: grid; gap: 12px; }
+    .step { border: 1px solid var(--border); border-radius: var(--r); padding: 16px; }
+    .step-hd { display: flex; align-items: center; gap: 9px; margin-bottom: 13px; }
+    .step-n  { width: 22px; height: 22px; border-radius: 50%; background: var(--pri); color: #fff; font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .step-t  { font-size: 13px; font-weight: 600; }
+    .step-t small { font-weight: 400; color: var(--text-3); font-size: 12px; margin-left: 6px; }
+
+    /* ── Sample input ────────────────────────────────────── */
+    .sample-row { display: flex; gap: 8px; }
+    .sample-row textarea { flex: 1; height: 58px; resize: none; font-family: Consolas, 'Cascadia Code', 'SF Mono', Monaco, monospace; font-size: 13px; }
+    .delim-row { display: flex; align-items: center; gap: 14px; margin-top: 10px; flex-wrap: wrap; }
+    .dlm { display: flex; align-items: center; gap: 7px; }
+    .dlm label { font-size: 12px; color: var(--text-3); white-space: nowrap; }
+    .dlm input  { width: 52px; text-align: center; font-family: monospace; }
+    .fields-row { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 10px; min-height: 22px; }
+    .ftag { background: #fef9c3; border: 1px solid #fde047; border-radius: 4px; padding: 2px 8px; font-size: 11px; font-family: Consolas, 'Cascadia Code', 'SF Mono', Monaco, monospace; color: #713f12; }
+    .fhint { font-size: 12px; color: var(--text-3); }
+
+    /* ── Binary table ────────────────────────────────────── */
+    .btable { width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 8px; }
+    .btable th { background: var(--bg); padding: 6px 8px; font-weight: 600; color: var(--text-2); border-bottom: 1px solid var(--border); text-align: left; font-size: 10px; text-transform: uppercase; letter-spacing: .05em; }
+    .btable td { padding: 4px 5px; border-bottom: 1px solid var(--border); }
+    .btable tr:last-child td { border-bottom: none; }
+    .btable input, .btable select { padding: 4px 6px; font-size: 12px; }
+
+    /* ── Chips ───────────────────────────────────────────── */
+    .chips { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 10px; }
+    .chip { display: inline-flex; align-items: center; background: var(--pri-light); border: 1px solid var(--pri-border); border-radius: 20px; padding: 3px 11px; font-size: 12px; font-family: Consolas, 'Cascadia Code', 'SF Mono', Monaco, monospace; color: var(--pri); cursor: pointer; user-select: none; transition: background .12s; }
+    .chip:hover { background: #c7d2fe; }
+    .chip.raw { background: #f3e8ff; border-color: #d8b4fe; color: #7c3aed; }
+    .chip.raw:hover { background: #e9d5ff; }
+
+    /* ── Template + Preview ──────────────────────────────── */
+    .tmpl-input { font-family: Consolas, 'Cascadia Code', 'SF Mono', Monaco, monospace; }
+    .preview-grid { display: grid; grid-template-columns: 1fr 32px 1fr; align-items: center; gap: 10px; margin-top: 2px; }
+    .preview-lbl { font-size: 11px; color: var(--text-3); font-weight: 500; text-transform: uppercase; letter-spacing: .06em; margin-bottom: 5px; }
+    .pbox { background: var(--bg); border: 1px solid var(--border); border-radius: var(--r-sm); padding: 9px 12px; font-family: Consolas, 'Cascadia Code', 'SF Mono', Monaco, monospace; font-size: 13px; min-height: 40px; word-break: break-all; }
+    .pbox.muted { color: var(--text-3); font-style: italic; }
+    .pbox.warn  { color: var(--danger); background: var(--danger-bg); border-color: #fca5a5; }
+    .arrow { text-align: center; color: var(--text-3); font-size: 20px; line-height: 1; }
+
+    /* ── Empty state ─────────────────────────────────────── */
+    .empty-state { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 40px; color: var(--text-3); gap: 8px; }
+    .empty-state svg { opacity: .4; }
+    .empty-state p { font-size: 13px; }
+
+    /* ── Port table ──────────────────────────────────────── */
+    .ptable { width: 100%; border-collapse: collapse; }
+    .ptable th { background: var(--bg); padding: 8px 12px; font-size: 11px; font-weight: 600; color: var(--text-2); border-bottom: 1px solid var(--border); text-align: left; text-transform: uppercase; letter-spacing: .06em; white-space: nowrap; }
+    .ptable td { padding: 10px 12px; border-bottom: 1px solid var(--border); font-size: 13px; }
+    .ptable tr:last-child td { border-bottom: none; }
+    .ptable tr:hover td { background: #fafbff; }
+    .badge { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+    .badge::before { content:''; width: 5px; height: 5px; border-radius: 50%; }
+    .b-on  { background: var(--success-bg); color: #065f46; }
+    .b-on::before  { background: var(--success); }
+    .b-off { background: #f1f5f9; color: var(--text-3); }
+    .b-off::before { background: var(--text-3); }
+    .proto { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
+    .proto-client { background: var(--pri-light); color: var(--pri); }
+    .proto-server { background: #fef3c7; color: #92400e; }
+    .proto-udp    { background: #e0f2fe; color: #075985; }
+    .mono { font-family: Consolas, 'Cascadia Code', 'SF Mono', Monaco, monospace; font-size: 12px; }
+    .mask-tag { display: inline-block; background: var(--pri-light); color: var(--pri); border: 1px solid var(--pri-border); border-radius: 4px; padding: 1px 8px; font-size: 12px; font-weight: 500; font-family: Consolas, 'Cascadia Code', 'SF Mono', Monaco, monospace; }
+
+    @media (max-width: 800px) {
+      .layout { grid-template-columns: 1fr; padding: 12px; }
+      .preview-grid { grid-template-columns: 1fr; }
+      .arrow { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Header -->
+<header>
+  <div class="h-brand">
+    <div class="h-logo">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5">
+        <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+      </svg>
+    </div>
+    <span class="h-title">IoT Server</span>
+    <span class="h-badge" data-i18n="maskMgmt"></span>
+  </div>
+  <div class="h-status">
+    <select class="lang-sel" onchange="setLang(this.value)" id="lang-sel">
+      <option value="zh-TW">繁中</option>
+      <option value="en-US">EN</option>
+      <option value="ja-JP">日本語</option>
+    </select>
+    <button class="theme-btn" onclick="toggleTheme()">
+      <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M21 12.79A9 9 0 1111.21 3a7 7 0 009.79 9.79z"/>
+      </svg>
+      <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/>
+        <line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
+        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/>
+        <line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
+        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+      </svg>
+    </button>
+    <div class="dot" id="dot"></div>
+    <span id="status-txt"></span>
+  </div>
+</header>
+
+<!-- Main layout -->
+<div class="layout">
+
+  <!-- ── 左欄：遮罩列表 ── -->
+  <div class="col-l">
+    <div class="card">
+      <div class="card-hd">
+        <span class="card-title" data-i18n="maskList"></span>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span id="mask-count" style="font-size:12px;color:var(--text-3)">—</span>
+          <button class="btn btn-ghost btn-sm" onclick="document.getElementById('import-input').click()" id="import-btn" title="">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+              <polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+      <input type="file" id="import-input" accept=".json" style="display:none" onchange="importMaskJson(event)">
+      <div class="card-bd">
+        <div id="mask-list"></div>
+        <div class="add-form">
+          <input type="text" id="new-mask-id"  data-i18n-ph="maskIdPlaceholder">
+          <input type="text" id="new-mask-key" data-i18n-ph="maskKeyPlaceholder">
+          <button class="btn btn-pri btn-full" onclick="addMask()">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+            </svg>
+            <span data-i18n="addMask"></span>
+          </button>
+          <div class="err" id="mask-err"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 右欄：編輯器 + Port 表格 ── -->
+  <div class="col-r">
+
+    <!-- 未選擇時的提示 -->
+    <div class="card" id="def-empty">
+      <div class="empty-state">
+        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
+          <rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>
+        </svg>
+        <p data-i18n="selectMask"></p>
+      </div>
+    </div>
+
+    <!-- 協定定義編輯器 -->
+    <div class="card" id="def-panel" style="display:none">
+      <div class="card-hd">
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+          <span class="card-title" id="def-title">—</span>
+          <input id="def-desc" data-i18n-ph="descPlaceholder"
+            style="width:200px;font-size:12px;color:var(--text-3);border:none;
+                   border-bottom:1px dashed var(--border);border-radius:0;
+                   padding:2px 4px;background:transparent;box-shadow:none">
+        </div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span id="lock-badge" style="display:none;font-size:12px;color:var(--text-3);
+            background:var(--bg);border:1px solid var(--border);border-radius:20px;
+            padding:3px 10px;align-items:center;gap:5px">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/>
+            </svg>
+            <span data-i18n="defaultReadOnly"></span>
+          </span>
+          <button class="btn btn-ghost btn-sm" onclick="exportDefinition()">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+              <polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+            </svg>
+            <span data-i18n="exportSdk"></span>
+          </button>
+          <button id="save-btn" class="btn btn-ok btn-sm" onclick="saveDefinition()">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/>
+              <polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/>
+            </svg>
+            <span data-i18n="saveDef"></span>
+          </button>
+        </div>
+      </div>
+      <div class="card-bd">
+
+        <div class="tabs">
+          <button class="tab on" id="tab-text"   onclick="switchMode('text')"   data-i18n="textMode"></button>
+          <button class="tab"   id="tab-bin"     onclick="switchMode('binary')" data-i18n="binaryMode"></button>
+        </div>
+
+        <div class="steps">
+
+          <!-- ① 範例輸入 -->
+          <div class="step">
+            <div class="step-hd">
+              <div class="step-n">1</div>
+              <div class="step-t" id="s1t"></div>
+            </div>
+
+            <div id="s1-text">
+              <div class="sample-row">
+                <textarea id="sample" placeholder="e.g. ID:2;TEMP:36.5;HUM:80" oninput="reparse()"></textarea>
+                <button class="btn btn-ghost btn-sm" onclick="autoDetect()" style="white-space:nowrap;align-self:flex-start" data-i18n="autoDetect"></button>
+              </div>
+              <div class="delim-row">
+                <div class="dlm">
+                  <label data-i18n="fieldDelim"></label>
+                  <input id="fd" value=";" oninput="reparse()">
+                </div>
+                <div class="dlm">
+                  <label data-i18n="kvDelim"></label>
+                  <input id="kv" value=":" oninput="reparse()">
+                </div>
+              </div>
+              <div class="fields-row" id="fields"></div>
+            </div>
+
+            <div id="s1-bin" style="display:none">
+              <table class="btable">
+                <thead><tr>
+                  <th data-i18n="fieldName"></th>
+                  <th>Offset</th><th>Length</th><th data-i18n="type"></th><th></th>
+                </tr></thead>
+                <tbody id="bin-body"></tbody>
+              </table>
+              <button class="btn btn-ghost btn-sm" onclick="addBinRow()" data-i18n="addField"></button>
+            </div>
+          </div>
+
+          <!-- ② 輸出格式 -->
+          <div class="step">
+            <div class="step-hd">
+              <div class="step-n">2</div>
+              <div class="step-t"><span data-i18n="defineOutput"></span> <small data-i18n="clickToInsert"></small></div>
+            </div>
+            <div class="chips" id="chips">
+              <span class="chip raw" onclick="insertChip('{raw}')">{raw}</span>
+            </div>
+            <input id="tmpl" class="tmpl-input" placeholder="{raw} or ID={ID}&T={TEMP}" oninput="updatePreview()">
+          </div>
+
+          <!-- ③ 即時預覽 -->
+          <div class="step">
+            <div class="step-hd">
+              <div class="step-n">3</div>
+              <div class="step-t" data-i18n="preview"></div>
+            </div>
+            <div class="preview-grid">
+              <div>
+                <div class="preview-lbl" data-i18n="input"></div>
+                <div class="pbox muted" id="prev-in"></div>
+              </div>
+              <div class="arrow">→</div>
+              <div>
+                <div class="preview-lbl" data-i18n="output"></div>
+                <div class="pbox muted" id="prev-out">—</div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+        <div class="err" id="def-err" style="margin-top:8px"></div>
+      </div>
+    </div>
+
+    <!-- Port 狀態 -->
+    <div class="card">
+      <div class="card-hd">
+        <span class="card-title" data-i18n="portStatus"></span>
+        <button class="btn btn-pri btn-sm" onclick="toggleAddPortForm()">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+          </svg>
+          <span data-i18n="addPort"></span>
+        </button>
+      </div>
+
+      <!-- Add Port form -->
+      <div id="add-port-form" style="display:none;padding:14px 16px;border-bottom:1px solid var(--border);background:var(--bg)">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+          <input id="ap-name"       type="text"    data-i18n-ph="apName">
+          <select id="ap-protocol"  onchange="onAddPortProtocolChange()">
+            <option value="UDP">UDP</option>
+            <option value="TCP Server">TCP Server</option>
+            <option value="TCP Client">TCP Client</option>
+          </select>
+          <input id="ap-local"      type="text"    data-i18n-ph="apLocalPort">
+          <input id="ap-remote"     type="text"    data-i18n-ph="apRemotePort">
+          <input id="ap-ip"         type="text"    data-i18n-ph="apTargetIp" style="display:none">
+          <select id="ap-mask">
+            <option value="OriginalData">OriginalData</option>
+          </select>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <button class="btn btn-ok btn-sm" onclick="submitAddPort()" data-i18n="confirm"></button>
+          <button class="btn btn-ghost btn-sm" onclick="toggleAddPortForm()" data-i18n="cancel"></button>
+          <span id="ap-err" style="font-size:12px;color:var(--danger)"></span>
+        </div>
+      </div>
+
+      <table class="ptable">
+        <thead>
+          <tr>
+            <th data-i18n="colName"></th>
+            <th data-i18n="colProtocol"></th>
+            <th data-i18n="colLocalPort"></th>
+            <th data-i18n="colTarget"></th>
+            <th data-i18n="colStatus"></th>
+            <th data-i18n="colMask"></th>
+            <th data-i18n="colActions"></th>
+          </tr>
+        </thead>
+        <tbody id="port-body">
+          <tr><td colspan="7"><div class="empty-state" style="padding:24px"><p data-i18n="loading"></p></div></td></tr>
+        </tbody>
+      </table>
+
+      <!-- Monitor Log（只在選擇監控後顯示） -->
+      <div class="card" id="monitor-log-card" style="margin-top:16px;display:none">
+        <div class="card-hd" style="justify-content:space-between;flex-wrap:wrap;gap:8px">
+          <div style="display:flex;align-items:center;gap:10px;flex-shrink:0">
+            <span class="card-title">Monitor Log</span>
+            <span id="mon-target" style="font-size:12px;color:var(--pri);white-space:nowrap;
+              background:var(--pri-light);border:1px solid var(--pri-border);
+              border-radius:20px;padding:2px 10px;font-weight:500"></span>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;flex:1;min-width:180px">
+            <div style="position:relative;flex:1">
+              <svg style="position:absolute;left:8px;top:50%;transform:translateY(-50%);pointer-events:none;opacity:.4"
+                width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+              </svg>
+              <input id="log-search" type="text" data-i18n-ph="logSearch"
+                style="padding-left:28px;font-size:12px;height:28px"
+                oninput="applyLogFilter()">
+            </div>
+            <button id="scroll-lock-btn" class="btn btn-ghost btn-sm" onclick="toggleScrollLock()" title="">
+              <svg id="scroll-lock-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <polyline points="18 15 12 21 6 15"/><line x1="12" y1="3" x2="12" y2="21"/>
+              </svg>
+            </button>
+            <button class="btn btn-ghost btn-sm" onclick="clearLog()" data-i18n="clear"></button>
+          </div>
+        </div>
+        <div id="log-box" style="
+          height:280px; overflow-y:auto; background:var(--bg);
+          border:1px solid var(--border); border-radius:var(--r-sm);
+          padding:8px 10px; font-family:Consolas,'Cascadia Code','SF Mono',monospace;
+          font-size:12px; color:var(--text-2); line-height:1.6;">
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+const BASE = 'http://localhost:8181';
+let masks = [], curId = null, curDef = null, mode = 'text', binIdx = 0;
+let activeMon = null, monitorCursor = 0, autoScroll = true, logFilter = '';
+
+// ── i18n ──────────────────────────────────────────────
+const LANGS = {
+  'zh-TW': {
+    maskMgmt:        '遮罩管理',
+    maskList:        '遮罩列表',
+    import:          '匯入',
+    maskIdPlaceholder: 'Mask ID（必填）',
+    maskKeyPlaceholder:'本地化鍵（可留空）',
+    addMask:         '新增遮罩',
+    selectMask:      '從左側選擇遮罩以編輯協定定義',
+    descPlaceholder: '描述（選填）',
+    defaultReadOnly: '預設，不可編輯',
+    exportSdk:       '匯出 SDK JSON',
+    saveDef:         '儲存定義',
+    textMode:        '文字模式',
+    binaryMode:      '二進位模式',
+    pasteData:       '貼上韌體範例資料',
+    defBinary:       '定義二進位欄位結構',
+    autoDetect:      '自動偵測',
+    fieldDelim:      '欄位分隔符',
+    kvDelim:         'KV 分隔符',
+    fieldName:       '欄位名稱',
+    type:            '型別',
+    addField:        '+ 新增欄位',
+    defineOutput:    '定義輸出格式',
+    clickToInsert:   '點擊欄位名稱可插入',
+    preview:         '即時預覽',
+    input:           '輸入',
+    output:          '輸出',
+    portStatus:      'Port 狀態',
+    colName:         '名稱',
+    colProtocol:     '協議',
+    colLocalPort:    '本地端口',
+    colTarget:       '目標',
+    colStatus:       '狀態',
+    colMask:         '遮罩',
+    loading:         '載入中…',
+    noPort:          '尚無 Port 設定',
+    connected:       '連線中',
+    disconnected:    '未連線',
+    clear:           '清除',
+    waitingLog:      '等待 Log…',
+    connecting:      '連線中…',
+    synced:          '已同步',
+    connFail:        '連線失敗',
+    saved:           '定義已儲存 ✓',
+    noMask:          '尚無遮罩',
+    defaultBadge:    '預設',
+    delete:          '刪除',
+    items:           '個',
+    waitInput:       '（等待輸入）',
+    rawPassthru:     '（raw 直通）',
+    binaryTest:      '（二進位模式請在實際裝置測試）',
+    noFieldParsed:   '未解析到欄位，請確認分隔符',
+    placeholderWarn: '⚠ 佔位符 {p} 無對應欄位 → 實際輸出為空字串',
+    confirmDelete:   '確定刪除遮罩「{id}」？',
+    errMaskIdEmpty:  'Mask ID 不能為空',
+    errJsonFmt:      'JSON 格式錯誤',
+    errJsonMaskId:   'JSON 缺少 maskId',
+    errCreate:       '建立遮罩失敗：',
+    errSaveDef:      '儲存定義失敗：',
+    errImport:       '匯入失敗：',
+    errDelete:       '刪除失敗：',
+    errSave:         '儲存失敗',
+    errSave2:        '儲存失敗：',
+    errLoad:         '載入失敗：',
+    pasteFirst:      '請先貼上範例資料',
+    colMonitor:      '監控',
+    startMonitor:    '監控',
+    stopMonitor:     '停止',
+    errMonitor:      '設置監控失敗',
+    logSearch:       '搜尋 Log…',
+    scrollLockOn:    '停止自動捲動',
+    scrollLockOff:   '恢復自動捲動',
+    addPort:         '新增 Port',
+    colActions:      '操作',
+    apName:          'Port 名稱',
+    apLocalPort:     '本地端口',
+    apRemotePort:    '遠端端口',
+    apTargetIp:      '目標 IP',
+    confirm:         '確認',
+    cancel:          '取消',
+    confirmDeletePort: '確定刪除 Port「{name}」？',
+    errAddPort:      '新增失敗：',
+    errDeletePort:   '刪除失敗：',
+  },
+  'en-US': {
+    maskMgmt:        'Mask Manager',
+    maskList:        'Mask List',
+    import:          'Import',
+    maskIdPlaceholder: 'Mask ID (required)',
+    maskKeyPlaceholder:'Localization key (optional)',
+    addMask:         'Add Mask',
+    selectMask:      'Select a mask on the left to edit',
+    descPlaceholder: 'Description (optional)',
+    defaultReadOnly: 'Default, read-only',
+    exportSdk:       'Export SDK JSON',
+    saveDef:         'Save',
+    textMode:        'Text',
+    binaryMode:      'Binary',
+    pasteData:       'Paste firmware sample data',
+    defBinary:       'Define binary field structure',
+    autoDetect:      'Auto Detect',
+    fieldDelim:      'Field delimiter',
+    kvDelim:         'KV separator',
+    fieldName:       'Field name',
+    type:            'Type',
+    addField:        '+ Add Field',
+    defineOutput:    'Define output format',
+    clickToInsert:   'Click field name to insert',
+    preview:         'Live Preview',
+    input:           'Input',
+    output:          'Output',
+    portStatus:      'Port Status',
+    colName:         'Name',
+    colProtocol:     'Protocol',
+    colLocalPort:    'Local Port',
+    colTarget:       'Target',
+    colStatus:       'Status',
+    colMask:         'Mask',
+    loading:         'Loading…',
+    noPort:          'No port configured',
+    connected:       'Connected',
+    disconnected:    'Disconnected',
+    clear:           'Clear',
+    waitingLog:      'Waiting for logs…',
+    connecting:      'Connecting…',
+    synced:          'Synced',
+    connFail:        'Connection failed',
+    saved:           'Saved ✓',
+    noMask:          'No masks',
+    defaultBadge:    'Default',
+    delete:          'Delete',
+    items:           '',
+    waitInput:       '(waiting for input)',
+    rawPassthru:     '(raw passthrough)',
+    binaryTest:      '(binary mode: test on device)',
+    noFieldParsed:   'No fields parsed, check delimiters',
+    placeholderWarn: '⚠ Placeholder {p} has no matching field → outputs empty string',
+    confirmDelete:   'Delete mask "{id}"?',
+    errMaskIdEmpty:  'Mask ID is required',
+    errJsonFmt:      'Invalid JSON format',
+    errJsonMaskId:   'JSON missing maskId',
+    errCreate:       'Failed to create mask: ',
+    errSaveDef:      'Failed to save definition: ',
+    errImport:       'Import failed: ',
+    errDelete:       'Delete failed: ',
+    errSave:         'Save failed',
+    errSave2:        'Save failed: ',
+    errLoad:         'Load failed: ',
+    pasteFirst:      'Please paste sample data first',
+    colMonitor:      'Monitor',
+    startMonitor:    'Monitor',
+    stopMonitor:     'Stop',
+    errMonitor:      'Failed to set monitor',
+    logSearch:       'Search log…',
+    scrollLockOn:    'Pause auto-scroll',
+    scrollLockOff:   'Resume auto-scroll',
+    addPort:         'Add Port',
+    colActions:      'Actions',
+    apName:          'Port Name',
+    apLocalPort:     'Local Port',
+    apRemotePort:    'Remote Port',
+    apTargetIp:      'Target IP',
+    confirm:         'Confirm',
+    cancel:          'Cancel',
+    confirmDeletePort: 'Delete port "{name}"?',
+    errAddPort:      'Add failed: ',
+    errDeletePort:   'Delete failed: ',
+  },
+  'ja-JP': {
+    maskMgmt:        'マスク管理',
+    maskList:        'マスクリスト',
+    import:          'インポート',
+    maskIdPlaceholder: 'マスク ID（必須）',
+    maskKeyPlaceholder:'ローカライズキー（任意）',
+    addMask:         'マスクを追加',
+    selectMask:      '左側からマスクを選択して編集',
+    descPlaceholder: '説明（任意）',
+    defaultReadOnly: 'デフォルト、編集不可',
+    exportSdk:       'SDK JSON エクスポート',
+    saveDef:         '定義を保存',
+    textMode:        'テキスト',
+    binaryMode:      'バイナリ',
+    pasteData:       'ファームウェアサンプルを貼り付け',
+    defBinary:       'バイナリフィールド構造を定義',
+    autoDetect:      '自動検出',
+    fieldDelim:      'フィールド区切り文字',
+    kvDelim:         'KV 区切り文字',
+    fieldName:       'フィールド名',
+    type:            '型',
+    addField:        '+ フィールドを追加',
+    defineOutput:    '出力形式を定義',
+    clickToInsert:   'フィールド名をクリックして挿入',
+    preview:         'リアルタイムプレビュー',
+    input:           '入力',
+    output:          '出力',
+    portStatus:      'ポート状態',
+    colName:         '名前',
+    colProtocol:     'プロトコル',
+    colLocalPort:    'ローカルポート',
+    colTarget:       'ターゲット',
+    colStatus:       '状態',
+    colMask:         'マスク',
+    loading:         '読み込み中…',
+    noPort:          'ポート設定なし',
+    connected:       '接続中',
+    disconnected:    '未接続',
+    clear:           'クリア',
+    waitingLog:      'ログ待ち…',
+    connecting:      '接続中…',
+    synced:          '同期済み',
+    connFail:        '接続失敗',
+    saved:           '保存済み ✓',
+    noMask:          'マスクなし',
+    defaultBadge:    'デフォルト',
+    delete:          '削除',
+    items:           '個',
+    waitInput:       '（入力待ち）',
+    rawPassthru:     '（rawパススルー）',
+    binaryTest:      '（バイナリ：実機でテスト）',
+    noFieldParsed:   'フィールドが解析できません、区切り文字を確認してください',
+    placeholderWarn: '⚠ プレースホルダー {p} に対応フィールドなし → 空文字列を出力',
+    confirmDelete:   'マスク「{id}」を削除しますか？',
+    errMaskIdEmpty:  'マスク ID は必須です',
+    errJsonFmt:      'JSON 形式エラー',
+    errJsonMaskId:   'JSON に maskId がありません',
+    errCreate:       'マスクの作成に失敗: ',
+    errSaveDef:      '定義の保存に失敗: ',
+    errImport:       'インポート失敗: ',
+    errDelete:       '削除失敗: ',
+    errSave:         '保存失敗',
+    errSave2:        '保存失敗: ',
+    errLoad:         '読み込み失敗: ',
+    pasteFirst:      '先にサンプルデータを貼り付けてください',
+    colMonitor:      '監視',
+    startMonitor:    '監視',
+    stopMonitor:     '停止',
+    errMonitor:      '監視設定に失敗しました',
+    logSearch:       'ログ検索…',
+    scrollLockOn:    '自動スクロールを停止',
+    scrollLockOff:   '自動スクロールを再開',
+    addPort:         'ポートを追加',
+    colActions:      '操作',
+    apName:          'ポート名',
+    apLocalPort:     'ローカルポート',
+    apRemotePort:    'リモートポート',
+    apTargetIp:      'ターゲット IP',
+    confirm:         '確認',
+    cancel:          'キャンセル',
+    confirmDeletePort: 'ポート「{name}」を削除しますか？',
+    errAddPort:      '追加失敗: ',
+    errDeletePort:   '削除失敗: ',
+  }
+};
+
+let lang = localStorage.getItem('lang') || 'zh-TW';
+function t(k) { return (LANGS[lang] || LANGS['zh-TW'])[k] || k; }
+
+function applyI18n() {
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    el.textContent = t(el.dataset.i18n);
+  });
+  document.querySelectorAll('[data-i18n-ph]').forEach(el => {
+    el.placeholder = t(el.dataset.i18nPh);
+  });
+  document.getElementById('lang-sel').value = lang;
+  const importBtn = document.getElementById('import-btn');
+  if (importBtn) importBtn.title = t('import');
+  const slBtn = document.getElementById('scroll-lock-btn');
+  if (slBtn) slBtn.title = autoScroll ? t('scrollLockOn') : t('scrollLockOff');
+  // update dynamic elements
+  document.getElementById('s1t').textContent =
+    mode === 'text' ? t('pasteData') : t('defBinary');
+  const prevIn = document.getElementById('prev-in');
+  if (prevIn.classList.contains('muted')) prevIn.textContent = t('waitInput');
+  const statusTxt = document.getElementById('status-txt');
+  if (statusTxt.dataset.state === 'connecting') statusTxt.textContent = t('connecting');
+}
+
+function setLang(l, fromServer) {
+  if (lang === l) return;
+  lang = l;
+  localStorage.setItem('lang', l);
+  applyI18n();
+  renderMasks();
+  loadPorts();
+  if (!fromServer) {
+    fetch(`${BASE}/api/language`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ languageCode: l })
+    }).catch(() => {});
+  }
+}
+
+async function syncLanguage() {
+  const r = await fetch(`${BASE}/api/language`);
+  if (!r.ok) return;
+  const d = await r.json();
+  if (d.languageCode && d.languageCode !== lang) setLang(d.languageCode, true);
+}
+
+// ── Theme ─────────────────────────────────────────────
+(function() {
+  const saved = localStorage.getItem('theme');
+  document.documentElement.setAttribute('data-theme', saved ?? 'dark');
+  lang = localStorage.getItem('lang') || 'zh-TW';
+  applyI18n();
+  document.getElementById('status-txt').dataset.state = 'connecting';
+  document.getElementById('status-txt').textContent = t('connecting');
+})();
+
+function toggleTheme() {
+  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+  document.documentElement.setAttribute('data-theme', isDark ? 'light' : 'dark');
+  localStorage.setItem('theme', isDark ? 'light' : 'dark');
+}
+
+// ── Polling ───────────────────────────────────────────
+async function poll() {
+  try { await Promise.all([loadMasks(), loadPorts(), syncLanguage()]); setOk(true); }
+  catch { setOk(false); }
+}
+setInterval(poll, 3000);
+poll();
+
+function setOk(ok) {
+  document.getElementById('dot').className = 'dot ' + (ok ? 'ok' : 'err');
+  const el = document.getElementById('status-txt');
+  el.dataset.state = ok ? 'ok' : 'err';
+  el.textContent = ok
+    ? new Date().toLocaleTimeString() + ' ' + t('synced')
+    : t('connFail');
+}
+
+// ── Masks ──────────────────────────────────────────────
+async function loadMasks() {
+  const r = await fetch(`${BASE}/api/masks`);
+  if (!r.ok) throw 0;
+  masks = (await r.json()).maskTypes || [];
+  renderMasks();
+}
+
+function renderMasks() {
+  const count = masks.length;
+  document.getElementById('mask-count').textContent =
+    lang === 'en-US' ? count + ' items' : count + ' ' + t('items');
+  const el = document.getElementById('mask-list');
+  if (!count) {
+    el.innerHTML = `<p style="font-size:13px;color:var(--text-3);padding:8px 4px">${t('noMask')}</p>`;
+    return;
+  }
+  el.innerHTML = masks.map(m => {
+    const def = m === 'OriginalData';
+    return `<div class="mask-item${m === curId ? ' sel' : ''}" onclick="openDef('${esc(m)}')">
+      <div class="m-avatar${def ? ' def' : ''}">${esc(m[0].toUpperCase())}</div>
+      <span class="m-name" title="${esc(m)}">${esc(m)}</span>
+      ${def
+        ? `<span class="m-badge">${t('defaultBadge')}</span>`
+        : `<button class="btn btn-del" title="${t('delete')}" onclick="event.stopPropagation();delMask('${esc(m)}')">
+             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+               <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+             </svg>
+           </button>`}
+    </div>`;
+  }).join('');
+}
+
+async function openDef(id) {
+  curId = id;
+  renderMasks();
+  document.getElementById('def-empty').style.display = 'none';
+  document.getElementById('def-panel').style.display = '';
+  document.getElementById('def-title').textContent = id;
+  document.getElementById('def-err').textContent = '';
+
+  const locked = id === 'OriginalData';
+  setLocked(locked);
+
+  try {
+    curDef = await (await fetch(`${BASE}/api/masks/${encodeURIComponent(id)}`)).json();
+    fillForm(curDef);
+  } catch(e) {
+    document.getElementById('def-err').textContent = t('errLoad') + e.message;
+  }
+}
+
+function setLocked(locked) {
+  document.getElementById('lock-badge').style.display = locked ? 'inline-flex' : 'none';
+  document.getElementById('save-btn').style.display = locked ? 'none' : '';
+  const inputs = document.querySelectorAll(
+    '#def-panel input, #def-panel textarea, #def-panel select, #def-panel .tab, #def-panel .chip');
+  inputs.forEach(el => {
+    if (locked) el.setAttribute('disabled',''); else el.removeAttribute('disabled');
+    el.style.pointerEvents = locked ? 'none' : '';
+    el.style.opacity = locked ? '0.45' : '';
+  });
+}
+
+function fillForm(d) {
+  document.getElementById('def-desc').value = d.description    || '';
+  document.getElementById('fd').value       = d.fieldDelimiter || ';';
+  document.getElementById('kv').value       = d.kvSeparator    || ':';
+  document.getElementById('tmpl').value     = d.outputTemplate || '{raw}';
+  document.getElementById('sample').value   = d.sampleData     || '';
+  switchMode(d.inputEncoding === 'binary' ? 'binary' : 'text');
+  renderBinRows(d.binaryFields || []);
+  reparse();
+}
+
+// ── Mode ───────────────────────────────────────────────
+function switchMode(m) {
+  mode = m;
+  document.getElementById('tab-text').classList.toggle('on', m === 'text');
+  document.getElementById('tab-bin').classList.toggle('on', m === 'binary');
+  document.getElementById('s1-text').style.display = m === 'text' ? '' : 'none';
+  document.getElementById('s1-bin').style.display  = m === 'binary' ? '' : 'none';
+  document.getElementById('s1t').textContent = m === 'text' ? t('pasteData') : t('defBinary');
+  updateChips(); updatePreview();
+}
+
+// ── Auto-detect ────────────────────────────────────────
+function autoDetect() {
+  const s = document.getElementById('sample').value.trim();
+  if (!s) { alert(t('pasteFirst')); return; }
+  let best = { score: 0, fd: ';', kv: ':' };
+  for (const fd of [';', ',', '|', '\t'])
+    for (const kv of [':', '=']) {
+      const parts = s.split(fd);
+      if (parts.length < 2) continue;
+      const score = parts.filter(p => p.includes(kv)).length;
+      if (score > best.score) best = { score, fd, kv };
+    }
+  document.getElementById('fd').value = best.fd;
+  document.getElementById('kv').value = best.kv;
+  reparse();
+}
+
+// ── Parse + preview ────────────────────────────────────
+function reparse() {
+  const s = document.getElementById('sample').value.trim();
+  const pIn = document.getElementById('prev-in');
+  pIn.textContent = s || t('waitInput');
+  pIn.className   = s ? 'pbox' : 'pbox muted';
+
+  const f = parseText(s);
+  const names = Object.keys(f);
+  document.getElementById('fields').innerHTML = names.length
+    ? names.map(k => `<span class="ftag">${esc(k)} = ${esc(f[k])}</span>`).join('')
+    : (s ? `<span class="fhint">${t('noFieldParsed')}</span>` : '');
+
+  updateChips(names);
+  updatePreview(s, f);
+}
+
+function parseText(s) {
+  const fd = document.getElementById('fd').value || ';';
+  const kv = document.getElementById('kv').value || ':';
+  const r = {};
+  if (!s) return r;
+  for (const p of s.split(fd)) {
+    const i = p.indexOf(kv);
+    if (i < 0) continue;
+    const k = p.slice(0, i).trim(), v = p.slice(i + kv.length).trim();
+    if (k) r[k] = v;
+  }
+  return r;
+}
+
+function updateChips(names) {
+  if (!names)
+    names = mode === 'binary'
+      ? collectBin().map(f => f.name).filter(Boolean)
+      : Object.keys(parseText(document.getElementById('sample')?.value.trim() || ''));
+  document.getElementById('chips').innerHTML =
+    `<span class="chip raw" onclick="insertChip('{raw}')">{raw}</span>` +
+    names.map(n => `<span class="chip" onclick="insertChip('{${esc(n)}}')">{${esc(n)}}</span>`).join('');
+}
+
+function insertChip(txt) {
+  const el = document.getElementById('tmpl');
+  const s = el.selectionStart, e = el.selectionEnd;
+  el.value = el.value.slice(0, s) + txt + el.value.slice(e);
+  el.selectionStart = el.selectionEnd = s + txt.length;
+  el.focus(); updatePreview();
+}
+
+function updatePreview(raw, fields) {
+  const tmpl = document.getElementById('tmpl').value.trim();
+  const out  = document.getElementById('prev-out');
+  const s    = raw ?? document.getElementById('sample')?.value.trim() ?? '';
+  if (!tmpl || tmpl === '{raw}') {
+    out.textContent = s || t('rawPassthru');
+    out.className = s ? 'pbox' : 'pbox muted'; return;
+  }
+  if (mode === 'binary') {
+    out.textContent = t('binaryTest');
+    out.className = 'pbox muted'; return;
+  }
+  const f = fields ?? parseText(s);
+  let res = tmpl;
+  for (const [k,v] of Object.entries(f)) res = res.split(`{${k}}`).join(v);
+  const bad = res.match(/\{[^}]+\}/);
+  if (bad) {
+    out.textContent = t('placeholderWarn').replace('{p}', bad[0]);
+    out.className = 'pbox warn';
+  } else {
+    out.textContent = res; out.className = 'pbox';
+  }
+}
+
+// ── Binary rows ────────────────────────────────────────
+function renderBinRows(fs) {
+  binIdx = 0;
+  document.getElementById('bin-body').innerHTML = (fs||[]).map(f => binRow(binIdx++, f)).join('');
+  updateChips();
+}
+
+function binRow(i, f) {
+  const ts = ['uint8','uint16_le','uint16_be','int32_le','float_le','hex'];
+  return `<tr id="br-${i}">
+    <td><input value="${esc(f.name||'')}" id="bn-${i}" oninput="updateChips()"></td>
+    <td><input type="number" value="${f.offset||0}" id="bo-${i}" min="0" style="width:60px"></td>
+    <td><input type="number" value="${f.length||1}" id="bl-${i}" min="1" style="width:60px"></td>
+    <td><select id="bt-${i}">${ts.map(tp=>`<option ${tp===f.dataType?'selected':''}>${tp}</option>`).join('')}</select></td>
+    <td><button class="btn btn-del" onclick="rmBinRow(${i})">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+        <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+      </svg>
+    </button></td>
+  </tr>`;
+}
+
+function addBinRow() {
+  const i = binIdx++;
+  document.getElementById('bin-body').insertAdjacentHTML('beforeend',
+    binRow(i, { name:'', offset:0, length:1, dataType:'uint8' }));
+}
+
+function rmBinRow(i) { document.getElementById(`br-${i}`)?.remove(); updateChips(); }
+
+function collectBin() {
+  return Array.from(document.getElementById('bin-body').querySelectorAll('tr'))
+    .map(r => {
+      const i = r.id.replace('br-','');
+      return { name: document.getElementById(`bn-${i}`)?.value.trim()||'',
+               offset: +document.getElementById(`bo-${i}`)?.value||0,
+               length: +document.getElementById(`bl-${i}`)?.value||1,
+               dataType: document.getElementById(`bt-${i}`)?.value||'uint8' };
+    }).filter(f => f.name);
+}
+
+// ── Export SDK JSON ────────────────────────────────────
+function exportDefinition() {
+  if (!curId) return;
+  const def = {
+    maskId:          curId,
+    localizationKey: curDef?.localizationKey || curId,
+    description:     document.getElementById('def-desc').value.trim(),
+    inputEncoding:   mode,
+    fieldDelimiter:  document.getElementById('fd').value || ';',
+    kvSeparator:     document.getElementById('kv').value || ':',
+    binaryFields:    mode === 'binary' ? collectBin() : [],
+    outputTemplate:  document.getElementById('tmpl').value.trim() || '{raw}',
+    sampleData:      document.getElementById('sample').value || ''
+  };
+  const blob = new Blob([JSON.stringify(def, null, 2)], { type: 'application/json;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `mask_${curId}.json`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+// ── Save ───────────────────────────────────────────────
+async function saveDefinition() {
+  document.getElementById('def-err').textContent = '';
+  if (!curId) return;
+  const def = {
+    maskId: curId, localizationKey: curDef?.localizationKey || curId,
+    description:    document.getElementById('def-desc').value.trim(),
+    inputEncoding:  mode,
+    fieldDelimiter: document.getElementById('fd').value || ';',
+    kvSeparator:    document.getElementById('kv').value || ':',
+    binaryFields:   mode === 'binary' ? collectBin() : [],
+    outputTemplate: document.getElementById('tmpl').value.trim() || '{raw}',
+    sampleData:     document.getElementById('sample').value || ''
+  };
+  try {
+    const d = await (await fetch(`${BASE}/api/masks/${encodeURIComponent(curId)}`,
+      { method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify(def) })).json();
+    if (!d.success) document.getElementById('def-err').textContent = d.error || t('errSave');
+    else { curDef = def; setOk(true); document.getElementById('status-txt').textContent = t('saved'); }
+  } catch(e) { document.getElementById('def-err').textContent = t('errSave2') + e.message; }
+}
+
+// ── Mask CRUD ──────────────────────────────────────────
+async function addMask() {
+  const id  = document.getElementById('new-mask-id').value.trim();
+  const loc = document.getElementById('new-mask-key').value.trim();
+  document.getElementById('mask-err').textContent = '';
+  if (!id) { document.getElementById('mask-err').textContent = t('errMaskIdEmpty'); return; }
+  const d = await (await fetch(`${BASE}/api/masks`, {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ maskId:id, localizationKey:loc })
+  })).json();
+  if (!d.success) { document.getElementById('mask-err').textContent = d.error; return; }
+  document.getElementById('new-mask-id').value = '';
+  document.getElementById('new-mask-key').value = '';
+  await loadMasks();
+  openDef(id);
+}
+
+async function delMask(id) {
+  if (!confirm(t('confirmDelete').replace('{id}', id))) return;
+  const d = await (await fetch(`${BASE}/api/masks/${encodeURIComponent(id)}`, { method:'DELETE' })).json();
+  if (!d.success) { alert(t('errDelete') + d.error); return; }
+  if (curId === id) {
+    curId = null;
+    document.getElementById('def-panel').style.display = 'none';
+    document.getElementById('def-empty').style.display = '';
+  }
+  await loadMasks();
+}
+
+// ── Import JSON ────────────────────────────────────────
+async function importMaskJson(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  e.target.value = '';
+  let def;
+  try { def = JSON.parse(await file.text()); } catch { alert(t('errJsonFmt')); return; }
+  if (!def.maskId) { alert(t('errJsonMaskId')); return; }
+  try {
+    if (!masks.includes(def.maskId)) {
+      const cr = await (await fetch(`${BASE}/api/masks`, {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ maskId: def.maskId, localizationKey: def.localizationKey || def.maskId })
+      })).json();
+      if (!cr.success) { alert(t('errCreate') + cr.error); return; }
+    }
+    const sr = await (await fetch(`${BASE}/api/masks/${encodeURIComponent(def.maskId)}`, {
+      method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify(def)
+    })).json();
+    if (!sr.success) { alert(t('errSaveDef') + sr.error); return; }
+    await loadMasks();
+    openDef(def.maskId);
+  } catch(err) { alert(t('errImport') + err.message); }
+}
+
+// ── Ports ──────────────────────────────────────────────
+async function loadPorts() {
+  const r = await fetch(`${BASE}/api/ports`);
+  if (!r.ok) throw 0;
+  const ports = (await r.json()).ports || [];
+  const tb = document.getElementById('port-body');
+  if (!ports.length) {
+    tb.innerHTML = `<tr><td colspan="7"><div class="empty-state" style="padding:24px"><p>${t('noPort')}</p></div></td></tr>`;
+    return;
+  }
+  const sq = s => (s||'').replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+  tb.innerHTML = ports.map(p => {
+    const pc = p.netProtocol === 'TCP Server' ? 'proto-server' : p.netProtocol === 'UDP' ? 'proto-udp' : 'proto-client';
+    const maskCell = `<span class="mask-tag">${esc(p.maskType || 'OriginalData')}</span>`;
+    const monKey = `${p.protocolName}||${p.netProtocol}||${p.localPort}||${p.remotePort}`;
+    const isActive = activeMon === monKey;
+    const monBtn = `<button
+      class="btn btn-sm ${isActive ? 'btn-ok' : 'btn-ghost'}"
+      onclick="setMonitor(${isActive ? 'null' : `'${sq(monKey)}','${sq(p.protocolName)}','${sq(p.netProtocol)}','${sq(p.localPort)}','${sq(p.remotePort)}'`})"
+      title="${isActive ? t('stopMonitor') : t('startMonitor')}">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+        <circle cx="12" cy="12" r="3"/><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/>
+      </svg>
+      ${isActive ? t('stopMonitor') : t('startMonitor')}
+    </button>`;
+    const delBtn = `<button class="btn btn-del btn-sm" title="${t('delete')}"
+      onclick="deletePort('${sq(p.protocolName)}','${sq(p.netProtocol)}','${sq(p.localPort)}','${sq(p.remotePort)}')">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+        <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+      </svg>
+    </button>`;
+    return `<tr style="${isActive ? 'background:var(--pri-light)' : ''}">
+      <td><strong>${esc(p.protocolName)}</strong></td>
+      <td><span class="proto ${pc}">${esc(p.netProtocol)}</span></td>
+      <td class="mono">${esc(p.localPort)||'—'}</td>
+      <td class="mono">${p.targetIp ? esc(p.targetIp) + (p.remotePort && p.remotePort !== '--' ? ':' + esc(p.remotePort) : '') : '—'}</td>
+      <td><span class="badge ${p.isConnected?'b-on':'b-off'}">${p.isConnected ? t('connected') : t('disconnected')}</span></td>
+      <td>${maskCell}</td>
+      <td style="white-space:nowrap"><div style="display:flex;gap:4px;align-items:center">${monBtn}${delBtn}</div></td>
+    </tr>`;
+  }).join('');
+}
+
+async function setMonitor(monKey, protocolName, netProtocol, localPort, remotePort) {
+  if (!monKey) { await clearMonitor(); return; }
+  try {
+    const r = await fetch(`${BASE}/api/monitor/port`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ protocolName, netProtocol, localPort, remotePort })
+    });
+    if (!r.ok) { alert(t('errMonitor')); return; }
+    activeMon = monKey;
+    monitorCursor = 0;
+    autoScroll = true;
+    logFilter = '';
+    document.getElementById('log-search').value = '';
+    document.getElementById('scroll-lock-btn').classList.replace('btn-ok','btn-ghost');
+    document.getElementById('scroll-lock-icon').innerHTML = '<polyline points="18 15 12 21 6 15"/><line x1="12" y1="3" x2="12" y2="21"/>';
+    document.getElementById('log-box').innerHTML = '';
+    document.getElementById('monitor-log-card').style.display = '';
+    const portNum = localPort && localPort !== '--' ? localPort : remotePort && remotePort !== '--' ? remotePort : '';
+    document.getElementById('mon-target').textContent = portNum ? `${netProtocol} : ${portNum}` : netProtocol;
+    startMonitorStream();
+    await loadPorts();
+  } catch { alert(t('errMonitor')); }
+}
+
+async function clearMonitor() {
+  await fetch(`${BASE}/api/monitor/port`, { method: 'DELETE' }).catch(() => {});
+  activeMon = null;
+  monitorCursor = 0;
+  stopMonitorStream();
+  document.getElementById('log-box').innerHTML = '';
+  document.getElementById('monitor-log-card').style.display = 'none';
+  await loadPorts();
+}
+
+
+// ── Monitor SSE ───────────────────────────────────────
+let _monEs = null;
+
+function startMonitorStream() {
+  if (_monEs) { _monEs.close(); _monEs = null; }
+  _monEs = new EventSource(`${BASE}/api/monitor-stream`);
+  _monEs.onmessage = e => {
+    if (!e.data || e.data.startsWith(':')) return;
+    appendLogLine(e.data);
+  };
+  _monEs.onerror = () => {
+    if (_monEs) { _monEs.close(); _monEs = null; }
+    if (activeMon) setTimeout(startMonitorStream, 2000);
+  };
+}
+
+function stopMonitorStream() {
+  if (_monEs) { _monEs.close(); _monEs = null; }
+}
+
+// ── Monitor Log helpers ────────────────────────────────
+function appendLogLine(text) {
+  if (logFilter && !text.toLowerCase().includes(logFilter)) return;
+  const box = document.getElementById('log-box');
+  if (!box) return;
+  const el = document.createElement('div');
+  el.textContent = text;
+  el.dataset.raw = text;
+  box.appendChild(el);
+  if (autoScroll) box.scrollTop = box.scrollHeight;
+}
+
+function applyLogFilter() {
+  logFilter = (document.getElementById('log-search').value || '').toLowerCase();
+  const box = document.getElementById('log-box');
+  if (!box) return;
+  box.querySelectorAll('div[data-raw]').forEach(el => {
+    el.style.display = logFilter && !el.dataset.raw.toLowerCase().includes(logFilter) ? 'none' : '';
+  });
+}
+
+function toggleScrollLock() {
+  autoScroll = !autoScroll;
+  const btn = document.getElementById('scroll-lock-btn');
+  const icon = document.getElementById('scroll-lock-icon');
+  if (autoScroll) {
+    btn.classList.replace('btn-ok', 'btn-ghost');
+    icon.innerHTML = '<polyline points="18 15 12 21 6 15"/><line x1="12" y1="3" x2="12" y2="21"/>';
+    const box = document.getElementById('log-box');
+    if (box) box.scrollTop = box.scrollHeight;
+  } else {
+    btn.classList.replace('btn-ghost', 'btn-ok');
+    icon.innerHTML = '<line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 5 5 12"/>';
+  }
+}
+
+// ── Monitor Log ───────────────────────────────────────
+async function loadMonitorLogs() {
+  const r = await fetch(`${BASE}/api/monitor-logs?cursor=${monitorCursor}`);
+  if (!r.ok) return;
+  const d = await r.json();
+  if (!d.logs || d.logs.length === 0) return;
+  const box = document.getElementById('log-box');
+  const atBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 30;
+  d.logs.forEach(line => {
+    const el = document.createElement('div');
+    el.textContent = line;
+    box.appendChild(el);
+  });
+  monitorCursor = d.total;
+  if (atBottom) box.scrollTop = box.scrollHeight;
+}
+
+function clearLog() {
+  document.getElementById('log-box').innerHTML = '';
+  monitorCursor = 0;
+}
+
+function esc(s) {
+  return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ── Add Port form ─────────────────────────────────────
+function toggleAddPortForm() {
+  const form = document.getElementById('add-port-form');
+  const visible = form.style.display !== 'none';
+  form.style.display = visible ? 'none' : '';
+  if (!visible) {
+    const sel = document.getElementById('ap-mask');
+    sel.innerHTML = masks.map(m => `<option value="${esc(m)}">${esc(m)}</option>`).join('');
+    document.getElementById('ap-err').textContent = '';
+    onAddPortProtocolChange();
+  }
+}
+
+function onAddPortProtocolChange() {
+  const proto = document.getElementById('ap-protocol').value;
+  document.getElementById('ap-ip').style.display     = proto === 'TCP Client' ? '' : 'none';
+  document.getElementById('ap-remote').style.display = proto === 'TCP Server' ? 'none' : '';
+}
+
+async function submitAddPort() {
+  const name   = document.getElementById('ap-name').value.trim();
+  const proto  = document.getElementById('ap-protocol').value;
+  const local  = document.getElementById('ap-local').value.trim();
+  const remote = document.getElementById('ap-remote').value.trim();
+  const ip     = document.getElementById('ap-ip').value.trim();
+  const mask   = document.getElementById('ap-mask').value;
+  const err    = document.getElementById('ap-err');
+  err.textContent = '';
+  if (!name) { err.textContent = t('apName') + ' required'; return; }
+  try {
+    const r = await fetch(`${BASE}/api/ports`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ protocolName: name, netProtocol: proto, localPort: local, remotePort: remote, targetIp: ip, maskType: mask })
+    });
+    const d = await r.json();
+    if (!d.success) { err.textContent = t('errAddPort') + (d.error || ''); return; }
+    document.getElementById('ap-name').value = '';
+    document.getElementById('ap-local').value = '';
+    document.getElementById('ap-remote').value = '';
+    document.getElementById('ap-ip').value = '';
+    document.getElementById('add-port-form').style.display = 'none';
+    await loadPorts();
+  } catch(e) { err.textContent = t('errAddPort') + e.message; }
+}
+
+async function deletePort(protocolName, netProtocol, localPort, remotePort) {
+  if (!confirm(t('confirmDeletePort').replace('{name}', protocolName))) return;
+  try {
+    const r = await fetch(`${BASE}/api/ports`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ protocolName, netProtocol, localPort, remotePort })
+    });
+    const d = await r.json();
+    if (!d.success) { alert(t('errDeletePort') + (d.error || '')); return; }
+    const monKey = `${protocolName}||${netProtocol}||${localPort}||${remotePort}`;
+    if (activeMon === monKey) await clearMonitor();
+    await loadPorts();
+  } catch(e) { alert(t('errDeletePort') + e.message); }
+}
+
+async function changePortMask(protocolName, maskType) {
+  try {
+    const r = await fetch(`${BASE}/api/ports/${encodeURIComponent(protocolName)}/mask`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ maskType })
+    });
+    if (!r.ok) {
+      const d = await r.json();
+      alert('Change mask failed: ' + (d.error || r.status));
+      await loadPorts();
+    }
+  } catch(e) { alert('Change mask failed: ' + e.message); }
+}
+</script>
+</body>
+</html>
