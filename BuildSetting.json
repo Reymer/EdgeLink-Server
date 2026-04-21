@@ -7,7 +7,7 @@
     "modifyProductName": false,
     "addBuildTypeLabel": false,
     "additionProductName": "",
-    "outputPath": "",
+    "outputPath": "C:/Projects/Builds",
     "assetBundleManifestPath": "",
     "ignoreFileExtension": [
         "meta",
@@ -39,7 +39,7 @@
                 "RecursiveCopy": true
             },
             "isNeedCopy": true,
-            "SelectPath": "D:/Project/iot-server/GameData",
+            "SelectPath": "C:/Projects/iot-server/GameData",
             "RelativePath": "/GameData",
             "buildTypeFlag": -1
         },
@@ -51,8 +51,20 @@
                 "RecursiveCopy": true
             },
             "isNeedCopy": true,
-            "SelectPath": "D:/Project/iot-server/Setting",
+            "SelectPath": "C:/Projects/iot-server/Setting",
             "RelativePath": "/Setting",
+            "buildTypeFlag": -1
+        },
+        {
+            "PathSetting": {
+                "CustomPath": "",
+                "CustomFileName": "",
+                "Overwrite": true,
+                "RecursiveCopy": true
+            },
+            "isNeedCopy": true,
+            "SelectPath": "C:/Projects/iot-server/IOT-Server",
+            "RelativePath": "/IOT-Server",
             "buildTypeFlag": -1
         }
     ],

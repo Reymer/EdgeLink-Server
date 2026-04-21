@@ -1,21 +1,64 @@
-Key|zh-TW,繁體中文|en-US,English|ja-JP,日本語|de-DE,Deutsch|fr-FR,Français|es-ES,Español|pt-BR,Português|vi-VN,Tiếng Việt┤
-Name|名稱|Name|名前|Name|Nom|Nombre|Nome|Tên┤
-NetProtocol|網絡協議|Network Protocol|ネットワークプロトコル|Netzwerkprotokoll|Protocole réseau|Protocolo de red|Protocolo de rede|Giao thức mạng┤
-RemotePort|遠端端口|Remote Port|リモートポート|Remote-Port|Port distant|Puerto remoto|Porta remota|Cổng từ xa┤
-LocalPort|本地端口|Local Port|ローカルポート|Lokaler Port|Port local|Puerto local|Porta local|Cổng cục bộ┤
-ForwardTarget|轉發目標|Forward Target|転送先|Weiterleitungsziel|Cible de transfert|Destino de reenvío|Destino de encaminhamento|Mục tiêu chuyển tiếp┤
-NetState|網絡狀態|Network State|ネットワーク状態|Netzwerkstatus|État du réseau|Estado de red|Estado da rede|Trạng thái mạng┤
-Mask|遮罩|Mask|マスク|Maske|Masque|Máscara|Máscara|Mặt nạ┤
-Exit|退出|Exit|終了|Beenden|Quitter|Salir|Sair|Thoát┤
-RemoteIP|遠端位址|Remote Address|リモートアドレス|Remote-Adresse|Adresse distante|Dirección remota|Endereço remoto|Địa chỉ từ xa┤
-Save|儲存|Save|保存|Speichern|Enregistrer|Guardar|Salvar|Lưu┤
-Cancel|取消|Cancel|キャンセル|Abbrechen|Annuler|Cancelar|Cancelar|Hủy┤
-EnterName|輸入名稱|Enter Name|名前を入力|Name eingeben|Entrer le nom|Ingrese nombre|Digite o nome|Nhập tên┤
-EnterIp|輸入位址|Enter Address|アドレスを入力|Adresse eingeben|Entrer l'adresse|Ingrese dirección|Digite o endereço|Nhập địa chỉ┤
-EnterRemotePort|輸入遠端端口|Enter Remote Port|リモートポートを入力|Remote-Port eingeben|Entrer le port distant|Ingrese puerto remoto|Digite a porta remota|Nhập cổng từ xa┤
-EnterLocalPort|輸入本地端口|Enter Local Port|ローカルポートを入力|Lokalen Port eingeben|Entrer le port local|Ingrese puerto local|Digite a porta local|Nhập cổng cục bộ┤
-Connecting|連接中|Connecting|接続中|Verbinden|Connexion en cours|Conectando|Conectando|Đang kết nối┤
-NotConnecting|未連接|Not Connected|未接続|Nicht verbunden|Non connecté|No conectado|Não conectado|Chưa kết nối┤
-OriginalData|原始資料|Original Data|元データ|Originaldaten|Données originales|Datos originales|Dados originais|Dữ liệu gốc┤
-Robot10|機器人-十進制|Robot-Decimal|ロボット-10進数|Roboter-Dezimal|Robot-Décimal|Robot-Decimal|Robô-Decimal|Robot-Thập phân┤
-Robot16|機器人-十六進制|Robot-Hexadecimal|ロボット-16進数|Roboter-Hexadezimal|Robot-Hexadécimal|Robot-Hexadecimal|Robô-Hexadecimal|Robot-Thập lục phân┤
+Key|zh-TW,繁體中文|en-US,English|ja-JP,日本語┤
+Name|名稱|Name|名前┤
+NetProtocol|網絡協議|Network Protocol|ネットワークプロトコル┤
+RemotePort|遠端端口|Remote Port|リモートポート┤
+LocalPort|本地端口|Local Port|ローカルポート┤
+ForwardTarget|轉發目標|Forward Target|転送先┤
+NetState|網絡狀態|Network State|ネットワーク状態┤
+Mask|遮罩|Mask|マスク┤
+Exit|退出|Exit|終了┤
+RemoteIP|遠端位址|Remote Address|リモートアドレス┤
+Save|儲存|Save|保存┤
+Cancel|取消|Cancel|キャンセル┤
+EnterName|輸入名稱|Enter Name|名前を入力┤
+EnterIp|輸入位址|Enter Address|アドレスを入力┤
+EnterRemotePort|輸入遠端端口|Enter Remote Port|リモートポートを入力┤
+EnterLocalPort|輸入本地端口|Enter Local Port|ローカルポートを入力┤
+Connecting|連接中|Connecting|接続中┤
+NotConnecting|未連接|Not Connected|未接続┤
+OriginalData|原始資料|Original Data|元データ┤
+Log_Connected|連線成功|Connected|接続成功┤
+Log_Disconnected|已斷線|Disconnected|切断されました┤
+Log_Removed|已移除|Removed|削除されました┤
+Log_NotFound|未找到，請先新增|Not found, please add first|見つかりません、先に追加してください┤
+Log_HeartbeatLost|心跳偵測斷線，啟動重連|Heartbeat lost, reconnecting|ハートビート断線、再接続中┤
+Log_HeartbeatFailed|心跳失敗，啟動重連|Heartbeat failed, reconnecting|ハートビート失敗、再接続中┤
+Log_MaxRetry|超過最大重試次數，停止重連|Max retries reached, stopped|最大再試行回数超過、停止┤
+Log_Restarting|重新啟動（遮罩切換）|Restarting (mask switch)|再起動中（マスク切替）┤
+Log_InvalidPort|遠端端口無效，停止重連|Invalid remote port, stopped|リモートポート無効、停止┤
+Log_PortOccupied|端口已被佔用|Port already in use|ポートは既に使用中┤
+Log_StartFailed|啟動失敗|Start failed|起動失敗┤
+Log_RestartFailed|重新啟動失敗|Restart failed|再起動失敗┤
+Log_MaxConnections|已達最大連線數，拒絕新連線|Max connections reached, rejected|最大接続数到達、拒否┤
+Log_AlreadyConnected|已存在並連線中|Already connected|既に接続中┤
+Log_ReconnectSuccess|重新連線成功|Reconnected|再接続成功┤
+Log_ReconnectFailed|重新連線失敗|Reconnect failed|再接続失敗┤
+Log_DataLoaded|成功載入 {0} 筆資料|Successfully loaded {0} records|データ {0} 件を読み込みました┤
+Log_UnknownProtocol|無法識別的連接類型|Unknown connection type|不明な接続タイプ┤
+Log_MaskNotFound|找不到遮罩定義，略過封包|Mask definition not found, packet skipped|マスク定義が見つかりません、パケットをスキップ┤
+Log_ForwardFailed|轉發失敗|Forward failed|転送失敗┤
+Log_PortEmpty|端口為空|Port is empty|ポートが空です┤
+Log_InvalidPortFormat|無效的端口格式|Invalid port format|無効なポート形式┤
+Log_PortOutOfRange|端口超出範圍 (1-65535)|Port out of range (1-65535)|ポートが範囲外です (1-65535)┤
+Log_InvalidIP|無效的IP地址|Invalid IP address|無効なIPアドレス┤
+Log_InvalidUTF8|收到非法 UTF-8 封包，已使用容錯解碼|Received invalid UTF-8 packet, using fallback|不正な UTF-8 パケット受信、代替デコード使用┤
+Log_PacketDropped|單一封包超過限制，已丟棄|Single packet exceeds limit, dropped|単一パケットが制限超過、破棄┤
+Log_BufferOverflow|緩衝區超過限制，清空緩衝區|Buffer overflow, cleared|バッファがオーバーフロー、クリア┤
+Log_UnexpectedError|未預期錯誤|Unexpected error|予期しないエラー┤
+Log_DisconnectFailed|斷線失敗|Disconnect failed|切断失敗┤
+Log_AllFieldsEmpty|尚未輸入，請檢查所有欄位|No input, please check all fields|まだ入力されていません、全フィールドを確認してください┤
+Log_NameRequired|名稱不能為空，請檢查輸入|Name cannot be empty, please check input|名前は空にできません、入力を確認してください┤
+Log_UdpNeedsRemotePort|UDP 需要遠端端口號，請檢查輸入|UDP requires a remote port, please check input|UDP はリモートポートが必要です、入力を確認してください┤
+Log_TcpClientNeedsRemotePort|TCP Client 需要遠端端口號，請檢查輸入|TCP Client requires a remote port, please check|TCP Client はリモートポートが必要です、確認してください┤
+Log_TcpClientNeedsIP|TCP Client 需要有效的目標 IP，請檢查輸入|TCP Client requires a valid target IP|TCP Client は有効なIPアドレスが必要です┤
+Log_TcpServerNeedsLocalPort|TCP Server 需要本地端口號，請檢查輸入|TCP Server requires a local port, please check|TCP Server はローカルポートが必要です、確認してください┤
+Log_UnknownProtocolType|未知的協議類型，請檢查選擇|Unknown protocol type, please check selection|不明なプロトコルタイプ、選択を確認してください┤
+Log_ReceiveMessagesUnexpectedError|ReceiveMessages 未預期錯誤|ReceiveMessages unexpected error|受信メッセージ 予期しないエラー┤
+Log_PacketReceived|收到封包|Received packet|パケット受信┤
+Log_PacketSent|傳送封包|Sent packet|パケット送信┤
+Log_DuplicatePort|端口或名稱已重複|Duplicate port or name|ポートまたは名前が重複しています┤
+Log_NotifyTarget|已通知目標|Notified target|ターゲットに通知済み┤
+Log_NotifyFailed|通知目標失敗|Failed to notify target|ターゲット通知失敗┤
+Log_AcceptClientsError|AcceptClients 未預期錯誤|AcceptClients unexpected error|AcceptClients 予期しないエラー┤
+Log_ProcessPacketsError|ProcessPackets 未預期錯誤|ProcessPackets unexpected error|ProcessPackets 予期しないエラー┤
+Log_ReceiveClientError|ReceiveClient 未預期錯誤|ReceiveClient unexpected error|ReceiveClient 予期しないエラー┤

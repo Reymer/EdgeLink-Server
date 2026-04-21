@@ -1,7 +1,0 @@
-{
-    "MaxRetryFirst": 3,
-    "MaxRetrySubsequent": 10,
-    "InitialDelayMs": 2000,
-    "MaxDelayMs": 30000,
-    "HeartbeatIntervalMs": 5000
-}
