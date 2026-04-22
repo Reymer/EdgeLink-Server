@@ -36,6 +36,7 @@ lfs
 ExportedObj/
 .consulo/
 *.csproj
+!IOT-Server/**/*.csproj
 *.unityproj
 *.sln
 *.suo
@@ -78,6 +79,13 @@ crashlytics-build.properties
 MaskEditorApp/build/
 MaskEditorApp/dist/
 MaskEditorApp/MaskEditor.html
+
+# EdgeLinkSdk build artifacts
+IOT-Server/EdgeLinkSdk/dist/
+IOT-Server/EdgeLinkSdk/bin/
+IOT-Server/EdgeLinkSdk/obj/
+IOT-Server/EdgeLinkSdk.Tests/bin/
+IOT-Server/EdgeLinkSdk.Tests/obj/
 
 # IDE / AI
 .vscode/
