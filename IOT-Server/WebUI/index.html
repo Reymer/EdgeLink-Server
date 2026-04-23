@@ -597,6 +597,9 @@ const LANGS = {
     apLocalPort:     '本地端口',
     apRemotePort:    '遠端端口',
     apTargetIp:      '目標 IP',
+    apLocalPortUdp:  '本地端口（轉發目標端口）',
+    apRemotePortUdp: '接收端口',
+    apTargetIpUdp:   '目標 IP（選填；空=廣播）',
     confirm:         '確認',
     cancel:          '取消',
     confirmDeletePort: '確定刪除 Port「{name}」？',
@@ -681,6 +684,9 @@ const LANGS = {
     apLocalPort:     'Local Port',
     apRemotePort:    'Remote Port',
     apTargetIp:      'Target IP',
+    apLocalPortUdp:  'Local Port (forward dest)',
+    apRemotePortUdp: 'Listen Port',
+    apTargetIpUdp:   'Target IP (opt; empty=broadcast)',
     confirm:         'Confirm',
     cancel:          'Cancel',
     confirmDeletePort: 'Delete port "{name}"?',
@@ -765,6 +771,9 @@ const LANGS = {
     apLocalPort:     'ローカルポート',
     apRemotePort:    'リモートポート',
     apTargetIp:      'ターゲット IP',
+    apLocalPortUdp:  'ローカルポート（転送先）',
+    apRemotePortUdp: '受信ポート',
+    apTargetIpUdp:   'ターゲット IP（任意；空=ブロードキャスト）',
     confirm:         '確認',
     cancel:          'キャンセル',
     confirmDeletePort: 'ポート「{name}」を削除しますか？',
@@ -795,6 +804,7 @@ function applyI18n() {
   if (prevIn.classList.contains('muted')) prevIn.textContent = t('waitInput');
   const statusTxt = document.getElementById('status-txt');
   if (statusTxt.dataset.state === 'connecting') statusTxt.textContent = t('connecting');
+  onAddPortProtocolChange(); // 更新 UDP/TCP 動態 placeholder
 }
 
 function setLang(l, fromServer) {
@@ -1344,8 +1354,17 @@ function toggleAddPortForm() {
 
 function onAddPortProtocolChange() {
   const proto = document.getElementById('ap-protocol').value;
-  document.getElementById('ap-ip').style.display     = proto === 'TCP Client' ? '' : 'none';
+  // TCP Server : 本地端口（監聽）
+  // TCP Client : 遠端端口 + 目標 IP（連線到哪）；本地端口由 OS 自動分配
+  // UDP        : 遠端端口（接收）+ 本地端口（轉發目標端口）+ 目標 IP（選填；空=廣播本地，有值=單播）
+  document.getElementById('ap-local').style.display  = proto === 'TCP Client' ? 'none' : '';
   document.getElementById('ap-remote').style.display = proto === 'TCP Server' ? 'none' : '';
+  document.getElementById('ap-ip').style.display     = proto === 'TCP Server' ? 'none' : '';
+
+  const isUdp = proto === 'UDP';
+  document.getElementById('ap-local').placeholder  = t(isUdp ? 'apLocalPortUdp'  : 'apLocalPort');
+  document.getElementById('ap-remote').placeholder = t(isUdp ? 'apRemotePortUdp' : 'apRemotePort');
+  document.getElementById('ap-ip').placeholder     = t(isUdp ? 'apTargetIpUdp'   : 'apTargetIp');
 }
 
 async function submitAddPort() {

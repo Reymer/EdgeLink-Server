@@ -1,43 +1,60 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Text.Json;
+using System.Runtime.Serialization;
+using System.Runtime.Serialization.Json;
+using System.Text;
 
 namespace EdgeLink
 {
-    [Serializable]
+    [DataContract]
     public class MaskDefinition
     {
-        public string maskId            { get; set; } = string.Empty;
-        public string localizationKey   { get; set; } = string.Empty;
-        public string description       { get; set; } = string.Empty;
-        public string inputEncoding     { get; set; } = "text";   // "text" | "binary"
-        public string fieldDelimiter    { get; set; } = ";";
-        public string kvSeparator       { get; set; } = ":";
-        public List<BinaryFieldRule> binaryFields { get; set; } = new List<BinaryFieldRule>();
-        public string outputTemplate    { get; set; } = string.Empty;
-        public string sampleData        { get; set; } = string.Empty;
+        [DataMember] public string maskId          { get; set; }
+        [DataMember] public string localizationKey { get; set; }
+        [DataMember] public string description     { get; set; }
+        [DataMember] public string inputEncoding   { get; set; }
+        [DataMember] public string fieldDelimiter  { get; set; }
+        [DataMember] public string kvSeparator     { get; set; }
+        [DataMember] public List<BinaryFieldRule> binaryFields { get; set; }
+        [DataMember] public string outputTemplate  { get; set; }
+        [DataMember] public string sampleData      { get; set; }
 
-        private static readonly JsonSerializerOptions _opts =
-            new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+        static readonly DataContractJsonSerializer _s =
+            new DataContractJsonSerializer(typeof(MaskDefinition));
 
         /// <summary>從 MaskEditor 匯出的 JSON 字串建立 MaskDefinition。</summary>
-        public static MaskDefinition FromJson(string json) =>
-            JsonSerializer.Deserialize<MaskDefinition>(json, _opts)
-            ?? throw new ArgumentException("無效的 JSON");
+        public static MaskDefinition FromJson(string json)
+        {
+            using (var ms = new MemoryStream(Encoding.UTF8.GetBytes(json)))
+            {
+                var def = (MaskDefinition)_s.ReadObject(ms)
+                    ?? throw new ArgumentException("無效的 JSON");
+                def.maskId          ??= string.Empty;
+                def.localizationKey ??= string.Empty;
+                def.description     ??= string.Empty;
+                def.inputEncoding   ??= "text";
+                def.fieldDelimiter  ??= ";";
+                def.kvSeparator     ??= ":";
+                def.outputTemplate  ??= string.Empty;
+                def.sampleData      ??= string.Empty;
+                def.binaryFields    ??= new List<BinaryFieldRule>();
+                return def;
+            }
+        }
 
         /// <summary>從 MaskEditor 匯出的 JSON 檔案建立 MaskDefinition。</summary>
         public static MaskDefinition FromJsonFile(string path) =>
             FromJson(File.ReadAllText(path));
     }
 
-    [Serializable]
+    [DataContract]
     public class BinaryFieldRule
     {
-        public string name     { get; set; } = string.Empty;
-        public int    offset   { get; set; }
-        public int    length   { get; set; }
+        [DataMember] public string name     { get; set; } = string.Empty;
+        [DataMember] public int    offset   { get; set; }
+        [DataMember] public int    length   { get; set; }
         /// <summary>uint8 | uint16_le | uint16_be | int32_le | float_le | hex</summary>
-        public string dataType { get; set; } = "hex";
+        [DataMember] public string dataType { get; set; } = "hex";
     }
 }
