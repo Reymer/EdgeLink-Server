@@ -10,17 +10,6 @@
             "binaryFields": [],
             "outputTemplate": "{raw}",
             "sampleData": ""
-        },
-        {
-            "maskId": "測試",
-            "localizationKey": "測試",
-            "description": "",
-            "inputEncoding": "text",
-            "fieldDelimiter": ";",
-            "kvSeparator": ":",
-            "binaryFields": [],
-            "outputTemplate": "ID={ID};TEMP={TEMP}",
-            "sampleData": "ID:2;TEMP:5"
         }
     ]
 }

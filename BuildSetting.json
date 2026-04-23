@@ -15,7 +15,7 @@
     ],
     "buildTypeDatas": [
         {
-            "typeName": "IOT-Server",
+            "typeName": "EdgeLink Server",
             "defineSymbol": "",
             "buildPath": "",
             "fileName": "",
