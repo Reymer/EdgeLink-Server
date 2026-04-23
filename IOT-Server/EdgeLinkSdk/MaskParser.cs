@@ -1,11 +1,15 @@
 using System;
 using System.Collections.Generic;
 using System.Text;
+using System.Text.RegularExpressions;
 
 namespace EdgeLink
 {
     public class MaskParser
     {
+        private static readonly Regex PlaceholderPattern =
+            new Regex(@"\{([^{}]+)\}", RegexOptions.Compiled);
+
         private readonly MaskDefinition definition;
 
         public MaskParser(MaskDefinition definition)
@@ -64,27 +68,36 @@ namespace EdgeLink
             var outParts   = processedOutput.Split(new[] { fieldDelim }, StringSplitOptions.None);
 
             for (int i = 0; i < Math.Min(tmplParts.Length, outParts.Length); i++)
-            {
-                var tmpl = tmplParts[i];
-                var out_ = outParts[i];
-
-                int open  = tmpl.IndexOf('{');
-                int close = tmpl.IndexOf('}', open < 0 ? 0 : open);
-                if (open < 0 || close < 0) continue;
-
-                var fieldName = tmpl.Substring(open + 1, close - open - 1);
-                var prefix    = tmpl.Substring(0, open);
-                var suffix    = tmpl.Substring(close + 1);
-
-                if (!out_.StartsWith(prefix)) continue;
-                var value = suffix.Length > 0 && out_.EndsWith(suffix)
-                    ? out_.Substring(prefix.Length, out_.Length - prefix.Length - suffix.Length)
-                    : out_.Substring(prefix.Length);
-
-                result[fieldName] = value;
-            }
+                ExtractPartFields(tmplParts[i], outParts[i], result);
 
             return result;
+        }
+
+        // 將 template part 轉成完全錨定的 regex，支援一段內多個 {name} 佔位符；
+        // 每個佔位符以非貪婪 (.*?) 取值，literal 文字做 Regex.Escape 避免特殊字元干擾。
+        private static void ExtractPartFields(string tmpl, string value, Dictionary<string, string> into)
+        {
+            var matches = PlaceholderPattern.Matches(tmpl);
+            if (matches.Count == 0) return;
+
+            var pattern = new StringBuilder("^");
+            var names   = new List<string>(matches.Count);
+            int cursor  = 0;
+            foreach (Match m in matches)
+            {
+                pattern.Append(Regex.Escape(tmpl.Substring(cursor, m.Index - cursor)));
+                pattern.Append("(.*?)");
+                names.Add(m.Groups[1].Value);
+                cursor = m.Index + m.Length;
+            }
+            pattern.Append(Regex.Escape(tmpl.Substring(cursor)));
+            pattern.Append('$');
+
+            var match = Regex.Match(value, pattern.ToString());
+            if (!match.Success) return;
+
+            for (int i = 0; i < names.Count; i++)
+                into[names[i]] = match.Groups[i + 1].Value;
         }
 
         private Dictionary<string, string> SplitTextFields(string text)
@@ -137,14 +150,18 @@ namespace EdgeLink
 
         private static string FillTemplate(string template, Dictionary<string, string> fields)
         {
+            // 先驗：若 template 中任一佔位符名稱不在 fields 裡，直接回空字串。
+            // 此判斷必須在替換「之前」做，否則欄位值本身含 '{' / '}' 會被誤判為未填佔位符。
+            foreach (Match m in PlaceholderPattern.Matches(template))
+            {
+                if (!fields.ContainsKey(m.Groups[1].Value))
+                    return string.Empty;
+            }
+
             var sb = new StringBuilder(template);
             foreach (var kv in fields)
                 sb.Replace("{" + kv.Key + "}", kv.Value);
-
-            var result = sb.ToString();
-            int open   = result.IndexOf('{');
-            if (open >= 0 && result.IndexOf('}', open) > open) return string.Empty;
-            return result;
+            return sb.ToString();
         }
     }
 }

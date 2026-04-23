@@ -1,10 +1,14 @@
 using System;
 using System.Collections.Generic;
 using System.Text;
+using System.Text.RegularExpressions;
 using UnityEngine;
 
 public static class MaskProcessor
 {
+    private static readonly Regex PlaceholderPattern =
+        new Regex(@"\{([^{}]+)\}", RegexOptions.Compiled);
+
     public static string Process(MaskDefinition def, byte[] rawBytes, string textMessage)
     {
         if (def == null) return textMessage;
@@ -99,20 +103,16 @@ public static class MaskProcessor
 
     private static string ApplyTemplate(string template, Dictionary<string, string> fields)
     {
+        // 未填佔位符的偵測必須在替換前做，否則欄位值本身含 '{' / '}' 會被誤判整段丟空。
+        foreach (Match m in PlaceholderPattern.Matches(template))
+        {
+            if (!fields.ContainsKey(m.Groups[1].Value))
+                return "";
+        }
+
         var sb = new StringBuilder(template);
         foreach (var kv in fields)
             sb.Replace("{" + kv.Key + "}", kv.Value);
-
-        var result = sb.ToString();
-
-        // If any placeholder remains unfilled, return empty string
-        if (result.Contains("{") && result.Contains("}"))
-        {
-            int i = result.IndexOf('{');
-            int j = result.IndexOf('}', i);
-            if (j > i) return "";
-        }
-
-        return result;
+        return sb.ToString();
     }
 }

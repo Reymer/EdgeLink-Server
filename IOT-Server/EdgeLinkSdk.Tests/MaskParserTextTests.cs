@@ -110,5 +110,46 @@ namespace EdgeLinkSdk.Tests
             Assert.Equal("7",  reverse["ID"]);
             Assert.Equal("23", reverse["TEMP"]);
         }
+
+        // ── Regression：欄位值含 '{' / '}' 不應觸發「未填佔位符」誤判 ──────────
+        [Fact]
+        public void Parse_FieldValueContainsBraces_DoesNotReturnEmpty()
+        {
+            var parser = new MaskParser(TextDef("PAYLOAD={DATA}"));
+            var result = parser.Parse("DATA:{\"k\":1}");
+
+            Assert.Equal("PAYLOAD={\"k\":1}", result.Output);
+        }
+
+        // ── Regression：同一 delim-part 內多個佔位符應全部擷取 ────────────────
+        [Fact]
+        public void ParseOutput_MultiplePlaceholdersPerPart_AllExtracted()
+        {
+            var parser = new MaskParser(TextDef("A={X}B={Y}"));
+            var fields = parser.ParseOutput("A=1B=2");
+
+            Assert.Equal("1", fields["X"]);
+            Assert.Equal("2", fields["Y"]);
+        }
+
+        // ── Regression：suffix 不吻合時不應 silently 吞掉錯誤資料 ─────────────
+        [Fact]
+        public void ParseOutput_SuffixMismatch_SkipsField()
+        {
+            var parser = new MaskParser(TextDef("sensor[{ID}]"));
+            var fields = parser.ParseOutput("sensor[42");  // 缺右括號
+
+            Assert.False(fields.ContainsKey("ID"));
+        }
+
+        // ── Regression：literal 含 regex 特殊字元（如 '.' '+' '*'）需被正確 escape ──
+        [Fact]
+        public void ParseOutput_LiteralWithRegexMetachars_IsEscaped()
+        {
+            var parser = new MaskParser(TextDef("v1.0+{BUILD}"));
+            var fields = parser.ParseOutput("v1.0+123");
+
+            Assert.Equal("123", fields["BUILD"]);
+        }
     }
 }

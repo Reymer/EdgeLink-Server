@@ -16,7 +16,7 @@ namespace EdgeLink
         [DataMember] public string inputEncoding   { get; set; }
         [DataMember] public string fieldDelimiter  { get; set; }
         [DataMember] public string kvSeparator     { get; set; }
-        [DataMember] public List<BinaryFieldRule> binaryFields { get; set; }
+        [DataMember] public List<BinaryFieldRule> binaryFields { get; set; } = new List<BinaryFieldRule>();
         [DataMember] public string outputTemplate  { get; set; }
         [DataMember] public string sampleData      { get; set; }
 
