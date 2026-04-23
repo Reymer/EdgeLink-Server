@@ -1,6 +1,6 @@
-C:\Projects\iot-server\IOT-Server\EdgeLinkSdk\bin\Release\netstandard2.0\EdgeLinkSdk.deps.json
-C:\Projects\iot-server\IOT-Server\EdgeLinkSdk\bin\Release\netstandard2.0\EdgeLinkSdk.dll
-C:\Projects\iot-server\IOT-Server\EdgeLinkSdk\bin\Release\netstandard2.0\EdgeLinkSdk.pdb
+C:\Projects\iot-server\IOT-Server\EdgeLinkSdk\dist\EdgeLinkSdk.deps.json
+C:\Projects\iot-server\IOT-Server\EdgeLinkSdk\dist\EdgeLinkSdk.dll
+C:\Projects\iot-server\IOT-Server\EdgeLinkSdk\dist\EdgeLinkSdk.pdb
 C:\Projects\iot-server\IOT-Server\EdgeLinkSdk\obj\Release\netstandard2.0\EdgeLinkSdk.csproj.AssemblyReference.cache
 C:\Projects\iot-server\IOT-Server\EdgeLinkSdk\obj\Release\netstandard2.0\EdgeLinkSdk.GeneratedMSBuildEditorConfig.editorconfig
 C:\Projects\iot-server\IOT-Server\EdgeLinkSdk\obj\Release\netstandard2.0\EdgeLinkSdk.AssemblyInfoInputs.cache

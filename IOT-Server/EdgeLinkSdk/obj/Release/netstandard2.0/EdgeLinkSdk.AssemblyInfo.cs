@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("EdgeLinkSdk")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Release")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+746f0365d741cc513832e0ca65aa645bc82d6b4b")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+95e1fab2ef0a0e674118b6140d88cd4e99e29a07")]
 [assembly: System.Reflection.AssemblyProductAttribute("EdgeLinkSdk")]
 [assembly: System.Reflection.AssemblyTitleAttribute("EdgeLinkSdk")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

@@ -286,6 +286,7 @@
         }
       },
       "System.Reflection.Metadata/1.6.0": {},
+      "System.Text.Json/4.7.2": {},
       "xunit/2.7.0": {
         "dependencies": {
           "xunit.analyzers": "1.11.0",
@@ -340,6 +341,9 @@
       },
       "xunit.runner.visualstudio/2.5.7": {},
       "EdgeLinkSdk/1.0.0": {
+        "dependencies": {
+          "System.Text.Json": "4.7.2"
+        },
         "runtime": {
           "EdgeLinkSdk.dll": {
             "assemblyVersion": "1.0.0.0",
@@ -396,6 +400,13 @@
       "sha512": "sha512-COC1aiAJjCoA5GBF+QKL2uLqEBew4JsCkQmoHKbN3TlOZKa2fKLz5CpiRQKDz0RsAOEGsVKqOD5bomsXq/4STQ==",
       "path": "system.reflection.metadata/1.6.0",
       "hashPath": "system.reflection.metadata.1.6.0.nupkg.sha512"
+    },
+    "System.Text.Json/4.7.2": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-TcMd95wcrubm9nHvJEQs70rC0H/8omiSGGpU4FQ/ZA1URIqD4pjmFJh2Mfv1yH1eHgJDWTi2hMDXwTET+zOOyg==",
+      "path": "system.text.json/4.7.2",
+      "hashPath": "system.text.json.4.7.2.nupkg.sha512"
     },
     "xunit/2.7.0": {
       "type": "package",
