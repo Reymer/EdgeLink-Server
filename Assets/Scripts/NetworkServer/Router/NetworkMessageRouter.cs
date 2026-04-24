@@ -38,7 +38,7 @@ public class NetworkMessageRouter
     {
         try
         {
-            var targets = GetTargetClients(portData.ProtocolName);
+            var targets = GetTargetClients(portData.Id, portData.ProtocolName);
             if (targets.Count == 0) return;
 
             if (targets.Count == 1)
@@ -72,16 +72,13 @@ public class NetworkMessageRouter
         await TrySendToClient(client, protocolName, bytes);
     }
 
-    private List<TCPClientData> GetTargetClients(string protocolName)
+    public List<TCPClientData> GetTargetClients(string sourceId, string sourceName)
     {
-        if (tcpClients.TryGetValue(protocolName, out var direct))
-            return new List<TCPClientData> { direct };
-
         var targets = new List<TCPClientData>();
         foreach (var c in tcpClients.Values.ToList())
         {
-            if (c?.portData?.ProtocolName == protocolName)
-                targets.Add(c);
+            if (c?.portData == null) continue;
+            if (c.portData.SourceProtocolId == sourceId) targets.Add(c);
         }
         return targets;
     }

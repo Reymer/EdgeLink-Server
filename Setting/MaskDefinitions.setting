@@ -4,10 +4,8 @@
             "maskId": "OriginalData",
             "localizationKey": "OriginalData",
             "description": "原始資料直接轉發",
-            "inputEncoding": "text",
             "fieldDelimiter": "",
             "kvSeparator": "",
-            "binaryFields": [],
             "outputTemplate": "{raw}",
             "sampleData": ""
         }

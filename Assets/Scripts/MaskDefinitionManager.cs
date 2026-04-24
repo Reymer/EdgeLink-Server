@@ -30,7 +30,6 @@ public class MaskDefinitionManager
                 maskId = DEFAULT_MASK_ID,
                 localizationKey = DEFAULT_MASK_ID,
                 description = "Forward raw data as-is",
-                inputEncoding = "text",
                 outputTemplate = "{raw}"
             });
             Save();
@@ -89,7 +88,6 @@ public class MaskDefinitionManager
             maskId = maskId,
             localizationKey = string.IsNullOrEmpty(localizationKey) ? maskId : localizationKey,
             description = "",
-            inputEncoding = "text",
             fieldDelimiter = ";",
             kvSeparator = ":",
             outputTemplate = "{raw}"

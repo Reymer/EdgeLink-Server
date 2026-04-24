@@ -19,9 +19,7 @@ public static class MaskProcessor
         Dictionary<string, string> fields;
         try
         {
-            fields = def.inputEncoding == "binary"
-                ? ExtractBinaryFields(def, rawBytes)
-                : ExtractTextFields(def, textMessage);
+            fields = ExtractTextFields(def, textMessage);
         }
         catch (Exception ex)
         {
@@ -51,54 +49,6 @@ public static class MaskProcessor
         }
 
         return result;
-    }
-
-    private static Dictionary<string, string> ExtractBinaryFields(MaskDefinition def, byte[] data)
-    {
-        var result = new Dictionary<string, string>(StringComparer.Ordinal);
-        if (data == null || def.binaryFields == null) return result;
-
-        foreach (var rule in def.binaryFields)
-        {
-            if (string.IsNullOrEmpty(rule.name)) continue;
-            if (rule.offset < 0 || rule.length <= 0) continue;
-            if (rule.offset + rule.length > data.Length) continue;
-
-            result[rule.name] = ReadBinaryValue(data, rule.offset, rule.length, rule.dataType);
-        }
-
-        return result;
-    }
-
-    private static string ReadBinaryValue(byte[] data, int offset, int length, string dataType)
-    {
-        switch (dataType)
-        {
-            case "uint8":
-                return data[offset].ToString();
-
-            case "uint16_le":
-                if (length < 2) return "";
-                return BitConverter.ToUInt16(data, offset).ToString();
-
-            case "uint16_be":
-                if (length < 2) return "";
-                return ((ushort)((data[offset] << 8) | data[offset + 1])).ToString();
-
-            case "int32_le":
-                if (length < 4) return "";
-                return BitConverter.ToInt32(data, offset).ToString();
-
-            case "float_le":
-                if (length < 4) return "";
-                return BitConverter.ToSingle(data, offset).ToString("G");
-
-            case "hex":
-                return BitConverter.ToString(data, offset, length).Replace("-", "");
-
-            default:
-                return BitConverter.ToString(data, offset, length).Replace("-", "");
-        }
     }
 
     private static string ApplyTemplate(string template, Dictionary<string, string> fields)

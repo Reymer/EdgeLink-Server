@@ -53,6 +53,8 @@ public class Main : MonoBehaviour
     /// </summary>
     private void OnApplicationQuit()
     {
+        LogHelper.Shutdown();
+
         try
         {
             _httpApiServer?.Stop();

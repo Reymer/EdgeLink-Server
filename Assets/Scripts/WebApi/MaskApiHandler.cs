@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using System.Net;
 using System.Text;
 using System.Threading.Tasks;
@@ -180,16 +179,8 @@ public class MaskApiHandler
         maskId = def.maskId,
         localizationKey = def.localizationKey,
         description = def.description,
-        inputEncoding = def.inputEncoding,
         fieldDelimiter = def.fieldDelimiter,
         kvSeparator = def.kvSeparator,
-        binaryFields = def.binaryFields?.Select(f => new BinaryFieldRuleDto
-        {
-            name = f.name,
-            offset = f.offset,
-            length = f.length,
-            dataType = f.dataType
-        }).ToList() ?? new List<BinaryFieldRuleDto>(),
         outputTemplate = def.outputTemplate,
         sampleData = def.sampleData
     };
@@ -199,16 +190,8 @@ public class MaskApiHandler
         maskId = dto.maskId,
         localizationKey = dto.localizationKey,
         description = dto.description,
-        inputEncoding = dto.inputEncoding,
         fieldDelimiter = dto.fieldDelimiter,
         kvSeparator = dto.kvSeparator,
-        binaryFields = dto.binaryFields?.Select(f => new BinaryFieldRule
-        {
-            name = f.name,
-            offset = f.offset,
-            length = f.length,
-            dataType = f.dataType
-        }).ToList() ?? new List<BinaryFieldRule>(),
         outputTemplate = dto.outputTemplate,
         sampleData = dto.sampleData
     };

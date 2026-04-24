@@ -19,12 +19,15 @@ MonoBehaviour:
   keys:
   - UI_DeleteButton
   - UI_Menu
-  - UI_AddPort
-  - UI_MenuCancel
-  - UI_OK
-  - UI_Console
-  - UI_clear
-  - UI_Exit
+  - UI_RemotePortInput
+  - UI_LocalPortInput
+  - UI_TargetIPInput
+  - UI_NameInput
+  - UI_NetProtocolDropdowm
+  - UI_DropdownMask
+  - UI_SourceProtocolDropdown
+  - UI_NetProtrocolTitle
+  - UI_Title
   - UI_Tables
   - UI_MenuRoot
   - UI_ConsoleUI
@@ -33,22 +36,23 @@ MonoBehaviour:
   - UI_RemotePortsMask
   - UI_LocalPortsMask
   - UI_LanguageDropdown
-  - UI_NetProtrocolTitle
-  - UI_Title
-  - UI_NetProtocolDropdowm
-  - UI_DropdownMask
-  - UI_RemotePortInput
-  - UI_LocalPortInput
-  - UI_TargetIPInput
-  - UI_NameInput
+  - UI_SourceProtocolMask
+  - UI_AddPort
+  - UI_MenuCancel
+  - UI_OK
+  - UI_Console
+  - UI_clear
+  - UI_Exit
   - table_prococolText
   - table_Delete
   - table_Connect
   - table_Disconnected
   - table_Monitor
+  - table_TableEdit
   - table_ConnectRoot
   - table_DisconnectedRoot
   - table_netReceivedStatusRoot
+  - table_DropdownMaskRoot
   - table_remoteText
   - table_netReceived
   - table_localPortText
@@ -57,7 +61,7 @@ MonoBehaviour:
   - table_netReceivedStatus
   - table_nameText
   - table_DropdownMask
-  - table_DropdownMaskRoot
+  - table_table_IdText
   - Monitor_Close
   - Monitor_Monitor
   IncreaseCollectorID: 0
@@ -85,13 +89,15 @@ MonoBehaviour:
   - id: -1
     guid: 8eabb53727cc6024286d5fe11fc18083
     keys:
-    - UI_DeleteButton
-    - UI_AddPort
-    - UI_MenuCancel
-    - UI_OK
-    - UI_Console
-    - UI_clear
-    - UI_Exit
+    - UI_RemotePortInput
+    - UI_LocalPortInput
+    - UI_TargetIPInput
+    - UI_NameInput
+    - UI_NetProtocolDropdowm
+    - UI_DropdownMask
+    - UI_SourceProtocolDropdown
+    - UI_NetProtrocolTitle
+    - UI_Title
     - UI_Tables
     - UI_MenuRoot
     - UI_ConsoleUI
@@ -100,14 +106,14 @@ MonoBehaviour:
     - UI_RemotePortsMask
     - UI_LocalPortsMask
     - UI_LanguageDropdown
-    - UI_NetProtrocolTitle
-    - UI_Title
-    - UI_NetProtocolDropdowm
-    - UI_DropdownMask
-    - UI_RemotePortInput
-    - UI_LocalPortInput
-    - UI_TargetIPInput
-    - UI_NameInput
+    - UI_SourceProtocolMask
+    - UI_DeleteButton
+    - UI_AddPort
+    - UI_MenuCancel
+    - UI_OK
+    - UI_Console
+    - UI_clear
+    - UI_Exit
   - id: -1
     guid: ead97c791377951419dc7f025be1c6f9
     keys:
@@ -119,9 +125,11 @@ MonoBehaviour:
     - table_Connect
     - table_Disconnected
     - table_Monitor
+    - table_TableEdit
     - table_ConnectRoot
     - table_DisconnectedRoot
     - table_netReceivedStatusRoot
+    - table_DropdownMaskRoot
     - table_prococolText
     - table_remoteText
     - table_netReceived
@@ -131,7 +139,7 @@ MonoBehaviour:
     - table_netReceivedStatus
     - table_nameText
     - table_DropdownMask
-    - table_DropdownMaskRoot
+    - table_table_IdText
   - id: -1
     guid: 7639347123f1f534db883fbf21df1a64
     keys:

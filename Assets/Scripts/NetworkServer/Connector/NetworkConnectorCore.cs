@@ -13,8 +13,11 @@ public class NetworkConnectorCore
         { "TCP CLIENT", new TCPClientConnector() }
     };
 
+    private MonitorConsole monitorConsole;
+
     public void Init(ConsoleUI consoleUI, MonitorConsole monitorConsole)
     {
+        this.monitorConsole = monitorConsole;
         LogHelper.Init(monitorConsole, consoleUI);
     }
 
@@ -60,6 +63,8 @@ public class NetworkConnectorCore
 
     public void MonitorConsole(PortData portData)
     {
+        LogHelper.ClearPendingMonitorLogs();
+        monitorConsole?.RemoveAll();
         MonitorCounter.Reset();
 
         if (portData.NetProtocol.ToUpperInvariant() == "TCP SERVER")

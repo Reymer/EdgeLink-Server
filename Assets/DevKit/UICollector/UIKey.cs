@@ -7,17 +7,23 @@ namespace DevKit.Tool
         
         public const string UI_Menu = "UI_Menu";
         
-        public const string UI_AddPort = "UI_AddPort";
+        public const string UI_RemotePortInput = "UI_RemotePortInput";
         
-        public const string UI_MenuCancel = "UI_MenuCancel";
+        public const string UI_LocalPortInput = "UI_LocalPortInput";
         
-        public const string UI_OK = "UI_OK";
+        public const string UI_TargetIPInput = "UI_TargetIPInput";
         
-        public const string UI_Console = "UI_Console";
+        public const string UI_NameInput = "UI_NameInput";
         
-        public const string UI_clear = "UI_clear";
+        public const string UI_NetProtocolDropdowm = "UI_NetProtocolDropdowm";
         
-        public const string UI_Exit = "UI_Exit";
+        public const string UI_DropdownMask = "UI_DropdownMask";
+        
+        public const string UI_SourceProtocolDropdown = "UI_SourceProtocolDropdown";
+        
+        public const string UI_NetProtrocolTitle = "UI_NetProtrocolTitle";
+        
+        public const string UI_Title = "UI_Title";
         
         public const string UI_Tables = "UI_Tables";
         
@@ -35,23 +41,19 @@ namespace DevKit.Tool
         
         public const string UI_LanguageDropdown = "UI_LanguageDropdown";
         
-        public const string UI_NetProtrocolTitle = "UI_NetProtrocolTitle";
+        public const string UI_SourceProtocolMask = "UI_SourceProtocolMask";
         
-        public const string UI_Title = "UI_Title";
+        public const string UI_AddPort = "UI_AddPort";
         
-        public const string UI_NetProtocolDropdowm = "UI_NetProtocolDropdowm";
+        public const string UI_MenuCancel = "UI_MenuCancel";
         
-        public const string UI_DropdownMask = "UI_DropdownMask";
-
-        public const string UI_MaskRow = "UI_MaskRow";
+        public const string UI_OK = "UI_OK";
         
-        public const string UI_RemotePortInput = "UI_RemotePortInput";
+        public const string UI_Console = "UI_Console";
         
-        public const string UI_LocalPortInput = "UI_LocalPortInput";
+        public const string UI_clear = "UI_clear";
         
-        public const string UI_TargetIPInput = "UI_TargetIPInput";
-        
-        public const string UI_NameInput = "UI_NameInput";
+        public const string UI_Exit = "UI_Exit";
         
         public const string table_prococolText = "table_prococolText";
         
@@ -63,11 +65,15 @@ namespace DevKit.Tool
         
         public const string table_Monitor = "table_Monitor";
         
+        public const string table_TableEdit = "table_TableEdit";
+        
         public const string table_ConnectRoot = "table_ConnectRoot";
         
         public const string table_DisconnectedRoot = "table_DisconnectedRoot";
         
         public const string table_netReceivedStatusRoot = "table_netReceivedStatusRoot";
+        
+        public const string table_DropdownMaskRoot = "table_DropdownMaskRoot";
         
         public const string table_remoteText = "table_remoteText";
         
@@ -85,7 +91,7 @@ namespace DevKit.Tool
         
         public const string table_DropdownMask = "table_DropdownMask";
         
-        public const string table_DropdownMaskRoot = "table_DropdownMaskRoot";
+        public const string table_table_IdText = "table_table_IdText";
         
         public const string Monitor_Close = "Monitor_Close";
         

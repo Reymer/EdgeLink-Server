@@ -19,6 +19,9 @@ public class NetworkSettingsUI : MonoBehaviour
     private UICollector uiCollector;
     private ConsoleUI consoleUi;
     public event Action<PortData> Confirm;
+    public event Action<PortData, PortData> EditConfirm;
+    private bool isEditing = false;
+    private PortData editingPortData = null;
     private string protocolType = "UDP";
     private string protocolName = string.Empty;
     private int? remotePort;
@@ -26,7 +29,10 @@ public class NetworkSettingsUI : MonoBehaviour
     private string targetIP;
     private bool isOpenConsole = true;
     private string maskType = "original data";
+    private string sourceProtocolName = string.Empty;
+    private string sourceProtocolId = string.Empty;
     private TMP_Dropdown languageDropdown;
+    private TMP_Dropdown sourceDropdown;
     #endregion
 
     #region Unity 生命週期
@@ -48,6 +54,11 @@ public class NetworkSettingsUI : MonoBehaviour
         {
             OnClearConsole();
         }
+    }
+
+    private void OnDestroy()
+    {
+        Localization.Instance.LanguageChanged -= OnLanguageChangedExternally;
     }
 
     #endregion
@@ -83,6 +94,9 @@ public class NetworkSettingsUI : MonoBehaviour
         uiCollector.GetAsset<TMP_InputField>(UIKey.UI_NameInput).onValueChanged.AddListener(OnNameInput);
         uiCollector.GetAsset<TMP_Dropdown>(UIKey.UI_DropdownMask).onValueChanged.AddListener(OnMaskDropdownValueChanged);
         languageDropdown = uiCollector.GetAsset<TMP_Dropdown>(UIKey.UI_LanguageDropdown);
+        sourceDropdown = uiCollector.GetAsset<TMP_Dropdown>(UIKey.UI_SourceProtocolDropdown);
+        if (sourceDropdown != null)
+            sourceDropdown.onValueChanged.AddListener(OnSourceDropdownValueChanged);
     }
 
     #region 多語系
@@ -101,6 +115,18 @@ public class NetworkSettingsUI : MonoBehaviour
         languageDropdown.AddOptions(shownNames.ToList());
         languageDropdown.SetValueWithoutNotify(Localization.Instance.GetCurrentLanguageIndex());
         languageDropdown.onValueChanged.AddListener(OnUserChangeLanguage);
+        Localization.Instance.LanguageChanged += OnLanguageChangedExternally;
+    }
+
+    private void OnLanguageChangedExternally()
+    {
+        languageDropdown.SetValueWithoutNotify(Localization.Instance.GetCurrentLanguageIndex());
+        if (protocolType.Equals("TCP Client", StringComparison.OrdinalIgnoreCase)
+            && sourceDropdown != null && sourceDropdown.options.Count > 0)
+        {
+            sourceDropdown.options[0].text = Localization.Instance.GetText(LanguageKeys.UI_SourceNone);
+            sourceDropdown.RefreshShownValue();
+        }
     }
 
     private void OnUserChangeLanguage(int index)
@@ -138,20 +164,22 @@ public class NetworkSettingsUI : MonoBehaviour
         uiCollector.GetAsset<TMP_InputField>(UIKey.UI_RemotePortInput).text = string.Empty;
         uiCollector.GetAsset<TMP_InputField>(UIKey.UI_LocalPortInput).text = string.Empty;
         uiCollector.GetAsset<TMP_InputField>(UIKey.UI_TargetIPInput).text = string.Empty;
-        uiCollector.GetAsset<TMP_Dropdown>(UIKey.UI_NetProtocolDropdowm).value = 0;
+        uiCollector.GetAsset<TMP_Dropdown>(UIKey.UI_NetProtocolDropdowm).SetValueWithoutNotify(0);
         uiCollector.GetAsset<TMP_Dropdown>(UIKey.UI_NetProtocolDropdowm).RefreshShownValue();
         var maskDropdown = uiCollector.GetAsset<TMP_Dropdown>(UIKey.UI_DropdownMask);
         maskDropdown.value = 0;
         maskDropdown.RefreshShownValue();
-        SetMaskDropdownInteractable(true);
         remotePort = null;
         localPort = null;
         targetIP = null;
         protocolName = null;
+        sourceProtocolName = string.Empty;
+        sourceProtocolId = string.Empty;
         protocolType = "UDP";
-        SetUiStatus(false, UIKey.UI_TargetIPMask);
-        SetUiStatus(false, UIKey.UI_RemotePortsMask);
-        SetUiStatus(false, UIKey.UI_LocalPortsMask);
+        isEditing = false;
+        editingPortData = null;
+        if (sourceDropdown != null) sourceDropdown.SetValueWithoutNotify(0);
+        OnDropdownValueChanged(0); // 最後套用 UDP 預設顯示（不重複設 value）
     }
 
     private void OnConsole()
@@ -284,41 +312,6 @@ public class NetworkSettingsUI : MonoBehaviour
         return true;
     }
 
-    private int GetRandomAvailablePort()
-    {
-        var random = new Random();
-        int port;
-
-        while (true)
-        {
-            port = random.Next(49152, 65535);
-            if (IsPortAvailable(port))
-            {
-                break;
-            }
-        }
-
-        return port;
-    }
-
-    private bool IsPortAvailable(int port)
-    {
-        bool isAvailable = true;
-
-        try
-        {
-            TcpListener listener = new(IPAddress.Any, port);
-            listener.Start();
-            listener.Stop();
-        }
-        catch (SocketException)
-        {
-            isAvailable = false;
-        }
-
-        return isAvailable;
-    }
-
     #endregion
 
     #region 事件處理程序
@@ -327,37 +320,39 @@ public class NetworkSettingsUI : MonoBehaviour
     {
         switch (index)
         {
-            case 0:
+            case 0: // UDP
                 protocolType = "UDP";
+                uiCollector.GetAsset<TMP_InputField>(UIKey.UI_RemotePortInput).text = string.Empty;
+                uiCollector.GetAsset<TMP_InputField>(UIKey.UI_LocalPortInput).text = string.Empty;
+                uiCollector.GetAsset<TMP_InputField>(UIKey.UI_TargetIPInput).text = string.Empty;
                 SetUiStatus(false, UIKey.UI_TargetIPMask);
                 SetUiStatus(false, UIKey.UI_RemotePortsMask);
                 SetUiStatus(false, UIKey.UI_LocalPortsMask);
-                uiCollector.GetAsset<TMP_InputField>(UIKey.UI_RemotePortInput).text = string.Empty;
-                uiCollector.GetAsset<TMP_InputField>(UIKey.UI_LocalPortInput).text = string.Empty;
+                SetUiStatus(false, UIKey.UI_SourceProtocolMask);
                 SetMaskDropdownInteractable(true);
                 break;
-            case 1:
+            case 1: // TCP Server
                 protocolType = "TCP Server";
-                var randomRemotePort = GetRandomAvailablePort().ToString();
-                uiCollector.GetAsset<TMP_InputField>(UIKey.UI_RemotePortInput).text = randomRemotePort;
                 uiCollector.GetAsset<TMP_InputField>(UIKey.UI_LocalPortInput).text = string.Empty;
                 SetUiStatus(true, UIKey.UI_TargetIPMask);
                 SetUiStatus(true, UIKey.UI_RemotePortsMask);
                 SetUiStatus(false, UIKey.UI_LocalPortsMask);
+                SetUiStatus(false, UIKey.UI_SourceProtocolMask);
                 SetMaskDropdownInteractable(false);
                 maskType = "OriginalData";
                 uiCollector.GetAsset<TMP_Dropdown>(UIKey.UI_DropdownMask).value = 0;
                 uiCollector.GetAsset<TMP_Dropdown>(UIKey.UI_DropdownMask).RefreshShownValue();
                 break;
-            case 2:
+            case 2: // TCP Client
                 protocolType = "TCP Client";
-                var randomLocalPort = GetRandomAvailablePort().ToString();
-                uiCollector.GetAsset<TMP_InputField>(UIKey.UI_LocalPortInput).text = randomLocalPort;
                 uiCollector.GetAsset<TMP_InputField>(UIKey.UI_RemotePortInput).text = string.Empty;
+                uiCollector.GetAsset<TMP_InputField>(UIKey.UI_TargetIPInput).text = string.Empty;
                 SetUiStatus(false, UIKey.UI_TargetIPMask);
                 SetUiStatus(false, UIKey.UI_RemotePortsMask);
-                SetUiStatus(true, UIKey.UI_LocalPortsMask);
+                SetUiStatus(false, UIKey.UI_LocalPortsMask);
+                SetUiStatus(true, UIKey.UI_SourceProtocolMask);
                 SetMaskDropdownInteractable(true);
+                RefreshSourceDropdown();
                 break;
         }
     }
@@ -384,16 +379,148 @@ public class NetworkSettingsUI : MonoBehaviour
 
     private void OnMaskDropdownValueChanged(int index)
     {
-        // 從索引獲取對應的遮罩 ID（而不是顯示名稱）
         var maskIds = MaskTypeManager.Instance.GetMaskTypeIds();
-
         if (index >= 0 && index < maskIds.Count)
-        {
             maskType = maskIds[index];
+    }
+
+    private void RefreshSourceDropdown()
+    {
+        if (sourceDropdown == null) return;
+        sourceDropdown.ClearOptions();
+
+        var options = new List<TMP_Dropdown.OptionData>
+        {
+            new TMP_Dropdown.OptionData(Localization.Instance.GetText(LanguageKeys.UI_SourceNone))
+        };
+
+        var allPorts = NetworkPortManager.Instance.GetAllPortDatas();
+        foreach (var p in allPorts)
+        {
+            if (p.NetProtocol == "TCP Server")
+            {
+                string shortId = !string.IsNullOrEmpty(p.Id) ? " #" + p.Id[..8] : "";
+                options.Add(new TMP_Dropdown.OptionData($"{p.ProtocolName}{shortId}"));
+            }
+        }
+
+        sourceDropdown.AddOptions(options);
+        sourceDropdown.value = 0;
+        sourceDropdown.RefreshShownValue();
+        sourceProtocolName = string.Empty;
+    }
+
+    private void OnSourceDropdownValueChanged(int index)
+    {
+        if (sourceDropdown == null || index == 0)
+        {
+            sourceProtocolName = string.Empty;
+            sourceProtocolId = string.Empty;
+            LogHelper.LogToConsole("[TCP Client] 未指定訊號來源，此 TCP Client 將不會接收任何轉發資料。", isError: false);
+            return;
+        }
+
+        var allPorts = NetworkPortManager.Instance.GetAllPortDatas()
+            .Where(p => p.NetProtocol == "TCP Server")
+            .ToList();
+
+        int portIndex = index - 1;
+        if (portIndex >= 0 && portIndex < allPorts.Count)
+        {
+            sourceProtocolName = allPorts[portIndex].ProtocolName;
+            sourceProtocolId = allPorts[portIndex].Id ?? string.Empty;
         }
         else
         {
+            sourceProtocolName = string.Empty;
+            sourceProtocolId = string.Empty;
         }
+    }
+
+    public void OpenForEdit(PortData portData)
+    {
+        isEditing = true;
+        editingPortData = portData;
+
+        RefreshMaskTypeDropdown();
+        SetUiStatus(true, UIKey.UI_MenuRoot);
+
+        uiCollector.GetAsset<TMP_InputField>(UIKey.UI_NameInput).text = portData.ProtocolName;
+        protocolName = portData.ProtocolName;
+
+        int protocolIndex = GetProtocolDropdownIndex(portData.NetProtocol);
+        var protocolDropdown = uiCollector.GetAsset<TMP_Dropdown>(UIKey.UI_NetProtocolDropdowm);
+        protocolDropdown.SetValueWithoutNotify(protocolIndex);
+        protocolDropdown.RefreshShownValue();
+        OnDropdownValueChanged(protocolIndex);
+
+        switch (portData.NetProtocol)
+        {
+            case "UDP":
+                uiCollector.GetAsset<TMP_InputField>(UIKey.UI_RemotePortInput).text = portData.RemotePortDetails?.Port ?? "";
+                uiCollector.GetAsset<TMP_InputField>(UIKey.UI_LocalPortInput).text = portData.LocalPortDetails?.Port ?? "";
+                uiCollector.GetAsset<TMP_InputField>(UIKey.UI_TargetIPInput).text = portData.TargetIP ?? "";
+                remotePort = ParsePort(portData.RemotePortDetails?.Port);
+                localPort = ParsePort(portData.LocalPortDetails?.Port);
+                targetIP = portData.TargetIP;
+                break;
+
+            case "TCP Server":
+                uiCollector.GetAsset<TMP_InputField>(UIKey.UI_LocalPortInput).text = portData.LocalPortDetails?.Port ?? "";
+                localPort = ParsePort(portData.LocalPortDetails?.Port);
+                break;
+
+            case "TCP Client":
+                uiCollector.GetAsset<TMP_InputField>(UIKey.UI_RemotePortInput).text = portData.RemotePortDetails?.Port ?? "";
+                uiCollector.GetAsset<TMP_InputField>(UIKey.UI_TargetIPInput).text = portData.TargetIP ?? "";
+                remotePort = ParsePort(portData.RemotePortDetails?.Port);
+                targetIP = portData.TargetIP;
+                if (!string.IsNullOrEmpty(portData.SourceProtocolId))
+                    SelectSourceDropdownById(portData.SourceProtocolId);
+                break;
+        }
+
+        SetMaskDropdownByMaskType(portData.MaskType);
+    }
+
+    private int GetProtocolDropdownIndex(string protocol)
+    {
+        return protocol switch
+        {
+            "TCP Server" => 1,
+            "TCP Client" => 2,
+            _ => 0  // UDP
+        };
+    }
+
+    private void SelectSourceDropdownById(string id)
+    {
+        if (sourceDropdown == null || string.IsNullOrEmpty(id)) return;
+        var allPorts = NetworkPortManager.Instance.GetAllPortDatas()
+            .Where(p => p.NetProtocol == "TCP Server")
+            .ToList();
+        for (int i = 0; i < allPorts.Count; i++)
+        {
+            if (allPorts[i].Id == id)
+            {
+                sourceDropdown.SetValueWithoutNotify(i + 1);
+                sourceProtocolName = allPorts[i].ProtocolName;
+                sourceProtocolId = id;
+                return;
+            }
+        }
+    }
+
+
+    private void SetMaskDropdownByMaskType(string maskTypeId)
+    {
+        var maskIds = MaskTypeManager.Instance.GetMaskTypeIds();
+        int index = maskIds.IndexOf(maskTypeId);
+        if (index < 0) index = 0;
+        var maskDropdown = uiCollector.GetAsset<TMP_Dropdown>(UIKey.UI_DropdownMask);
+        maskDropdown.SetValueWithoutNotify(index);
+        maskDropdown.RefreshShownValue();
+        maskType = maskTypeId;
     }
 
     private void OnConfirm()
@@ -458,17 +585,39 @@ public class NetworkSettingsUI : MonoBehaviour
             return;
         }
 
+        // TCP Server: localPort → LocalPortDetails，RemotePortDetails = "--"
+        // TCP Client: LocalPortDetails = "--"，remotePort → RemotePortDetails
+        // UDP: localPort → LocalPortDetails，remotePort → RemotePortDetails
+        string builtLocalPort = protocolType.Equals("TCP Client", StringComparison.OrdinalIgnoreCase)
+            ? "--"
+            : localPort?.ToString();
+        string builtRemotePort = protocolType.Equals("TCP Server", StringComparison.OrdinalIgnoreCase)
+            ? "--"
+            : remotePort?.ToString();
+
         var portData = new PortData
         {
             ProtocolName = protocolName,
             NetProtocol = protocolType,
             MaskType = maskType,
-            LocalPortDetails = new PortDetails { Port = protocolType.Equals("TCP Client", StringComparison.OrdinalIgnoreCase) ? "--" : localPort?.ToString() },
-            RemotePortDetails = new PortDetails { Port = protocolType.Equals("TCP Server", StringComparison.OrdinalIgnoreCase) ? "--" : remotePort?.ToString() },
-            TargetIP = targetIP
+            LocalPortDetails = new PortDetails { Port = builtLocalPort },
+            RemotePortDetails = new PortDetails { Port = builtRemotePort },
+            TargetIP = targetIP,
+            SourceProtocolName = protocolType.Equals("TCP Client", StringComparison.OrdinalIgnoreCase) ? sourceProtocolName : string.Empty,
+            SourceProtocolId = protocolType.Equals("TCP Client", StringComparison.OrdinalIgnoreCase) ? sourceProtocolId : string.Empty,
         };
 
-        Confirm?.Invoke(portData);
+        if (isEditing)
+        {
+            var old = editingPortData;
+            isEditing = false;
+            editingPortData = null;
+            EditConfirm?.Invoke(old, portData);
+        }
+        else
+        {
+            Confirm?.Invoke(portData);
+        }
         CloseUi(UIKey.UI_MenuRoot);
     }
 

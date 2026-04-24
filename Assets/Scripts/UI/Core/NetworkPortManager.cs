@@ -41,6 +41,8 @@ public class NetworkPortManager
 
             foreach (var data in ports)
             {
+                if (string.IsNullOrEmpty(data.Id))
+                    data.Id = Guid.NewGuid().ToString("N");
                 data.OnUpdate += OnUpdate;
                 var type = ParseProtocolType(data.NetProtocol);
                 var key = GetPortKey(data);
@@ -91,6 +93,7 @@ public class NetworkPortManager
         string key = GetPortKey(portData);
         var data = new PortData
         {
+            Id = string.IsNullOrEmpty(portData.Id) ? Guid.NewGuid().ToString("N") : portData.Id,
             Key = key,
             ProtocolName = portData.ProtocolName,
             NetProtocol = portData.NetProtocol,
@@ -102,10 +105,20 @@ public class NetworkPortManager
             NetReceived = 0,
             OnUpdate = OnUpdate,
             MaskType = portData.MaskType,
+            SourceProtocolName = portData.SourceProtocolName ?? "",
+            SourceProtocolId = portData.SourceProtocolId ?? "",
         };
 
         portRegistry.Add(type, key, data);
-        networkConnectorCore.AddPort(data);
+        try
+        {
+            networkConnectorCore.AddPort(data);
+        }
+        catch
+        {
+            portRegistry.Remove(type, key);
+            throw;
+        }
         SaveData();
         PortDataAdded?.Invoke(data);
         return data;
@@ -140,7 +153,7 @@ public class NetworkPortManager
         {
             NetProtocolType.TcpClient => $"{portData.TargetIP}:{portData.RemotePortDetails.Port}",
             NetProtocolType.TcpServer => portData.LocalPortDetails.Port,
-            NetProtocolType.Udp => portData.LocalPortDetails.Port,
+            NetProtocolType.Udp => portData.RemotePortDetails.Port,
             _ => portData.LocalPortDetails.Port
         };
     }
@@ -267,6 +280,8 @@ public class NetworkPortManager
         portRegistry.Clear();
         foreach (var data in loaded)
         {
+            if (string.IsNullOrEmpty(data.Id))
+                data.Id = Guid.NewGuid().ToString("N");
             data.OnUpdate += OnUpdate;
             var type = ParseProtocolType(data.NetProtocol);
             string key = GetPortKey(data);
@@ -282,7 +297,14 @@ public class NetworkPortManager
     {
         foreach (var port in portRegistry.GetAll())
         {
-            networkConnectorCore.AddPort(port);
+            try
+            {
+                networkConnectorCore.AddPort(port);
+            }
+            catch (Exception ex)
+            {
+                LogHelper.LogToConsole($"[NetworkPortManager] {port.NetProtocol} '{port.ProtocolName}' 啟動失敗: {ex.Message}", isError: true);
+            }
         }
     }
 

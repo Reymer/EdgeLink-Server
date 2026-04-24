@@ -1,5 +1,6 @@
 ﻿using DevKit;
 using DevKit.Tool;
+using iotserver;
 using System;
 using TMPro;
 using UnityEngine;
@@ -17,6 +18,7 @@ public class Table : MonoBehaviour
     public event Action<PortData> OnDisconnectedt;
     public event Action<PortData> OnMonitor;
     public event Action<PortData> OnMask;
+    public event Action<PortData> OnEdit;
     private NetworkSettingsUI networkSettingsUi;
 
     #endregion
@@ -42,16 +44,27 @@ public class Table : MonoBehaviour
         uiCollector.BindOnCheck(UIKey.table_Connect, () => HandleAction(OnConnect));
         uiCollector.BindOnCheck(UIKey.table_Disconnected, () => HandleAction(OnDisconnectedt));
         uiCollector.BindOnCheck(UIKey.table_Monitor, () => HandleAction(OnMonitor));
+        uiCollector.BindOnCheck(UIKey.table_TableEdit, () => HandleAction(OnEdit));
 
         var dropdown = uiCollector.GetAsset<TMP_Dropdown>(UIKey.table_DropdownMask);
         dropdown.onValueChanged.AddListener(SetMaskType);
 
         MaskTypeManager.Instance.OnMaskTypesChanged += OnMaskTypesChanged;
+        Localization.Instance.LanguageChanged += OnLanguageChanged;
     }
 
     private void OnDestroy()
     {
         MaskTypeManager.Instance.OnMaskTypesChanged -= OnMaskTypesChanged;
+        Localization.Instance.LanguageChanged -= OnLanguageChanged;
+        var dropdown = uiCollector.GetAsset<TMP_Dropdown>(UIKey.table_DropdownMask);
+        if (dropdown != null) dropdown.onValueChanged.RemoveListener(SetMaskType);
+    }
+
+    private void OnLanguageChanged()
+    {
+        if (currentPortData != null)
+            UpdateUI(currentPortData);
     }
 
     private void OnMaskTypesChanged()
@@ -79,9 +92,28 @@ public class Table : MonoBehaviour
     {
         // 靜態數據（不常變）
         SetValue(UIKey.table_nameText, portData.ProtocolName);
+        string shortId = !string.IsNullOrEmpty(portData.Id) ? "#" + portData.Id[..8] : "";
+        SetValue(UIKey.table_table_IdText, shortId);
         SetValue(UIKey.table_prococolText, portData.NetProtocol);
         SetValue(UIKey.table_remoteText, portData.RemotePortDetails.Port);
-        SetValue(UIKey.table_localPortText, portData.LocalPortDetails.Port);
+        string localPortDisplay;
+        if (portData.NetProtocol == "TCP Client")
+        {
+            if (string.IsNullOrEmpty(portData.SourceProtocolName))
+            {
+                localPortDisplay = $"{Localization.Instance.GetText(LanguageKeys.UI_Source)}: {Localization.Instance.GetText(LanguageKeys.UI_SourceNone)}";
+            }
+            else
+            {
+                string srcShortId = !string.IsNullOrEmpty(portData.SourceProtocolId) ? " #" + portData.SourceProtocolId[..8] : "";
+                localPortDisplay = $"{Localization.Instance.GetText(LanguageKeys.UI_Source)}: {portData.SourceProtocolName}{srcShortId}";
+            }
+        }
+        else
+        {
+            localPortDisplay = portData.LocalPortDetails.Port;
+        }
+        SetValue(UIKey.table_localPortText, localPortDisplay);
         SetValue(UIKey.table_ForwardTargetText, portData.TargetIP);
         CreateMaskData();
 

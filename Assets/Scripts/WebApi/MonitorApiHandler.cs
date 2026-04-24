@@ -39,14 +39,7 @@ public class MonitorApiHandler
                 if (port == null)
                     throw new KeyNotFoundException($"Port '{req.protocolName}' not found");
 
-                var targetType = port.NetProtocol switch
-                {
-                    "TCP Server" => MonitorTargetType.TCPServer,
-                    "TCP Client" => MonitorTargetType.TCPClient,
-                    _ => MonitorTargetType.UDP
-                };
-
-                MonitorManager.Instance.SetMonitorPort(port, targetType);
+                NetworkPortManager.Instance.OnMonitorConsole(port);
             });
 
             HttpApiServer.WriteJson(ctx, 200, JsonUtility.ToJson(new ApiResult { success = true }));

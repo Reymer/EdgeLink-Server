@@ -13,6 +13,8 @@ public static class LogHelper
     private static MonitorConsole monitor;
     private static ConsoleUI consoleUI;
 
+    private static volatile bool _isShuttingDown = false;
+
     // 批次緩衝：每 frame 只 flush 一次，避免每條 log 各觸發一次 Canvas rebuild
     private static readonly ConcurrentQueue<string> _pendingMonitorLogs = new();
     private static int _monitorFlushScheduled; // 0=idle, 1=scheduled
@@ -36,8 +38,26 @@ public static class LogHelper
     /// </summary>
     public static void Init(MonitorConsole monitorConsole, ConsoleUI consoleUIInstance)
     {
+        _isShuttingDown = false;
         monitor = monitorConsole;
         consoleUI = consoleUIInstance;
+    }
+
+    /// <summary>
+    /// 關閉時呼叫：停止接受新 log，清空未處理的佇列
+    /// </summary>
+    public static void Shutdown()
+    {
+        _isShuttingDown = true;
+        while (_pendingMonitorLogs.TryDequeue(out _)) { }
+    }
+
+    /// <summary>
+    /// 切換監控目標時呼叫：清空尚未刷出的 monitor log 佇列
+    /// </summary>
+    public static void ClearPendingMonitorLogs()
+    {
+        while (_pendingMonitorLogs.TryDequeue(out _)) { }
     }
 
     /// <summary>
@@ -45,6 +65,7 @@ public static class LogHelper
     /// </summary>
     public static void LogToMonitor(string message)
     {
+        if (_isShuttingDown) return;
         string stamped = FormatLogMessage(message, false);
 
         lock (_webMonitorLock)
@@ -74,7 +95,7 @@ public static class LogHelper
     /// </summary>
     public static void LogToConsole(string message, bool isError = false)
     {
-        if (string.IsNullOrEmpty(message))
+        if (_isShuttingDown || string.IsNullOrEmpty(message))
             return;
 
         if (message.Length > 1000)
@@ -145,9 +166,15 @@ public static class LogHelper
     }
 
     /// <summary>
-    /// 統一 log 前綴：[Protocol | Name]
+    /// 統一 log 前綴：[Protocol | Name #shortId]
     /// </summary>
     public static string Tag(string protocol, string name) => $"[{protocol} | {name}]";
+
+    public static string Tag(string protocol, PortData portData)
+    {
+        string shortId = !string.IsNullOrEmpty(portData?.Id) ? " #" + portData.Id[..8] : "";
+        return $"[{protocol} | {portData?.ProtocolName}{shortId}]";
+    }
 
     /// <summary>
     /// 格式化日誌訊息

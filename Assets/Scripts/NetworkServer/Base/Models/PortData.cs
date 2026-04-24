@@ -17,6 +17,7 @@ public class PortDatas
 [Serializable]
 public class PortData
 {
+    public string Id;
     public string Key;
     public string ProtocolName;
     public string NetProtocol;
@@ -27,6 +28,8 @@ public class PortData
     public int COMReceived;
     public int NetReceived;
     public string MaskType;
+    public string SourceProtocolName;
+    public string SourceProtocolId;
 
     /// <summary>
     /// 以下都是運行時屬性，不要序列化

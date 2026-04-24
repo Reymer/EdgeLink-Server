@@ -7,7 +7,6 @@ public class MaskProcessorTextTests
         new MaskDefinition
         {
             maskId = "test",
-            inputEncoding = "text",
             fieldDelimiter = fieldDelim,
             kvSeparator = kvSep,
             outputTemplate = template,

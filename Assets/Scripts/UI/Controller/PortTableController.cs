@@ -22,6 +22,7 @@ public class PortTableController : IPortTableHandler
 
     private readonly ManualAddGuard manualAddGuard = new();
     private PortTableSpawner spawner;
+    private NetworkSettingsUI networkSettingsUI;
 
     public PortTableController(UICollector uiCollector, ConsoleUI consoleUI)
     {
@@ -34,6 +35,7 @@ public class PortTableController : IPortTableHandler
         var monitor = GameObject.FindObjectOfType<Monitor>(true);
         var monitorConsole = GameObject.FindObjectOfType<MonitorConsole>(true);
         spawner = GameObject.FindObjectOfType<PortTableSpawner>(true);
+        networkSettingsUI = GameObject.FindObjectOfType<NetworkSettingsUI>(true);
         spawner.Init(monitor, monitorConsole, this);
     }
 
@@ -111,6 +113,37 @@ public class PortTableController : IPortTableHandler
     public void OnMonitorConsole(PortData portData)
     {
         NetworkPortManager.Instance.OnMonitorConsole(portData);
+    }
+
+    public void OnEdit(PortData portData)
+    {
+        networkSettingsUI?.OpenForEdit(portData);
+    }
+
+    public async void OnEditConfirm(PortData oldPortData, PortData newPortData)
+    {
+        newPortData.Id = oldPortData.Id; // 編輯時保留原 UUID
+        manualAddGuard.Start();
+        try
+        {
+            spawner.RefreshAndRecreateTables();
+            await NetworkPortManager.Instance.RemovePortData(oldPortData);
+
+            if (NetworkPortManager.Instance.IsPortUnique(newPortData))
+            {
+                NetworkPortManager.Instance.AddPortData(newPortData);
+            }
+            else
+            {
+                consoleUI.AddLog(Localization.Instance.GetText(LanguageKeys.Log_DuplicatePort));
+            }
+
+            NetworkPortManager.Instance.RefreshAndRecreateTables(spawner, uiCollector);
+        }
+        finally
+        {
+            manualAddGuard.End();
+        }
     }
 
     private async Task ExecuteWithRefreshAsync(System.Func<System.Threading.Tasks.Task> asyncAction)

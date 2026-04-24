@@ -62,3 +62,5 @@ Log_NotifyFailed|通知目標失敗|Failed to notify target|ターゲット通�
 Log_AcceptClientsError|AcceptClients 未預期錯誤|AcceptClients unexpected error|AcceptClients 予期しないエラー┤
 Log_ProcessPacketsError|ProcessPackets 未預期錯誤|ProcessPackets unexpected error|ProcessPackets 予期しないエラー┤
 Log_ReceiveClientError|ReceiveClient 未預期錯誤|ReceiveClient unexpected error|ReceiveClient 予期しないエラー┤
+UI_SourceNone|不指定|(none)|指定なし┤
+UI_Source|來源|Source|送信元┤

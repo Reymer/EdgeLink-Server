@@ -50,65 +50,63 @@ public class TCPServerConnector : NetworkConnectorBase
 
     public override void AddPort(PortData portData)
     {
-        SafeExecution.Safe(() =>
+        if (tcpServers.TryGetValue(portData.Key, out var existingServer))
         {
-            if (tcpServers.TryGetValue(portData.ProtocolName, out var existingServer))
+            if (portData.IsConnected)
             {
-                if (portData.IsConnected)
-                {
-                    LogHelper.LogToConsole($"{LogHelper.Tag("TCP Server", portData.ProtocolName)} {Localization.Instance.GetText(LanguageKeys.Log_AlreadyConnected)}");
-                    return;
-                }
-
-                portData.IsConnected = false;
-                existingServer.Dispose();
-                tcpServers.TryRemove(portData.ProtocolName, out _);
+                LogHelper.LogToConsole($"{LogHelper.Tag("TCP Server", portData)} {Localization.Instance.GetText(LanguageKeys.Log_AlreadyConnected)}");
+                return;
             }
+            portData.IsConnected = false;
+            existingServer.Dispose();
+            tcpServers.TryRemove(portData.Key, out _);
+        }
 
-            try
-            {
-                if (!TryParsePort(portData.LocalPortDetails.Port, out int localPort, "AddPort"))
-                {
-                    portData.IsConnected = false;
-                    return;
-                }
+        if (!TryParsePort(portData.LocalPortDetails.Port, out int localPort, "AddPort"))
+        {
+            portData.IsConnected = false;
+            return;
+        }
 
-                var listener = new TcpListener(IPAddress.Any, localPort);
-                listener.Start();
+        var listener = new TcpListener(IPAddress.Any, localPort);
+        try
+        {
+            listener.Start();
+        }
+        catch (SocketException ex) when (ex.SocketErrorCode == SocketError.AddressAlreadyInUse)
+        {
+            LogHelper.LogToConsole($"{LogHelper.Tag("TCP Server", portData)} {Localization.Instance.GetText(LanguageKeys.Log_PortOccupied)}: {portData.LocalPortDetails.Port}", isError: true);
+            throw new InvalidOperationException($"{Localization.Instance.GetText(LanguageKeys.Log_PortOccupied)}: {portData.LocalPortDetails.Port}");
+        }
+        catch (Exception ex)
+        {
+            LogHelper.LogToConsole($"{LogHelper.Tag("TCP Server", portData)} {Localization.Instance.GetText(LanguageKeys.Log_StartFailed)}: {ex.Message}", isError: true);
+            throw new InvalidOperationException(ex.Message, ex);
+        }
 
-                var serverData = new TCPServerData
-                {
-                    portData = portData,
-                    tcpListener = listener,
-                    CancellationTokenSource = new CancellationTokenSource(),
-                };
+        var serverData = new TCPServerData
+        {
+            portData = portData,
+            tcpListener = listener,
+            CancellationTokenSource = new CancellationTokenSource(),
+        };
 
-                tcpServers[portData.ProtocolName] = serverData;
+        tcpServers[portData.Key] = serverData;
 
-                AcceptClientsAsync(serverData).Forget(ex =>
-                    LogHelper.LogToConsole($"{LogHelper.Tag("TCP Server", portData.ProtocolName)} {Localization.Instance.GetText(LanguageKeys.Log_AcceptClientsError)}: {ex}", isError: true));
-                ProcessPacketsAsync(serverData).Forget(ex =>
-                    LogHelper.LogToConsole($"{LogHelper.Tag("TCP Server", portData.ProtocolName)} {Localization.Instance.GetText(LanguageKeys.Log_ProcessPacketsError)}: {ex}", isError: true));
+        AcceptClientsAsync(serverData).Forget(ex =>
+            LogHelper.LogToConsole($"{LogHelper.Tag("TCP Server", portData)} {Localization.Instance.GetText(LanguageKeys.Log_AcceptClientsError)}: {ex}", isError: true));
+        ProcessPacketsAsync(serverData).Forget(ex =>
+            LogHelper.LogToConsole($"{LogHelper.Tag("TCP Server", portData)} {Localization.Instance.GetText(LanguageKeys.Log_ProcessPacketsError)}: {ex}", isError: true));
 
-                dispatcher.Enqueue(() =>
-                    SafeExecution.Safe(() => portData.OnUpdate?.Invoke(portData), "TcpServerConnector.OnUpdate"));
-            }
-            catch (SocketException ex) when (ex.SocketErrorCode == SocketError.AddressAlreadyInUse)
-            {
-                LogHelper.LogToConsole($"{LogHelper.Tag("TCP Server", portData.ProtocolName)} {Localization.Instance.GetText(LanguageKeys.Log_PortOccupied)}: {portData.LocalPortDetails.Port}", isError: true);
-            }
-            catch (Exception ex)
-            {
-                LogHelper.LogToConsole($"{LogHelper.Tag("TCP Server", portData.ProtocolName)} {Localization.Instance.GetText(LanguageKeys.Log_StartFailed)}: {ex.Message}", isError: true);
-            }
-        }, "TcpServerConnector.AddPort");
+        dispatcher.Enqueue(() =>
+            SafeExecution.Safe(() => portData.OnUpdate?.Invoke(portData), "TcpServerConnector.OnUpdate"));
     }
 
     public override async UniTask RemovePort(PortData portData)
     {
-        if (!tcpServers.TryGetValue(portData.ProtocolName, out var serverData))
+        if (!tcpServers.TryGetValue(portData.Key, out var serverData))
         {
-            LogHelper.LogToConsole($"{LogHelper.Tag("TCP Server", portData.ProtocolName)} {Localization.Instance.GetText(LanguageKeys.Log_NotFound)}");
+            LogHelper.LogToConsole($"{LogHelper.Tag("TCP Server", portData)} {Localization.Instance.GetText(LanguageKeys.Log_NotFound)}");
             return;
         }
 
@@ -120,16 +118,16 @@ public class TCPServerConnector : NetworkConnectorBase
 
             await UniTask.Delay(300);
             serverData.Dispose();
-            tcpServers.TryRemove(portData.ProtocolName, out _);
+            tcpServers.TryRemove(portData.Key, out _);
 
-            LogHelper.LogToConsole($"{LogHelper.Tag("TCP Server", portData.ProtocolName)} {Localization.Instance.GetText(LanguageKeys.Log_Removed)}");
+            LogHelper.LogToConsole($"{LogHelper.Tag("TCP Server", portData)} {Localization.Instance.GetText(LanguageKeys.Log_Removed)}");
 
             dispatcher.Enqueue(() =>
                 SafeExecution.Safe(() => portData.OnUpdate?.Invoke(portData), "TcpServerConnector.RemovePort.OnUpdate"));
         }
         catch (Exception ex)
         {
-            LogHelper.LogToConsole($"{LogHelper.Tag("TCP Server", portData.ProtocolName)} {Localization.Instance.GetText(LanguageKeys.Log_RestartFailed)}: {ex.Message}", isError: true);
+            LogHelper.LogToConsole($"{LogHelper.Tag("TCP Server", portData)} {Localization.Instance.GetText(LanguageKeys.Log_RestartFailed)}: {ex.Message}", isError: true);
         }
     }
 
@@ -142,7 +140,7 @@ public class TCPServerConnector : NetworkConnectorBase
 
     public override void Connect(PortData portData)
     {
-        if (tcpServers.TryGetValue(portData.ProtocolName, out var serverData))
+        if (tcpServers.TryGetValue(portData.Key, out var serverData))
         {
             try
             {
@@ -160,27 +158,27 @@ public class TCPServerConnector : NetworkConnectorBase
                 portData.IsConnected = false; // 等待 client 連入後由 AcceptClientsAsync 設為 true
 
                 AcceptClientsAsync(serverData).Forget(ex =>
-                    LogHelper.LogToConsole($"{LogHelper.Tag("TCP Server", portData.ProtocolName)} {Localization.Instance.GetText(LanguageKeys.Log_AcceptClientsError)}: {ex}", isError: true));
+                    LogHelper.LogToConsole($"{LogHelper.Tag("TCP Server", portData)} {Localization.Instance.GetText(LanguageKeys.Log_AcceptClientsError)}: {ex}", isError: true));
                 ProcessPacketsAsync(serverData).Forget(ex =>
-                    LogHelper.LogToConsole($"{LogHelper.Tag("TCP Server", portData.ProtocolName)} {Localization.Instance.GetText(LanguageKeys.Log_ProcessPacketsError)}: {ex}", isError: true));
+                    LogHelper.LogToConsole($"{LogHelper.Tag("TCP Server", portData)} {Localization.Instance.GetText(LanguageKeys.Log_ProcessPacketsError)}: {ex}", isError: true));
 
                 dispatcher.Enqueue(() =>
                     SafeExecution.Safe(() => portData.OnUpdate?.Invoke(portData), "TcpServerConnector.Connect.OnUpdate"));
             }
             catch (Exception ex)
             {
-                LogHelper.LogToConsole($"{LogHelper.Tag("TCP Server", portData.ProtocolName)} {Localization.Instance.GetText(LanguageKeys.Log_RestartFailed)}: {ex.Message}", isError: true);
+                LogHelper.LogToConsole($"{LogHelper.Tag("TCP Server", portData)} {Localization.Instance.GetText(LanguageKeys.Log_RestartFailed)}: {ex.Message}", isError: true);
             }
         }
         else
         {
-            LogHelper.LogToConsole($"{LogHelper.Tag("TCP Server", portData.ProtocolName)} {Localization.Instance.GetText(LanguageKeys.Log_NotFound)}", isError: true);
+            LogHelper.LogToConsole($"{LogHelper.Tag("TCP Server", portData)} {Localization.Instance.GetText(LanguageKeys.Log_NotFound)}", isError: true);
         }
     }
 
     public override async UniTask Disconnect(PortData portData)
     {
-        if (tcpServers.TryGetValue(portData.ProtocolName, out var serverData))
+        if (tcpServers.TryGetValue(portData.Key, out var serverData))
         {
             try
             {
@@ -198,7 +196,7 @@ public class TCPServerConnector : NetworkConnectorBase
             }
             catch (Exception ex)
             {
-                LogHelper.LogToConsole($"{LogHelper.Tag("TCP Server", portData.ProtocolName)} {Localization.Instance.GetText(LanguageKeys.Log_DisconnectFailed)}: {ex.Message}", isError: true);
+                LogHelper.LogToConsole($"{LogHelper.Tag("TCP Server", portData)} {Localization.Instance.GetText(LanguageKeys.Log_DisconnectFailed)}: {ex.Message}", isError: true);
             }
         }
     }
@@ -237,7 +235,7 @@ public class TCPServerConnector : NetworkConnectorBase
                 {
                     if (serverData.CurrentConnections >= MAX_CONNECTIONS_PER_SERVER)
                     {
-                        LogHelper.LogToConsole($"{LogHelper.Tag("TCP Server", serverData.portData.ProtocolName)} {Localization.Instance.GetText(LanguageKeys.Log_MaxConnections)} ({MAX_CONNECTIONS_PER_SERVER})", isError: true);
+                        LogHelper.LogToConsole($"{LogHelper.Tag("TCP Server", serverData.portData)} {Localization.Instance.GetText(LanguageKeys.Log_MaxConnections)} ({MAX_CONNECTIONS_PER_SERVER})", isError: true);
                         client?.Close();
                         continue;
                     }
@@ -259,7 +257,7 @@ public class TCPServerConnector : NetworkConnectorBase
                     });
 
                     ReceiveClientAsync(client, serverData).Forget(ex =>
-                        LogHelper.LogToConsole($"{LogHelper.Tag("TCP Server", serverData.portData.ProtocolName)} {Localization.Instance.GetText(LanguageKeys.Log_ReceiveClientError)}: {ex}", isError: true));
+                        LogHelper.LogToConsole($"{LogHelper.Tag("TCP Server", serverData.portData)} {Localization.Instance.GetText(LanguageKeys.Log_ReceiveClientError)}: {ex}", isError: true));
                 }
             }
         }
@@ -321,30 +319,29 @@ public class TCPServerConnector : NetworkConnectorBase
     private async UniTask NotifyAsync(string status, PortData sourcePortData)
     {
         await UniTask.SwitchToThreadPool();
-        try
+
+        string notifyMessage = $"{status}:{sourcePortData.ProtocolName}";
+        byte[] notifyBytes = Encoding.UTF8.GetBytes(notifyMessage + "\n");
+
+        var targets = NetworkMessageRouter.Instance.GetTargetClients(sourcePortData.Id, sourcePortData.ProtocolName);
+        foreach (var target in targets)
         {
-            string notifyMessage = $"{status}:{sourcePortData.ProtocolName}";
-            byte[] notifyBytes = Encoding.UTF8.GetBytes(notifyMessage + "\n");
-
-            string forwardTargetProtocol = sourcePortData.ProtocolName;
-            var targetClient = NetworkMessageRouter.Instance.GetTcpClient(forwardTargetProtocol);
-
-            if (targetClient?.tcpClient?.Connected == true)
+            try
             {
-                var stream = targetClient.tcpClient.GetStream();
+                if (target?.tcpClient?.Connected != true) continue;
+                var stream = target.tcpClient.GetStream();
                 using var cts = new CancellationTokenSource(1000);
                 await stream.WriteAsync(notifyBytes, 0, notifyBytes.Length, cts.Token);
-
-                LogHelper.LogToMonitor($"[Router] {Localization.Instance.GetText(LanguageKeys.Log_NotifyTarget)} [{forwardTargetProtocol}]: [{sourcePortData.ProtocolName}] {status}");
+                LogHelper.LogToMonitor($"[Router] {Localization.Instance.GetText(LanguageKeys.Log_NotifyTarget)} [{target.portData?.ProtocolName}]: [{sourcePortData.ProtocolName}] {status}");
             }
-        }
-        catch (OperationCanceledException)
-        {
-            // 超時，靜默處理
-        }
-        catch (Exception ex)
-        {
-            LogHelper.LogToConsole($"[Router] {Localization.Instance.GetText(LanguageKeys.Log_NotifyFailed)} [{sourcePortData.ProtocolName}] {status}: {ex.Message}", isError: true);
+            catch (OperationCanceledException)
+            {
+                // 超時，靜默處理
+            }
+            catch (Exception ex)
+            {
+                LogHelper.LogToConsole($"[Router] {Localization.Instance.GetText(LanguageKeys.Log_NotifyFailed)} [{sourcePortData.ProtocolName}] {status}: {ex.Message}", isError: true);
+            }
         }
     }
 
@@ -371,19 +368,19 @@ public class TCPServerConnector : NetworkConnectorBase
                 catch (Exception)
                 {
                     receivedData = Encoding.GetEncoding("UTF-8", EncoderFallback.ReplacementFallback, DecoderFallback.ReplacementFallback).GetString(packet);
-                    LogHelper.LogToConsole($"{LogHelper.Tag("TCP Server", serverData.portData.ProtocolName)} {Localization.Instance.GetText(LanguageKeys.Log_InvalidUTF8)}", isError: true);
+                    LogHelper.LogToConsole($"{LogHelper.Tag("TCP Server", serverData.portData)} {Localization.Instance.GetText(LanguageKeys.Log_InvalidUTF8)}", isError: true);
                 }
 
                 if (receivedData.Length > MAX_BUFFER_SIZE)
                 {
-                    LogHelper.LogToConsole($"{LogHelper.Tag("TCP Server", serverData.portData.ProtocolName)} {Localization.Instance.GetText(LanguageKeys.Log_PacketDropped)} ({MAX_BUFFER_SIZE} bytes)", isError: true);
+                    LogHelper.LogToConsole($"{LogHelper.Tag("TCP Server", serverData.portData)} {Localization.Instance.GetText(LanguageKeys.Log_PacketDropped)} ({MAX_BUFFER_SIZE} bytes)", isError: true);
                     dataBuffer.Clear();
                     continue;
                 }
 
                 if (dataBuffer.Length + receivedData.Length > MAX_BUFFER_SIZE)
                 {
-                    LogHelper.LogToConsole($"{LogHelper.Tag("TCP Server", serverData.portData.ProtocolName)} {Localization.Instance.GetText(LanguageKeys.Log_BufferOverflow)} ({MAX_BUFFER_SIZE} bytes)", isError: true);
+                    LogHelper.LogToConsole($"{LogHelper.Tag("TCP Server", serverData.portData)} {Localization.Instance.GetText(LanguageKeys.Log_BufferOverflow)} ({MAX_BUFFER_SIZE} bytes)", isError: true);
                     dataBuffer.Clear();
                 }
 
@@ -419,7 +416,7 @@ public class TCPServerConnector : NetworkConnectorBase
 
     public TCPServerData GetServerData(PortData portData)
     {
-        return tcpServers.TryGetValue(portData.ProtocolName, out var serverData) ? serverData : null;
+        return tcpServers.TryGetValue(portData.Key, out var serverData) ? serverData : null;
     }
 
     public override async UniTask ShutdownAsync()

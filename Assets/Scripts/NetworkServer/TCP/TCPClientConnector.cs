@@ -78,7 +78,7 @@ public class TCPClientConnector : NetworkConnectorBase
         }
         else
         {
-            LogHelper.LogToConsole($"{LogHelper.Tag("TCP Client", portData.ProtocolName)} {Localization.Instance.GetText(LanguageKeys.Log_NotFound)}", isError: true);
+            LogHelper.LogToConsole($"{LogHelper.Tag("TCP Client", portData)} {Localization.Instance.GetText(LanguageKeys.Log_NotFound)}", isError: true);
         }
     }
 
@@ -100,7 +100,7 @@ public class TCPClientConnector : NetworkConnectorBase
             clientData.Dispose();
             portData.IsConnected = false;
             NetworkMessageRouter.Instance.UnregisterTcpClient(portData.Key);
-            LogHelper.LogToConsole($"{LogHelper.Tag("TCP Client", portData.ProtocolName)} {Localization.Instance.GetText(LanguageKeys.Log_Removed)}");
+            LogHelper.LogToConsole($"{LogHelper.Tag("TCP Client", portData)} {Localization.Instance.GetText(LanguageKeys.Log_Removed)}");
         }
         return UniTask.CompletedTask;
     }
@@ -109,7 +109,7 @@ public class TCPClientConnector : NetworkConnectorBase
     {
         if (tcpClientDatas.TryGetValue(portData.Key, out var clientData))
         {
-            LogHelper.LogToConsole($"{LogHelper.Tag("TCP Client", portData.ProtocolName)} {Localization.Instance.GetText(LanguageKeys.Log_Restarting)}");
+            LogHelper.LogToConsole($"{LogHelper.Tag("TCP Client", portData)} {Localization.Instance.GetText(LanguageKeys.Log_Restarting)}");
             await Disconnect(portData);
             await ConnectWithRetryAsync(clientData, isFirstConnect: true);
         }
@@ -117,7 +117,7 @@ public class TCPClientConnector : NetworkConnectorBase
 
     public TCPClientData GetClientData(PortData portData)
     {
-        return tcpClientDatas.TryGetValue(portData.ProtocolName, out var clientData) ? clientData : null;
+        return tcpClientDatas.TryGetValue(portData.Key, out var clientData) ? clientData : null;
     }
 
     public override async UniTask ShutdownAsync()
@@ -168,7 +168,7 @@ public class TCPClientConnector : NetworkConnectorBase
                 if (!TryParsePort(portData.RemotePortDetails.Port, out int remotePort, "ConnectWithRetry"))
                 {
                     portData.IsConnected = false;
-                    LogHelper.LogToConsole($"{LogHelper.Tag("TCP Client", portData.ProtocolName)} {Localization.Instance.GetText(LanguageKeys.Log_InvalidPort)}", isError: true);
+                    LogHelper.LogToConsole($"{LogHelper.Tag("TCP Client", portData)} {Localization.Instance.GetText(LanguageKeys.Log_InvalidPort)}", isError: true);
                     return;
                 }
 
@@ -199,7 +199,7 @@ public class TCPClientConnector : NetworkConnectorBase
                         throw new Exception("TCP Stream 不可寫入，視為連線失敗");
 
                     portData.IsConnected = true;
-                    LogHelper.LogToConsole($"{LogHelper.Tag("TCP Client", portData.ProtocolName)} {Localization.Instance.GetText(LanguageKeys.Log_Connected)} → {portData.TargetIP}:{portData.RemotePortDetails.Port}");
+                    LogHelper.LogToConsole($"{LogHelper.Tag("TCP Client", portData)} {Localization.Instance.GetText(LanguageKeys.Log_Connected)} → {portData.TargetIP}:{portData.RemotePortDetails.Port}");
                     dispatcher.Enqueue(() => portData.OnUpdate?.Invoke(portData));
                     OnReconnectSuccess?.Invoke(portData);
                     clientData.HeartbeatTask = StartHeartbeatAsync(clientData).AsTask();
@@ -231,7 +231,7 @@ public class TCPClientConnector : NetworkConnectorBase
             await Task.Delay(cfg.InitialDelayMs, token);
         }
 
-        LogHelper.LogToConsole($"{LogHelper.Tag("TCP Client", portData.ProtocolName)} {Localization.Instance.GetText(LanguageKeys.Log_MaxRetry)} ({maxRetry})", isError: true);
+        LogHelper.LogToConsole($"{LogHelper.Tag("TCP Client", portData)} {Localization.Instance.GetText(LanguageKeys.Log_MaxRetry)} ({maxRetry})", isError: true);
         OnReconnectFailed?.Invoke(portData);
     }
 
@@ -250,7 +250,7 @@ public class TCPClientConnector : NetworkConnectorBase
 
                 if (IsSocketDisconnected(clientData.tcpClient))
                 {
-                    LogHelper.LogToConsole($"{LogHelper.Tag("TCP Client", portData.ProtocolName)} {Localization.Instance.GetText(LanguageKeys.Log_HeartbeatLost)}");
+                    LogHelper.LogToConsole($"{LogHelper.Tag("TCP Client", portData)} {Localization.Instance.GetText(LanguageKeys.Log_HeartbeatLost)}");
                     portData.IsConnected = false;
                     dispatcher.Enqueue(() => portData.OnUpdate?.Invoke(portData));
                     ConnectWithRetryAsync(clientData, isFirstConnect: false).Forget();
@@ -275,7 +275,7 @@ public class TCPClientConnector : NetworkConnectorBase
                 }
                 catch (Exception ex)
                 {
-                    LogHelper.LogToConsole($"{LogHelper.Tag("TCP Client", portData.ProtocolName)} {Localization.Instance.GetText(LanguageKeys.Log_HeartbeatFailed)}: {ex.Message}", isError: true);
+                    LogHelper.LogToConsole($"{LogHelper.Tag("TCP Client", portData)} {Localization.Instance.GetText(LanguageKeys.Log_HeartbeatFailed)}: {ex.Message}", isError: true);
                     portData.IsConnected = false;
                     ConnectWithRetryAsync(clientData, isFirstConnect: false).Forget();
                     break;
@@ -288,7 +288,7 @@ public class TCPClientConnector : NetworkConnectorBase
         }
         catch (Exception ex)
         {
-            LogHelper.LogToConsole($"{LogHelper.Tag("TCP Client", portData.ProtocolName)} {Localization.Instance.GetText(LanguageKeys.Log_HeartbeatFailed)}: {ex.Message}", isError: true);
+            LogHelper.LogToConsole($"{LogHelper.Tag("TCP Client", portData)} {Localization.Instance.GetText(LanguageKeys.Log_HeartbeatFailed)}: {ex.Message}", isError: true);
         }
     }
 

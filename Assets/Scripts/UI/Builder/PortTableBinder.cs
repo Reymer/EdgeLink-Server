@@ -23,6 +23,7 @@ public class PortTableBinder
             table.OnConnect += handler.OnConnect;
             table.OnDisconnectedt += handler.OnDisconnectedPort;
             table.OnMask += handler.OnMaskType;
+            table.OnEdit += handler.OnEdit;
             table.OnMonitor += (pd) =>
             {
                 monitor.SetStatus(UIKey.Monitor_Monitor, true);

@@ -68,5 +68,8 @@ namespace iotserver {
         public static readonly string Log_AcceptClientsError    = "Log_AcceptClientsError";
         public static readonly string Log_ProcessPacketsError   = "Log_ProcessPacketsError";
         public static readonly string Log_ReceiveClientError    = "Log_ReceiveClientError";
+
+        public static readonly string UI_SourceNone = "UI_SourceNone";
+        public static readonly string UI_Source = "UI_Source";
     }
 }

@@ -5,4 +5,5 @@ public interface IPortTableHandler
     void OnDisconnectedPort(PortData portData);
     void OnMaskType(PortData portData);
     void OnMonitorConsole(PortData portData);
+    void OnEdit(PortData portData);
 }

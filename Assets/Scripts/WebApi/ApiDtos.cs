@@ -10,6 +10,7 @@ public class PortListResponse
 [Serializable]
 public class PortDto
 {
+    public string id;
     public string protocolName;
     public string netProtocol;
     public string maskType;
@@ -17,6 +18,8 @@ public class PortDto
     public string remotePort;
     public string targetIp;
     public bool isConnected;
+    public string sourceProtocolName;
+    public string sourceProtocolId;
 }
 
 [Serializable]
@@ -52,15 +55,6 @@ public class AddMaskReq
 }
 
 [Serializable]
-public class BinaryFieldRuleDto
-{
-    public string name;
-    public int offset;
-    public int length;
-    public string dataType;
-}
-
-[Serializable]
 public class LogListResponse
 {
     public int total;
@@ -76,6 +70,8 @@ public class AddPortReq
     public string remotePort;
     public string targetIp;
     public string maskType;
+    public string sourceProtocolName;
+    public string sourceProtocolId;
 }
 
 [Serializable]
@@ -114,10 +110,8 @@ public class MaskDefinitionDto
     public string maskId;
     public string localizationKey;
     public string description;
-    public string inputEncoding;
     public string fieldDelimiter;
     public string kvSeparator;
-    public List<BinaryFieldRuleDto> binaryFields = new();
     public string outputTemplate;
     public string sampleData;
 }

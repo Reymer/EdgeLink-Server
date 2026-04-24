@@ -16,13 +16,16 @@ public class PortApiHandler
             var list = NetworkPortManager.Instance.GetAllPortDatas()
                 .Select(p => new PortDto
                 {
+                    id = p.Id ?? "",
                     protocolName = p.ProtocolName,
                     netProtocol = p.NetProtocol,
                     maskType = p.MaskType ?? "",
                     localPort = p.LocalPortDetails?.Port ?? "",
                     remotePort = p.RemotePortDetails?.Port ?? "",
                     targetIp = p.TargetIP ?? "",
-                    isConnected = p.IsConnected
+                    isConnected = p.IsConnected,
+                    sourceProtocolName = p.SourceProtocolName ?? "",
+                    sourceProtocolId = p.SourceProtocolId ?? ""
                 })
                 .ToList();
 
@@ -52,6 +55,15 @@ public class PortApiHandler
         {
             await MainThreadTaskDispatcher.RunOnMainThread(() =>
             {
+                string srcId = req.sourceProtocolId ?? "";
+                string srcName = req.sourceProtocolName ?? "";
+                if (!string.IsNullOrEmpty(srcId) && string.IsNullOrEmpty(srcName))
+                {
+                    var srcPort = NetworkPortManager.Instance.GetAllPortDatas()
+                        .FirstOrDefault(p => p.Id == srcId);
+                    if (srcPort != null) srcName = srcPort.ProtocolName;
+                }
+
                 var portData = new PortData
                 {
                     ProtocolName = req.protocolName,
@@ -60,14 +72,15 @@ public class PortApiHandler
                     RemotePortDetails = new PortDetails { Port = string.IsNullOrEmpty(req.remotePort) ? "--" : req.remotePort },
                     TargetIP = req.targetIp ?? "",
                     MaskType = string.IsNullOrEmpty(req.maskType) ? "OriginalData" : req.maskType,
+                    SourceProtocolName = srcName,
+                    SourceProtocolId = srcId,
                     IsConnected = false,
                 };
 
                 if (!NetworkPortManager.Instance.IsPortUnique(portData))
                     throw new InvalidOperationException("Port already exists (same protocol + port number)");
 
-                var added = NetworkPortManager.Instance.AddPortData(portData);
-                NetworkPortManager.Instance.ConnectPort(added);
+                NetworkPortManager.Instance.AddPortData(portData);
             });
 
             HttpApiServer.WriteJson(ctx, 201, JsonUtility.ToJson(new ApiResult { success = true }));

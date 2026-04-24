@@ -164,12 +164,6 @@
     .ftag { background: #fef9c3; border: 1px solid #fde047; border-radius: 4px; padding: 2px 8px; font-size: 11px; font-family: Consolas, 'Cascadia Code', 'SF Mono', Monaco, monospace; color: #713f12; }
     .fhint { font-size: 12px; color: var(--text-3); }
 
-    /* ── Binary table ────────────────────────────────────── */
-    .btable { width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 8px; }
-    .btable th { background: var(--bg); padding: 6px 8px; font-weight: 600; color: var(--text-2); border-bottom: 1px solid var(--border); text-align: left; font-size: 10px; text-transform: uppercase; letter-spacing: .05em; }
-    .btable td { padding: 4px 5px; border-bottom: 1px solid var(--border); }
-    .btable tr:last-child td { border-bottom: none; }
-    .btable input, .btable select { padding: 4px 6px; font-size: 12px; }
 
     /* ── Chips ───────────────────────────────────────────── */
     .chips { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 10px; }
@@ -341,21 +335,16 @@
       </div>
       <div class="card-bd">
 
-        <div class="tabs">
-          <button class="tab on" id="tab-text"   onclick="switchMode('text')"   data-i18n="textMode"></button>
-          <button class="tab"   id="tab-bin"     onclick="switchMode('binary')" data-i18n="binaryMode"></button>
-        </div>
-
         <div class="steps">
 
           <!-- ① 範例輸入 -->
           <div class="step">
             <div class="step-hd">
               <div class="step-n">1</div>
-              <div class="step-t" id="s1t"></div>
+              <div class="step-t" data-i18n="pasteData"></div>
             </div>
 
-            <div id="s1-text">
+            <div>
               <div class="sample-row">
                 <textarea id="sample" placeholder="e.g. ID:2;TEMP:36.5;HUM:80" oninput="reparse()"></textarea>
                 <button class="btn btn-ghost btn-sm" onclick="autoDetect()" style="white-space:nowrap;align-self:flex-start" data-i18n="autoDetect"></button>
@@ -371,17 +360,6 @@
                 </div>
               </div>
               <div class="fields-row" id="fields"></div>
-            </div>
-
-            <div id="s1-bin" style="display:none">
-              <table class="btable">
-                <thead><tr>
-                  <th data-i18n="fieldName"></th>
-                  <th>Offset</th><th>Length</th><th data-i18n="type"></th><th></th>
-                </tr></thead>
-                <tbody id="bin-body"></tbody>
-              </table>
-              <button class="btn btn-ghost btn-sm" onclick="addBinRow()" data-i18n="addField"></button>
             </div>
           </div>
 
@@ -443,6 +421,7 @@
             <option value="TCP Client">TCP Client</option>
           </select>
           <input id="ap-local"      type="text"    data-i18n-ph="apLocalPort">
+          <select id="ap-source" style="display:none"></select>
           <input id="ap-remote"     type="text"    data-i18n-ph="apRemotePort">
           <input id="ap-ip"         type="text"    data-i18n-ph="apTargetIp" style="display:none">
           <select id="ap-mask">
@@ -462,6 +441,7 @@
             <th data-i18n="colName"></th>
             <th data-i18n="colProtocol"></th>
             <th data-i18n="colLocalPort"></th>
+            <th data-i18n="colRemotePort"></th>
             <th data-i18n="colTarget"></th>
             <th data-i18n="colStatus"></th>
             <th data-i18n="colMask"></th>
@@ -469,7 +449,7 @@
           </tr>
         </thead>
         <tbody id="port-body">
-          <tr><td colspan="7"><div class="empty-state" style="padding:24px"><p data-i18n="loading"></p></div></td></tr>
+          <tr><td colspan="8"><div class="empty-state" style="padding:24px"><p data-i18n="loading"></p></div></td></tr>
         </tbody>
       </table>
 
@@ -514,7 +494,7 @@
 
 <script>
 const BASE = 'http://localhost:8181';
-let masks = [], curId = null, curDef = null, mode = 'text', binIdx = 0;
+let masks = [], curId = null, curDef = null, portList = [];
 let activeMon = null, monitorCursor = 0, autoScroll = true, logFilter = '';
 
 // ── i18n ──────────────────────────────────────────────
@@ -532,9 +512,7 @@ const LANGS = {
     exportSdk:       '匯出 SDK JSON',
     saveDef:         '儲存定義',
     textMode:        '文字模式',
-    binaryMode:      '二進位模式',
     pasteData:       '貼上韌體範例資料',
-    defBinary:       '定義二進位欄位結構',
     autoDetect:      '自動偵測',
     fieldDelim:      '欄位分隔符',
     kvDelim:         'KV 分隔符',
@@ -550,7 +528,8 @@ const LANGS = {
     colName:         '名稱',
     colProtocol:     '協議',
     colLocalPort:    '本地端口',
-    colTarget:       '目標',
+    colRemotePort:   '遠端端口',
+    colTarget:       '目標 IP',
     colStatus:       '狀態',
     colMask:         '遮罩',
     loading:         '載入中…',
@@ -569,7 +548,6 @@ const LANGS = {
     items:           '個',
     waitInput:       '（等待輸入）',
     rawPassthru:     '（raw 直通）',
-    binaryTest:      '（二進位模式請在實際裝置測試）',
     noFieldParsed:   '未解析到欄位，請確認分隔符',
     placeholderWarn: '⚠ 佔位符 {p} 無對應欄位 → 實際輸出為空字串',
     confirmDelete:   '確定刪除遮罩「{id}」？',
@@ -597,6 +575,8 @@ const LANGS = {
     apLocalPort:     '本地端口',
     apRemotePort:    '遠端端口',
     apTargetIp:      '目標 IP',
+    apSource:        '資料來源',
+    apSourceNone:    '（不指定）',
     apLocalPortUdp:  '本地端口（轉發目標端口）',
     apRemotePortUdp: '接收端口',
     apTargetIpUdp:   '目標 IP（選填；空=廣播）',
@@ -605,6 +585,7 @@ const LANGS = {
     confirmDeletePort: '確定刪除 Port「{name}」？',
     errAddPort:      '新增失敗：',
     errDeletePort:   '刪除失敗：',
+    maskOriginalData:'原始資料',
   },
   'en-US': {
     maskMgmt:        'Mask Manager',
@@ -619,9 +600,7 @@ const LANGS = {
     exportSdk:       'Export SDK JSON',
     saveDef:         'Save',
     textMode:        'Text',
-    binaryMode:      'Binary',
     pasteData:       'Paste firmware sample data',
-    defBinary:       'Define binary field structure',
     autoDetect:      'Auto Detect',
     fieldDelim:      'Field delimiter',
     kvDelim:         'KV separator',
@@ -637,7 +616,8 @@ const LANGS = {
     colName:         'Name',
     colProtocol:     'Protocol',
     colLocalPort:    'Local Port',
-    colTarget:       'Target',
+    colRemotePort:   'Remote Port',
+    colTarget:       'Target IP',
     colStatus:       'Status',
     colMask:         'Mask',
     loading:         'Loading…',
@@ -656,7 +636,6 @@ const LANGS = {
     items:           '',
     waitInput:       '(waiting for input)',
     rawPassthru:     '(raw passthrough)',
-    binaryTest:      '(binary mode: test on device)',
     noFieldParsed:   'No fields parsed, check delimiters',
     placeholderWarn: '⚠ Placeholder {p} has no matching field → outputs empty string',
     confirmDelete:   'Delete mask "{id}"?',
@@ -684,6 +663,8 @@ const LANGS = {
     apLocalPort:     'Local Port',
     apRemotePort:    'Remote Port',
     apTargetIp:      'Target IP',
+    apSource:        'Data Source',
+    apSourceNone:    '(none)',
     apLocalPortUdp:  'Local Port (forward dest)',
     apRemotePortUdp: 'Listen Port',
     apTargetIpUdp:   'Target IP (opt; empty=broadcast)',
@@ -692,6 +673,7 @@ const LANGS = {
     confirmDeletePort: 'Delete port "{name}"?',
     errAddPort:      'Add failed: ',
     errDeletePort:   'Delete failed: ',
+    maskOriginalData:'Original Data',
   },
   'ja-JP': {
     maskMgmt:        'マスク管理',
@@ -706,9 +688,7 @@ const LANGS = {
     exportSdk:       'SDK JSON エクスポート',
     saveDef:         '定義を保存',
     textMode:        'テキスト',
-    binaryMode:      'バイナリ',
     pasteData:       'ファームウェアサンプルを貼り付け',
-    defBinary:       'バイナリフィールド構造を定義',
     autoDetect:      '自動検出',
     fieldDelim:      'フィールド区切り文字',
     kvDelim:         'KV 区切り文字',
@@ -724,7 +704,8 @@ const LANGS = {
     colName:         '名前',
     colProtocol:     'プロトコル',
     colLocalPort:    'ローカルポート',
-    colTarget:       'ターゲット',
+    colRemotePort:   'リモートポート',
+    colTarget:       'ターゲット IP',
     colStatus:       '状態',
     colMask:         'マスク',
     loading:         '読み込み中…',
@@ -743,7 +724,6 @@ const LANGS = {
     items:           '個',
     waitInput:       '（入力待ち）',
     rawPassthru:     '（rawパススルー）',
-    binaryTest:      '（バイナリ：実機でテスト）',
     noFieldParsed:   'フィールドが解析できません、区切り文字を確認してください',
     placeholderWarn: '⚠ プレースホルダー {p} に対応フィールドなし → 空文字列を出力',
     confirmDelete:   'マスク「{id}」を削除しますか？',
@@ -771,6 +751,8 @@ const LANGS = {
     apLocalPort:     'ローカルポート',
     apRemotePort:    'リモートポート',
     apTargetIp:      'ターゲット IP',
+    apSource:        'データソース',
+    apSourceNone:    '（指定なし）',
     apLocalPortUdp:  'ローカルポート（転送先）',
     apRemotePortUdp: '受信ポート',
     apTargetIpUdp:   'ターゲット IP（任意；空=ブロードキャスト）',
@@ -779,11 +761,18 @@ const LANGS = {
     confirmDeletePort: 'ポート「{name}」を削除しますか？',
     errAddPort:      '追加失敗: ',
     errDeletePort:   '削除失敗: ',
+    maskOriginalData:'元データ',
   }
 };
 
 let lang = localStorage.getItem('lang') || 'zh-TW';
 function t(k) { return (LANGS[lang] || LANGS['zh-TW'])[k] || k; }
+function maskLabel(id) {
+  if (!id) return t('maskOriginalData');
+  const norm = id.trim().toLowerCase();
+  if (norm === 'originaldata' || norm === 'original data') return t('maskOriginalData');
+  return id;
+}
 
 function applyI18n() {
   document.querySelectorAll('[data-i18n]').forEach(el => {
@@ -798,9 +787,7 @@ function applyI18n() {
   const slBtn = document.getElementById('scroll-lock-btn');
   if (slBtn) slBtn.title = autoScroll ? t('scrollLockOn') : t('scrollLockOff');
   // update dynamic elements
-  document.getElementById('s1t').textContent =
-    mode === 'text' ? t('pasteData') : t('defBinary');
-  const prevIn = document.getElementById('prev-in');
+const prevIn = document.getElementById('prev-in');
   if (prevIn.classList.contains('muted')) prevIn.textContent = t('waitInput');
   const statusTxt = document.getElementById('status-txt');
   if (statusTxt.dataset.state === 'connecting') statusTxt.textContent = t('connecting');
@@ -883,8 +870,8 @@ function renderMasks() {
   el.innerHTML = masks.map(m => {
     const def = m === 'OriginalData';
     return `<div class="mask-item${m === curId ? ' sel' : ''}" onclick="openDef('${esc(m)}')">
-      <div class="m-avatar${def ? ' def' : ''}">${esc(m[0].toUpperCase())}</div>
-      <span class="m-name" title="${esc(m)}">${esc(m)}</span>
+      <div class="m-avatar${def ? ' def' : ''}">${esc(maskLabel(m)[0].toUpperCase())}</div>
+      <span class="m-name" title="${esc(m)}">${esc(maskLabel(m))}</span>
       ${def
         ? `<span class="m-badge">${t('defaultBadge')}</span>`
         : `<button class="btn btn-del" title="${t('delete')}" onclick="event.stopPropagation();delMask('${esc(m)}')">
@@ -897,6 +884,13 @@ function renderMasks() {
 }
 
 async function openDef(id) {
+  if (curId === id) {
+    curId = null;
+    renderMasks();
+    document.getElementById('def-panel').style.display = 'none';
+    document.getElementById('def-empty').style.display = '';
+    return;
+  }
   curId = id;
   renderMasks();
   document.getElementById('def-empty').style.display = 'none';
@@ -933,20 +927,7 @@ function fillForm(d) {
   document.getElementById('kv').value       = d.kvSeparator    || ':';
   document.getElementById('tmpl').value     = d.outputTemplate || '{raw}';
   document.getElementById('sample').value   = d.sampleData     || '';
-  switchMode(d.inputEncoding === 'binary' ? 'binary' : 'text');
-  renderBinRows(d.binaryFields || []);
   reparse();
-}
-
-// ── Mode ───────────────────────────────────────────────
-function switchMode(m) {
-  mode = m;
-  document.getElementById('tab-text').classList.toggle('on', m === 'text');
-  document.getElementById('tab-bin').classList.toggle('on', m === 'binary');
-  document.getElementById('s1-text').style.display = m === 'text' ? '' : 'none';
-  document.getElementById('s1-bin').style.display  = m === 'binary' ? '' : 'none';
-  document.getElementById('s1t').textContent = m === 'text' ? t('pasteData') : t('defBinary');
-  updateChips(); updatePreview();
 }
 
 // ── Auto-detect ────────────────────────────────────────
@@ -999,9 +980,7 @@ function parseText(s) {
 
 function updateChips(names) {
   if (!names)
-    names = mode === 'binary'
-      ? collectBin().map(f => f.name).filter(Boolean)
-      : Object.keys(parseText(document.getElementById('sample')?.value.trim() || ''));
+    names = Object.keys(parseText(document.getElementById('sample')?.value.trim() || ''));
   document.getElementById('chips').innerHTML =
     `<span class="chip raw" onclick="insertChip('{raw}')">{raw}</span>` +
     names.map(n => `<span class="chip" onclick="insertChip('{${esc(n)}}')">{${esc(n)}}</span>`).join('');
@@ -1023,10 +1002,6 @@ function updatePreview(raw, fields) {
     out.textContent = s || t('rawPassthru');
     out.className = s ? 'pbox' : 'pbox muted'; return;
   }
-  if (mode === 'binary') {
-    out.textContent = t('binaryTest');
-    out.className = 'pbox muted'; return;
-  }
   const f = fields ?? parseText(s);
   let res = tmpl;
   for (const [k,v] of Object.entries(f)) res = res.split(`{${k}}`).join(v);
@@ -1039,47 +1014,6 @@ function updatePreview(raw, fields) {
   }
 }
 
-// ── Binary rows ────────────────────────────────────────
-function renderBinRows(fs) {
-  binIdx = 0;
-  document.getElementById('bin-body').innerHTML = (fs||[]).map(f => binRow(binIdx++, f)).join('');
-  updateChips();
-}
-
-function binRow(i, f) {
-  const ts = ['uint8','uint16_le','uint16_be','int32_le','float_le','hex'];
-  return `<tr id="br-${i}">
-    <td><input value="${esc(f.name||'')}" id="bn-${i}" oninput="updateChips()"></td>
-    <td><input type="number" value="${f.offset||0}" id="bo-${i}" min="0" style="width:60px"></td>
-    <td><input type="number" value="${f.length||1}" id="bl-${i}" min="1" style="width:60px"></td>
-    <td><select id="bt-${i}">${ts.map(tp=>`<option ${tp===f.dataType?'selected':''}>${tp}</option>`).join('')}</select></td>
-    <td><button class="btn btn-del" onclick="rmBinRow(${i})">
-      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-        <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-      </svg>
-    </button></td>
-  </tr>`;
-}
-
-function addBinRow() {
-  const i = binIdx++;
-  document.getElementById('bin-body').insertAdjacentHTML('beforeend',
-    binRow(i, { name:'', offset:0, length:1, dataType:'uint8' }));
-}
-
-function rmBinRow(i) { document.getElementById(`br-${i}`)?.remove(); updateChips(); }
-
-function collectBin() {
-  return Array.from(document.getElementById('bin-body').querySelectorAll('tr'))
-    .map(r => {
-      const i = r.id.replace('br-','');
-      return { name: document.getElementById(`bn-${i}`)?.value.trim()||'',
-               offset: +document.getElementById(`bo-${i}`)?.value||0,
-               length: +document.getElementById(`bl-${i}`)?.value||1,
-               dataType: document.getElementById(`bt-${i}`)?.value||'uint8' };
-    }).filter(f => f.name);
-}
-
 // ── Export SDK JSON ────────────────────────────────────
 function exportDefinition() {
   if (!curId) return;
@@ -1087,10 +1021,9 @@ function exportDefinition() {
     maskId:          curId,
     localizationKey: curDef?.localizationKey || curId,
     description:     document.getElementById('def-desc').value.trim(),
-    inputEncoding:   mode,
+    inputEncoding:   'text',
     fieldDelimiter:  document.getElementById('fd').value || ';',
     kvSeparator:     document.getElementById('kv').value || ':',
-    binaryFields:    mode === 'binary' ? collectBin() : [],
     outputTemplate:  document.getElementById('tmpl').value.trim() || '{raw}',
     sampleData:      document.getElementById('sample').value || ''
   };
@@ -1109,10 +1042,9 @@ async function saveDefinition() {
   const def = {
     maskId: curId, localizationKey: curDef?.localizationKey || curId,
     description:    document.getElementById('def-desc').value.trim(),
-    inputEncoding:  mode,
+    inputEncoding:  'text',
     fieldDelimiter: document.getElementById('fd').value || ';',
     kvSeparator:    document.getElementById('kv').value || ':',
-    binaryFields:   mode === 'binary' ? collectBin() : [],
     outputTemplate: document.getElementById('tmpl').value.trim() || '{raw}',
     sampleData:     document.getElementById('sample').value || ''
   };
@@ -1183,15 +1115,18 @@ async function loadPorts() {
   const r = await fetch(`${BASE}/api/ports`);
   if (!r.ok) throw 0;
   const ports = (await r.json()).ports || [];
+  portList = ports;
   const tb = document.getElementById('port-body');
   if (!ports.length) {
-    tb.innerHTML = `<tr><td colspan="7"><div class="empty-state" style="padding:24px"><p>${t('noPort')}</p></div></td></tr>`;
+    tb.innerHTML = `<tr><td colspan="8"><div class="empty-state" style="padding:24px"><p>${t('noPort')}</p></div></td></tr>`;
     return;
   }
   const sq = s => (s||'').replace(/\\/g,'\\\\').replace(/'/g,"\\'");
   tb.innerHTML = ports.map(p => {
     const pc = p.netProtocol === 'TCP Server' ? 'proto-server' : p.netProtocol === 'UDP' ? 'proto-udp' : 'proto-client';
-    const maskCell = `<span class="mask-tag">${esc(p.maskType || 'OriginalData')}</span>`;
+    const srcLabel = p.netProtocol === 'TCP Client' && p.sourceProtocolName
+      ? `<br><small style="color:var(--text-3);font-size:10px">← ${esc(p.sourceProtocolName)}</small>` : '';
+    const maskCell = `<span class="mask-tag">${esc(maskLabel(p.maskType))}</span>`;
     const monKey = `${p.protocolName}||${p.netProtocol}||${p.localPort}||${p.remotePort}`;
     const isActive = activeMon === monKey;
     const monBtn = `<button
@@ -1209,11 +1144,14 @@ async function loadPorts() {
         <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
       </svg>
     </button>`;
+    const remoteDisplay = p.remotePort && p.remotePort !== '--' ? esc(p.remotePort) : '—';
+    const shortId = p.id ? p.id.slice(0, 8) : '';
     return `<tr style="${isActive ? 'background:var(--pri-light)' : ''}">
-      <td><strong>${esc(p.protocolName)}</strong></td>
-      <td><span class="proto ${pc}">${esc(p.netProtocol)}</span></td>
-      <td class="mono">${esc(p.localPort)||'—'}</td>
-      <td class="mono">${p.targetIp ? esc(p.targetIp) + (p.remotePort && p.remotePort !== '--' ? ':' + esc(p.remotePort) : '') : '—'}</td>
+      <td><strong>${esc(p.protocolName)}</strong>${shortId ? `<br><small style="color:var(--text-3);font-size:10px;font-family:Consolas,'Cascadia Code','SF Mono',monospace">#${shortId}</small>` : ''}</td>
+      <td><span class="proto ${pc}">${esc(p.netProtocol)}</span>${srcLabel}</td>
+      <td class="mono">${esc(p.localPort) && esc(p.localPort) !== '--' ? esc(p.localPort) : '—'}</td>
+      <td class="mono">${remoteDisplay}</td>
+      <td class="mono">${p.targetIp ? esc(p.targetIp) : '—'}</td>
       <td><span class="badge ${p.isConnected?'b-on':'b-off'}">${p.isConnected ? t('connected') : t('disconnected')}</span></td>
       <td>${maskCell}</td>
       <td style="white-space:nowrap"><div style="display:flex;gap:4px;align-items:center">${monBtn}${delBtn}</div></td>
@@ -1345,8 +1283,15 @@ function toggleAddPortForm() {
   const visible = form.style.display !== 'none';
   form.style.display = visible ? 'none' : '';
   if (!visible) {
-    const sel = document.getElementById('ap-mask');
-    sel.innerHTML = masks.map(m => `<option value="${esc(m)}">${esc(m)}</option>`).join('');
+    const maskSel = document.getElementById('ap-mask');
+    maskSel.innerHTML = masks.map(m => `<option value="${esc(m)}">${esc(maskLabel(m))}</option>`).join('');
+    const srcSel = document.getElementById('ap-source');
+    const sources = portList.filter(p => p.netProtocol === 'TCP Server');
+    srcSel.innerHTML = `<option value="">${t('apSourceNone')}</option>` +
+      sources.map(p => {
+        const shortId = p.id ? ' #' + p.id.slice(0, 8) : '';
+        return `<option value="${esc(p.id||p.protocolName)}">${esc(p.protocolName)}${esc(shortId)}</option>`;
+      }).join('');
     document.getElementById('ap-err').textContent = '';
     onAddPortProtocolChange();
   }
@@ -1358,6 +1303,7 @@ function onAddPortProtocolChange() {
   // TCP Client : 遠端端口 + 目標 IP（連線到哪）；本地端口由 OS 自動分配
   // UDP        : 遠端端口（接收）+ 本地端口（轉發目標端口）+ 目標 IP（選填；空=廣播本地，有值=單播）
   document.getElementById('ap-local').style.display  = proto === 'TCP Client' ? 'none' : '';
+  document.getElementById('ap-source').style.display = proto === 'TCP Client' ? '' : 'none';
   document.getElementById('ap-remote').style.display = proto === 'TCP Server' ? 'none' : '';
   document.getElementById('ap-ip').style.display     = proto === 'TCP Server' ? 'none' : '';
 
@@ -1371,6 +1317,7 @@ async function submitAddPort() {
   const name   = document.getElementById('ap-name').value.trim();
   const proto  = document.getElementById('ap-protocol').value;
   const local  = document.getElementById('ap-local').value.trim();
+  const source = document.getElementById('ap-source').value;
   const remote = document.getElementById('ap-remote').value.trim();
   const ip     = document.getElementById('ap-ip').value.trim();
   const mask   = document.getElementById('ap-mask').value;
@@ -1381,12 +1328,13 @@ async function submitAddPort() {
     const r = await fetch(`${BASE}/api/ports`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ protocolName: name, netProtocol: proto, localPort: local, remotePort: remote, targetIp: ip, maskType: mask })
+      body: JSON.stringify({ protocolName: name, netProtocol: proto, localPort: local, remotePort: remote, targetIp: ip, maskType: mask, sourceProtocolId: source })
     });
     const d = await r.json();
     if (!d.success) { err.textContent = t('errAddPort') + (d.error || ''); return; }
     document.getElementById('ap-name').value = '';
     document.getElementById('ap-local').value = '';
+    document.getElementById('ap-source').selectedIndex = 0;
     document.getElementById('ap-remote').value = '';
     document.getElementById('ap-ip').value = '';
     document.getElementById('add-port-form').style.display = 'none';

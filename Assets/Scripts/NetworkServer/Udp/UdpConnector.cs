@@ -63,68 +63,67 @@ public class UdpConnector : NetworkConnectorBase
 
     public override void AddPort(PortData portData)
     {
-        SafeExecution.Safe(() =>
+        if (udpClients.TryGetValue(portData.Key, out var existingServerData))
         {
-            if (udpClients.TryGetValue(portData.ProtocolName, out var existingServerData))
+            if (portData.IsConnected)
             {
-                if (portData.IsConnected)
-                {
-                    LogHelper.LogToConsole($"{LogHelper.Tag("UDP", portData.ProtocolName)} {Localization.Instance.GetText(LanguageKeys.Log_AlreadyConnected)}");
-                    return;
-                }
-
-                portData.IsConnected = false;
-                existingServerData.Dispose();
-                udpClients.TryRemove(portData.ProtocolName, out _);
+                LogHelper.LogToConsole($"{LogHelper.Tag("UDP", portData)} {Localization.Instance.GetText(LanguageKeys.Log_AlreadyConnected)}");
+                return;
             }
+            portData.IsConnected = false;
+            existingServerData.Dispose();
+            udpClients.TryRemove(portData.Key, out _);
+        }
 
-            try
-            {
-                if (!TryParsePort(portData.RemotePortDetails.Port, out int remotePort, "AddPort"))
-                {
-                    portData.IsConnected = false;
-                    return;
-                }
+        if (!TryParsePort(portData.RemotePortDetails.Port, out int remotePort, "AddPort"))
+        {
+            portData.IsConnected = false;
+            return;
+        }
 
-                var udpClient = new UdpClient(remotePort);
-                portData.IsConnected = true;
+        UdpClient udpClient;
+        try
+        {
+            udpClient = new UdpClient(remotePort);
+        }
+        catch (SocketException ex) when (ex.SocketErrorCode == SocketError.AddressAlreadyInUse)
+        {
+            LogHelper.LogToConsole($"{LogHelper.Tag("UDP", portData)} {Localization.Instance.GetText(LanguageKeys.Log_PortOccupied)}: {portData.RemotePortDetails.Port}", isError: true);
+            throw new InvalidOperationException($"{Localization.Instance.GetText(LanguageKeys.Log_PortOccupied)}: {portData.RemotePortDetails.Port}");
+        }
+        catch (Exception ex)
+        {
+            LogHelper.LogToConsole($"{LogHelper.Tag("UDP", portData)} {Localization.Instance.GetText(LanguageKeys.Log_StartFailed)}: {ex.Message}", isError: true);
+            throw new InvalidOperationException(ex.Message, ex);
+        }
 
-                var newServerData = new UdpData
-                {
-                    portData = portData,
-                    udpClient = udpClient,
-                    CancellationTokenSource = new CancellationTokenSource(),
-                };
+        portData.IsConnected = true;
 
-                udpClients[portData.ProtocolName] = newServerData;
+        var newServerData = new UdpData
+        {
+            portData = portData,
+            udpClient = udpClient,
+            CancellationTokenSource = new CancellationTokenSource(),
+        };
 
-                ReceiveUdpMessages(newServerData).Forget(ex =>
-                    LogHelper.LogToConsole($"{LogHelper.Tag("UDP", portData.ProtocolName)} {Localization.Instance.GetText(LanguageKeys.Log_ReceiveMessagesUnexpectedError)}: {ex}", isError: true));
+        udpClients[portData.Key] = newServerData;
 
-                dispatcher.Enqueue(() =>
-                    SafeExecution.Safe(() => portData.OnUpdate?.Invoke(portData), "UdpConnector.OnUpdate"));
-            }
-            catch (SocketException ex) when (ex.SocketErrorCode == SocketError.AddressAlreadyInUse)
-            {
-                LogHelper.LogToConsole($"{LogHelper.Tag("UDP", portData.ProtocolName)} {Localization.Instance.GetText(LanguageKeys.Log_PortOccupied)}: {portData.RemotePortDetails.Port}", isError: true);
-            }
-            catch (Exception ex)
-            {
-                LogHelper.LogToConsole($"{LogHelper.Tag("UDP", portData.ProtocolName)} {Localization.Instance.GetText(LanguageKeys.Log_StartFailed)}: {ex.Message}", isError: true);
-            }
+        ReceiveUdpMessages(newServerData).Forget(ex =>
+            LogHelper.LogToConsole($"{LogHelper.Tag("UDP", portData)} {Localization.Instance.GetText(LanguageKeys.Log_ReceiveMessagesUnexpectedError)}: {ex}", isError: true));
 
-        }, "UdpConnector.AddPort");
+        dispatcher.Enqueue(() =>
+            SafeExecution.Safe(() => portData.OnUpdate?.Invoke(portData), "UdpConnector.OnUpdate"));
     }
 
     public override void Connect(PortData portData)
     {
         SafeExecution.Safe(() =>
         {
-            if (udpClients.TryGetValue(portData.ProtocolName, out var udpData))
+            if (udpClients.TryGetValue(portData.Key, out var udpData))
             {
                 if (portData.IsConnected)
                 {
-                    LogHelper.LogToConsole($"{LogHelper.Tag("UDP", portData.ProtocolName)} {Localization.Instance.GetText(LanguageKeys.Log_AlreadyConnected)}");
+                    LogHelper.LogToConsole($"{LogHelper.Tag("UDP", portData)} {Localization.Instance.GetText(LanguageKeys.Log_AlreadyConnected)}");
                     return;
                 }
 
@@ -144,31 +143,31 @@ public class UdpConnector : NetworkConnectorBase
                     portData.IsConnected = true;
 
                     ReceiveUdpMessages(udpData).Forget(ex =>
-                        LogHelper.LogToConsole($"{LogHelper.Tag("UDP", portData.ProtocolName)} {Localization.Instance.GetText(LanguageKeys.Log_ReceiveMessagesUnexpectedError)}: {ex}", isError: true));
+                        LogHelper.LogToConsole($"{LogHelper.Tag("UDP", portData)} {Localization.Instance.GetText(LanguageKeys.Log_ReceiveMessagesUnexpectedError)}: {ex}", isError: true));
 
-                    LogHelper.LogToConsole($"{LogHelper.Tag("UDP", portData.ProtocolName)} {Localization.Instance.GetText(LanguageKeys.Log_ReconnectSuccess)} → {portData.RemotePortDetails.Port}");
+                    LogHelper.LogToConsole($"{LogHelper.Tag("UDP", portData)} {Localization.Instance.GetText(LanguageKeys.Log_ReconnectSuccess)} → {portData.RemotePortDetails.Port}");
 
                     dispatcher.Enqueue(() =>
                         SafeExecution.Safe(() => portData.OnUpdate?.Invoke(portData), "UdpConnector.OnUpdate"));
                 }
                 catch (Exception ex)
                 {
-                    LogHelper.LogToConsole($"{LogHelper.Tag("UDP", portData.ProtocolName)} {Localization.Instance.GetText(LanguageKeys.Log_ReconnectFailed)}: {ex.Message}", isError: true);
+                    LogHelper.LogToConsole($"{LogHelper.Tag("UDP", portData)} {Localization.Instance.GetText(LanguageKeys.Log_ReconnectFailed)}: {ex.Message}", isError: true);
                     portData.IsConnected = false;
                 }
             }
             else
             {
-                LogHelper.LogToConsole($"{LogHelper.Tag("UDP", portData.ProtocolName)} {Localization.Instance.GetText(LanguageKeys.Log_NotFound)}", isError: true);
+                LogHelper.LogToConsole($"{LogHelper.Tag("UDP", portData)} {Localization.Instance.GetText(LanguageKeys.Log_NotFound)}", isError: true);
             }
         }, "UdpConnector.Connect");
     }
 
     public override async UniTask Disconnect(PortData portData)
     {
-        if (!udpClients.TryGetValue(portData.ProtocolName, out var udpData))
+        if (!udpClients.TryGetValue(portData.Key, out var udpData))
         {
-            LogHelper.LogToConsole($"{LogHelper.Tag("UDP", portData.ProtocolName)} {Localization.Instance.GetText(LanguageKeys.Log_NotFound)}");
+            LogHelper.LogToConsole($"{LogHelper.Tag("UDP", portData)} {Localization.Instance.GetText(LanguageKeys.Log_NotFound)}");
             return;
         }
 
@@ -186,11 +185,11 @@ public class UdpConnector : NetworkConnectorBase
 
             portData.IsConnected = false;
 
-            LogHelper.LogToConsole($"{LogHelper.Tag("UDP", portData.ProtocolName)} {Localization.Instance.GetText(LanguageKeys.Log_Disconnected)}");
+            LogHelper.LogToConsole($"{LogHelper.Tag("UDP", portData)} {Localization.Instance.GetText(LanguageKeys.Log_Disconnected)}");
         }
         catch (Exception ex)
         {
-            LogHelper.LogToConsole($"{LogHelper.Tag("UDP", portData.ProtocolName)} {Localization.Instance.GetText(LanguageKeys.Log_ReconnectFailed)}: {ex}", isError: true);
+            LogHelper.LogToConsole($"{LogHelper.Tag("UDP", portData)} {Localization.Instance.GetText(LanguageKeys.Log_ReconnectFailed)}: {ex}", isError: true);
         }
 
         dispatcher.Enqueue(() => portData.OnUpdate?.Invoke(portData));
@@ -200,13 +199,13 @@ public class UdpConnector : NetworkConnectorBase
     {
         if (!TryParsePort(udpData.portData.LocalPortDetails.Port, out int localPort, "ReceiveUdpMessages"))
         {
-            LogHelper.LogToConsole($"{LogHelper.Tag("UDP", udpData.portData.ProtocolName)} {Localization.Instance.GetText(LanguageKeys.Log_InvalidPortFormat)}", isError: true);
+            LogHelper.LogToConsole($"{LogHelper.Tag("UDP", udpData.portData)} {Localization.Instance.GetText(LanguageKeys.Log_InvalidPortFormat)}", isError: true);
             return;
         }
 
         if (!TryParseIP(udpData.portData.TargetIP, out IPAddress targetIP, "ReceiveUdpMessages"))
         {
-            LogHelper.LogToConsole($"{LogHelper.Tag("UDP", udpData.portData.ProtocolName)} {Localization.Instance.GetText(LanguageKeys.Log_InvalidIP)}", isError: true);
+            LogHelper.LogToConsole($"{LogHelper.Tag("UDP", udpData.portData)} {Localization.Instance.GetText(LanguageKeys.Log_InvalidIP)}", isError: true);
             return;
         }
 
@@ -252,7 +251,7 @@ public class UdpConnector : NetworkConnectorBase
                 catch (Exception)
                 {
                     message = Encoding.GetEncoding("UTF-8", EncoderFallback.ReplacementFallback, DecoderFallback.ReplacementFallback).GetString(buffer, 0, messageLength);
-                    LogHelper.LogToConsole($"{LogHelper.Tag("UDP", udpData.portData.ProtocolName)} {Localization.Instance.GetText(LanguageKeys.Log_InvalidUTF8)}", isError: true);
+                    LogHelper.LogToConsole($"{LogHelper.Tag("UDP", udpData.portData)} {Localization.Instance.GetText(LanguageKeys.Log_InvalidUTF8)}", isError: true);
                 }
 
                 udpData.portData.COMReceived += messageLength;
@@ -307,7 +306,7 @@ public class UdpConnector : NetworkConnectorBase
 
     public override async UniTask RemovePort(PortData portData)
     {
-        if (udpClients.TryRemove(portData.ProtocolName, out var udpData))
+        if (udpClients.TryRemove(portData.Key, out var udpData))
         {
             try
             {
@@ -317,18 +316,18 @@ public class UdpConnector : NetworkConnectorBase
                 udpData.Dispose();
                 portData.IsConnected = false;
 
-                LogHelper.LogToConsole($"{LogHelper.Tag("UDP", portData.ProtocolName)} {Localization.Instance.GetText(LanguageKeys.Log_Removed)}");
+                LogHelper.LogToConsole($"{LogHelper.Tag("UDP", portData)} {Localization.Instance.GetText(LanguageKeys.Log_Removed)}");
 
                 dispatcher.Enqueue(() => portData.OnUpdate?.Invoke(portData));
             }
             catch (Exception ex)
             {
-                LogHelper.LogToConsole($"{LogHelper.Tag("UDP", portData.ProtocolName)} {Localization.Instance.GetText(LanguageKeys.Log_StartFailed)}: {ex}", isError: true);
+                LogHelper.LogToConsole($"{LogHelper.Tag("UDP", portData)} {Localization.Instance.GetText(LanguageKeys.Log_StartFailed)}: {ex}", isError: true);
             }
         }
         else
         {
-            LogHelper.LogToConsole($"{LogHelper.Tag("UDP", portData.ProtocolName)} {Localization.Instance.GetText(LanguageKeys.Log_NotFound)}");
+            LogHelper.LogToConsole($"{LogHelper.Tag("UDP", portData)} {Localization.Instance.GetText(LanguageKeys.Log_NotFound)}");
         }
     }
 
