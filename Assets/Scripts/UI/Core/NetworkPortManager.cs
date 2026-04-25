@@ -15,9 +15,10 @@ public class NetworkPortManager
     public NetworkConnectorCore networkConnectorCore = new(); // 網路連接器核心
     private readonly PortDataStorageService storageService; // 儲存端口資料的服務
     private readonly NetPortRegistry portRegistry = new();  // 註冊端口的服務
-    public Action<PortData> PortDataUpdated; // 端口資料更新事件
-    public Action<PortData> PortDataAdded;   // Web API 新增端口事件
-    public Action<PortData> PortDataRemoved; // Web API 刪除端口事件
+    public Action<PortData> PortDataUpdated;  // 端口資料更新事件（連線狀態/流量）
+    public Action<PortData> PortDataAdded;    // Web API 新增端口事件
+    public Action<PortData> PortDataRemoved;  // Web API 刪除端口事件
+    public Action<PortData> PortDataModified; // Web API 編輯端口事件（同 ID 變更）
     public TcpClientRetryConfig retryConfig; // 重試配置
 
     /// <summary>
@@ -45,7 +46,7 @@ public class NetworkPortManager
                     data.Id = Guid.NewGuid().ToString("N");
                 data.OnUpdate += OnUpdate;
                 var type = ParseProtocolType(data.NetProtocol);
-                var key = GetPortKey(data);
+                var key = GetPortKey(type, data);
                 data.Key = key;
                 portRegistry.Add(type, key, data);
             }
@@ -90,7 +91,7 @@ public class NetworkPortManager
     public PortData AddPortData(PortData portData)
     {
         var type = ParseProtocolType(portData.NetProtocol);
-        string key = GetPortKey(portData);
+        string key = GetPortKey(type, portData);
         var data = new PortData
         {
             Id = string.IsNullOrEmpty(portData.Id) ? Guid.NewGuid().ToString("N") : portData.Id,
@@ -141,22 +142,13 @@ public class NetworkPortManager
         };
     }
 
-    /// <summary>
-    /// 獲取端口的唯一鍵
-    /// </summary>
-    /// <param name="data"></param>
-    /// <returns></returns>
-    private string GetPortKey(PortData portData)
+    private static string GetPortKey(NetProtocolType type, PortData portData) => type switch
     {
-        var type = ParseProtocolType(portData.NetProtocol);
-        return type switch
-        {
-            NetProtocolType.TcpClient => $"{portData.TargetIP}:{portData.RemotePortDetails.Port}",
-            NetProtocolType.TcpServer => portData.LocalPortDetails.Port,
-            NetProtocolType.Udp => portData.RemotePortDetails.Port,
-            _ => portData.LocalPortDetails.Port
-        };
-    }
+        NetProtocolType.TcpClient => $"{portData.TargetIP}:{portData.RemotePortDetails.Port}",
+        NetProtocolType.TcpServer => portData.LocalPortDetails.Port,
+        NetProtocolType.Udp       => portData.RemotePortDetails.Port,
+        _ => throw new InvalidOperationException($"Unknown protocol type: {type}")
+    };
 
     /// <summary>
     /// 檢查端口是否唯一
@@ -166,7 +158,7 @@ public class NetworkPortManager
     public bool IsPortUnique(PortData portData)
     {
         var type = ParseProtocolType(portData.NetProtocol);
-        string key = GetPortKey(portData); // 通常是 LocalPort 或 Local+Remote 的唯一組合
+        string key = GetPortKey(type, portData);
 
         // 僅檢查 port 是否存在，不檢查 ProtocolName 重複
         return !portRegistry.Contains(type, key);
@@ -179,7 +171,7 @@ public class NetworkPortManager
     public async Task RemovePortData(PortData portData)
     {
         var type = ParseProtocolType(portData.NetProtocol);
-        string key = GetPortKey(portData);
+        string key = GetPortKey(type, portData);
         var data = portRegistry.Get(type, key);
 
         if (data != null)
@@ -191,6 +183,47 @@ public class NetworkPortManager
             SaveData();
             PortDataRemoved?.Invoke(data);
         }
+    }
+
+    /// <summary>
+    /// 更新端口資料並重新連線（避免 Remove+Add 的 race condition）
+    /// </summary>
+    public async Task UpdatePortData(PortData existing, PortData req)
+    {
+        var oldType = ParseProtocolType(existing.NetProtocol);
+        string oldKey = existing.Key;
+        var newType = ParseProtocolType(req.NetProtocol);
+        string newKey = GetPortKey(newType, req);
+
+        // 先驗證唯一性，避免 stop 後才發現衝突
+        if ((newType != oldType || newKey != oldKey) && portRegistry.Contains(newType, newKey))
+            throw new InvalidOperationException("Port already exists (same protocol + port number)");
+
+        await networkConnectorCore.Stop(existing);
+        portRegistry.Remove(oldType, oldKey);
+
+        existing.ProtocolName       = req.ProtocolName;
+        existing.NetProtocol        = req.NetProtocol;
+        existing.LocalPortDetails   = new PortDetails { Port = req.LocalPortDetails.Port };
+        existing.RemotePortDetails  = new PortDetails { Port = req.RemotePortDetails.Port };
+        existing.TargetIP           = req.TargetIP;
+        existing.MaskType           = req.MaskType;
+        existing.SourceProtocolName = req.SourceProtocolName;
+        existing.SourceProtocolId   = req.SourceProtocolId;
+        existing.Key                = newKey;
+
+        portRegistry.Add(newType, newKey, existing);
+
+        // 改名時，同步所有引用此 port 的其他 port 顯示名稱
+        foreach (var p in portRegistry.GetAll()
+            .Where(p => p.SourceProtocolId == existing.Id))
+        {
+            p.SourceProtocolName = existing.ProtocolName;
+        }
+
+        SaveData();
+        PortDataModified?.Invoke(existing);
+        networkConnectorCore.AddPort(existing);
     }
 
     /// <summary>
@@ -284,7 +317,7 @@ public class NetworkPortManager
                 data.Id = Guid.NewGuid().ToString("N");
             data.OnUpdate += OnUpdate;
             var type = ParseProtocolType(data.NetProtocol);
-            string key = GetPortKey(data);
+            string key = GetPortKey(type, data);
             data.Key = key;
             portRegistry.Add(type, key, data);
         }
@@ -318,7 +351,8 @@ public class NetworkPortManager
         {
             data.OnUpdate -= OnUpdate;
         }
-        PortDataUpdated = null;
+        PortDataUpdated  = null;
+        PortDataModified = null;
         SaveData();
     }
 

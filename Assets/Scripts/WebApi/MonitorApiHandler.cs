@@ -19,9 +19,9 @@ public class MonitorApiHandler
         try { req = JsonUtility.FromJson<MonitorPortReq>(body); }
         catch { HttpApiServer.WriteError(ctx, 400, "Invalid JSON body"); return; }
 
-        if (string.IsNullOrWhiteSpace(req?.protocolName))
+        if (string.IsNullOrWhiteSpace(req?.id))
         {
-            HttpApiServer.WriteError(ctx, 400, "protocolName is required");
+            HttpApiServer.WriteError(ctx, 400, "id is required");
             return;
         }
 
@@ -30,14 +30,10 @@ public class MonitorApiHandler
             await MainThreadTaskDispatcher.RunOnMainThread(() =>
             {
                 var port = NetworkPortManager.Instance.GetAllPortDatas()
-                    .FirstOrDefault(p =>
-                        p.ProtocolName == req.protocolName &&
-                        (string.IsNullOrEmpty(req.netProtocol) || p.NetProtocol == req.netProtocol) &&
-                        (string.IsNullOrEmpty(req.localPort)   || (p.LocalPortDetails?.Port  ?? "") == req.localPort) &&
-                        (string.IsNullOrEmpty(req.remotePort)  || (p.RemotePortDetails?.Port ?? "") == req.remotePort));
+                    .FirstOrDefault(p => p.Id == req.id);
 
                 if (port == null)
-                    throw new KeyNotFoundException($"Port '{req.protocolName}' not found");
+                    throw new KeyNotFoundException($"Port '{req.id}' not found");
 
                 NetworkPortManager.Instance.OnMonitorConsole(port);
             });

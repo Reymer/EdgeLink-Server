@@ -113,14 +113,11 @@ public class PortApiHandler
         {
             await MainThreadTaskDispatcher.RunOnMainThread(async () =>
             {
-                var port = NetworkPortManager.Instance.GetAllPortDatas().FirstOrDefault(p =>
-                    p.ProtocolName == req.protocolName &&
-                    (string.IsNullOrEmpty(req.netProtocol) || p.NetProtocol == req.netProtocol) &&
-                    (string.IsNullOrEmpty(req.localPort)   || (p.LocalPortDetails?.Port  ?? "") == req.localPort) &&
-                    (string.IsNullOrEmpty(req.remotePort)  || (p.RemotePortDetails?.Port ?? "") == req.remotePort));
+                var port = NetworkPortManager.Instance.GetAllPortDatas()
+                    .FirstOrDefault(p => p.Id == req.id);
 
                 if (port == null)
-                    throw new KeyNotFoundException($"Port '{req.protocolName}' not found");
+                    throw new KeyNotFoundException($"Port '{req.id}' not found");
 
                 await NetworkPortManager.Instance.RemovePortData(port);
             });
@@ -137,7 +134,69 @@ public class PortApiHandler
         }
     }
 
-    public async Task ChangeMaskAsync(HttpListenerContext ctx, string protocolName)
+    public async Task UpdateAsync(HttpListenerContext ctx, string id)
+    {
+        string body;
+        using (var sr = new StreamReader(ctx.Request.InputStream, Encoding.UTF8))
+            body = await sr.ReadToEndAsync();
+
+        UpdatePortReq req;
+        try { req = JsonUtility.FromJson<UpdatePortReq>(body); }
+        catch { HttpApiServer.WriteError(ctx, 400, "Invalid JSON body"); return; }
+
+        if (string.IsNullOrWhiteSpace(req?.protocolName) || string.IsNullOrWhiteSpace(req.netProtocol))
+        {
+            HttpApiServer.WriteError(ctx, 400, "protocolName and netProtocol are required");
+            return;
+        }
+
+        try
+        {
+            await MainThreadTaskDispatcher.RunOnMainThread(async () =>
+            {
+                var old = NetworkPortManager.Instance.GetAllPortDatas()
+                    .FirstOrDefault(p => p.Id == id);
+
+                if (old == null)
+                    throw new KeyNotFoundException($"Port '{id}' not found");
+
+                string srcId = req.sourceProtocolId ?? "";
+                string srcName = req.sourceProtocolName ?? "";
+                if (!string.IsNullOrEmpty(srcId) && string.IsNullOrEmpty(srcName))
+                {
+                    var srcPort = NetworkPortManager.Instance.GetAllPortDatas()
+                        .FirstOrDefault(p => p.Id == srcId);
+                    if (srcPort != null) srcName = srcPort.ProtocolName;
+                }
+
+                var req2 = new PortData
+                {
+                    ProtocolName = req.protocolName,
+                    NetProtocol = req.netProtocol,
+                    LocalPortDetails  = new PortDetails { Port = string.IsNullOrEmpty(req.localPort)  ? "--" : req.localPort },
+                    RemotePortDetails = new PortDetails { Port = string.IsNullOrEmpty(req.remotePort) ? "--" : req.remotePort },
+                    TargetIP = req.targetIp ?? "",
+                    MaskType = string.IsNullOrEmpty(req.maskType) ? "OriginalData" : req.maskType,
+                    SourceProtocolName = srcName,
+                    SourceProtocolId = srcId,
+                };
+
+                await NetworkPortManager.Instance.UpdatePortData(old, req2);
+            });
+
+            HttpApiServer.WriteJson(ctx, 200, JsonUtility.ToJson(new ApiResult { success = true }));
+        }
+        catch (KeyNotFoundException ex)
+        {
+            HttpApiServer.WriteError(ctx, 404, ex.Message);
+        }
+        catch (Exception ex)
+        {
+            HttpApiServer.WriteError(ctx, 500, ex.Message);
+        }
+    }
+
+    public async Task ChangeMaskAsync(HttpListenerContext ctx, string id)
     {
         string body;
         using (var sr = new StreamReader(ctx.Request.InputStream, Encoding.UTF8))
@@ -158,10 +217,10 @@ public class PortApiHandler
             await MainThreadTaskDispatcher.RunOnMainThread(() =>
             {
                 var port = NetworkPortManager.Instance.GetAllPortDatas()
-                    .FirstOrDefault(p => p.ProtocolName == protocolName);
+                    .FirstOrDefault(p => p.Id == id);
 
                 if (port == null)
-                    throw new KeyNotFoundException($"Port '{protocolName}' not found");
+                    throw new KeyNotFoundException($"Port '{id}' not found");
 
                 if (port.NetProtocol == "TCP Server")
                     throw new InvalidOperationException("TCP Server does not support mask switching");

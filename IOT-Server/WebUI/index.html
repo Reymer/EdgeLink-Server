@@ -198,12 +198,12 @@
     .b-on::before  { background: var(--success); }
     .b-off { background: #f1f5f9; color: var(--text-3); }
     .b-off::before { background: var(--text-3); }
-    .proto { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
+    .proto { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; white-space: nowrap; }
     .proto-client { background: var(--pri-light); color: var(--pri); }
     .proto-server { background: #fef3c7; color: #92400e; }
     .proto-udp    { background: #e0f2fe; color: #075985; }
     .mono { font-family: Consolas, 'Cascadia Code', 'SF Mono', Monaco, monospace; font-size: 12px; }
-    .mask-tag { display: inline-block; background: var(--pri-light); color: var(--pri); border: 1px solid var(--pri-border); border-radius: 4px; padding: 1px 8px; font-size: 12px; font-weight: 500; font-family: Consolas, 'Cascadia Code', 'SF Mono', Monaco, monospace; }
+    .mask-tag { display: inline-block; background: var(--pri-light); color: var(--pri); border: 1px solid var(--pri-border); border-radius: 4px; padding: 1px 8px; font-size: 12px; font-weight: 500; font-family: Consolas, 'Cascadia Code', 'SF Mono', Monaco, monospace; white-space: nowrap; }
 
     @media (max-width: 800px) {
       .layout { grid-template-columns: 1fr; padding: 12px; }
@@ -435,6 +435,32 @@
         </div>
       </div>
 
+      <!-- Edit Port form -->
+      <div id="edit-port-form" style="display:none;padding:14px 16px;border-bottom:1px solid var(--border);background:var(--bg)">
+        <div style="font-size:12px;font-weight:600;color:var(--text-2);margin-bottom:8px" data-i18n="editPortTitle"></div>
+        <input type="hidden" id="ep-id">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+          <input id="ep-name"     type="text" data-i18n-ph="apName">
+          <select id="ep-protocol" onchange="onEditPortProtocolChange()">
+            <option value="UDP">UDP</option>
+            <option value="TCP Server">TCP Server</option>
+            <option value="TCP Client">TCP Client</option>
+          </select>
+          <input id="ep-local"   type="text" data-i18n-ph="apLocalPort">
+          <select id="ep-source" style="display:none"></select>
+          <input id="ep-remote"  type="text" data-i18n-ph="apRemotePort">
+          <input id="ep-ip"      type="text" data-i18n-ph="apTargetIp" style="display:none">
+          <select id="ep-mask">
+            <option value="OriginalData">OriginalData</option>
+          </select>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <button class="btn btn-ok btn-sm" onclick="submitEditPort()" data-i18n="confirm"></button>
+          <button class="btn btn-ghost btn-sm" onclick="closeEditPortForm()" data-i18n="cancel"></button>
+          <span id="ep-err" style="font-size:12px;color:var(--danger)"></span>
+        </div>
+      </div>
+
       <table class="ptable">
         <thead>
           <tr>
@@ -585,7 +611,10 @@ const LANGS = {
     confirmDeletePort: '確定刪除 Port「{name}」？',
     errAddPort:      '新增失敗：',
     errDeletePort:   '刪除失敗：',
+    errEditPort:     '編輯失敗：',
     maskOriginalData:'原始資料',
+    editPort:        '編輯',
+    editPortTitle:   '編輯 Port',
   },
   'en-US': {
     maskMgmt:        'Mask Manager',
@@ -673,7 +702,10 @@ const LANGS = {
     confirmDeletePort: 'Delete port "{name}"?',
     errAddPort:      'Add failed: ',
     errDeletePort:   'Delete failed: ',
+    errEditPort:     'Edit failed: ',
     maskOriginalData:'Original Data',
+    editPort:        'Edit',
+    editPortTitle:   'Edit Port',
   },
   'ja-JP': {
     maskMgmt:        'マスク管理',
@@ -761,7 +793,10 @@ const LANGS = {
     confirmDeletePort: 'ポート「{name}」を削除しますか？',
     errAddPort:      '追加失敗: ',
     errDeletePort:   '削除失敗: ',
+    errEditPort:     '編集失敗: ',
     maskOriginalData:'元データ',
+    editPort:        '編集',
+    editPortTitle:   'ポートを編集',
   }
 };
 
@@ -1124,22 +1159,30 @@ async function loadPorts() {
   const sq = s => (s||'').replace(/\\/g,'\\\\').replace(/'/g,"\\'");
   tb.innerHTML = ports.map(p => {
     const pc = p.netProtocol === 'TCP Server' ? 'proto-server' : p.netProtocol === 'UDP' ? 'proto-udp' : 'proto-client';
+    const srcShortId = p.sourceProtocolId ? ' #' + p.sourceProtocolId.slice(0, 8) : '';
     const srcLabel = p.netProtocol === 'TCP Client' && p.sourceProtocolName
-      ? `<br><small style="color:var(--text-3);font-size:10px">← ${esc(p.sourceProtocolName)}</small>` : '';
+      ? `<br><small style="color:var(--text-3);font-size:10px;font-family:Consolas,'Cascadia Code','SF Mono',monospace;white-space:nowrap">← ${esc(p.sourceProtocolName)}${esc(srcShortId)}</small>` : '';
     const maskCell = `<span class="mask-tag">${esc(maskLabel(p.maskType))}</span>`;
-    const monKey = `${p.protocolName}||${p.netProtocol}||${p.localPort}||${p.remotePort}`;
+    const monKey = p.id;
     const isActive = activeMon === monKey;
     const monBtn = `<button
       class="btn btn-sm ${isActive ? 'btn-ok' : 'btn-ghost'}"
-      onclick="setMonitor(${isActive ? 'null' : `'${sq(monKey)}','${sq(p.protocolName)}','${sq(p.netProtocol)}','${sq(p.localPort)}','${sq(p.remotePort)}'`})"
+      onclick="setMonitor(${isActive ? 'null' : `'${sq(p.id)}'`})"
       title="${isActive ? t('stopMonitor') : t('startMonitor')}">
       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
         <circle cx="12" cy="12" r="3"/><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/>
       </svg>
       ${isActive ? t('stopMonitor') : t('startMonitor')}
     </button>`;
+    const editBtn = `<button class="btn btn-ghost btn-sm" title="${t('editPort')}"
+      onclick="openEditPortForm('${sq(p.id)}')">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+        <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/>
+        <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
+      </svg>
+    </button>`;
     const delBtn = `<button class="btn btn-del btn-sm" title="${t('delete')}"
-      onclick="deletePort('${sq(p.protocolName)}','${sq(p.netProtocol)}','${sq(p.localPort)}','${sq(p.remotePort)}')">
+      onclick="deletePort('${sq(p.id)}')">
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
         <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
       </svg>
@@ -1154,21 +1197,21 @@ async function loadPorts() {
       <td class="mono">${p.targetIp ? esc(p.targetIp) : '—'}</td>
       <td><span class="badge ${p.isConnected?'b-on':'b-off'}">${p.isConnected ? t('connected') : t('disconnected')}</span></td>
       <td>${maskCell}</td>
-      <td style="white-space:nowrap"><div style="display:flex;gap:4px;align-items:center">${monBtn}${delBtn}</div></td>
+      <td style="white-space:nowrap"><div style="display:flex;gap:4px;align-items:center">${monBtn}${editBtn}${delBtn}</div></td>
     </tr>`;
   }).join('');
 }
 
-async function setMonitor(monKey, protocolName, netProtocol, localPort, remotePort) {
-  if (!monKey) { await clearMonitor(); return; }
+async function setMonitor(id) {
+  if (!id) { await clearMonitor(); return; }
   try {
     const r = await fetch(`${BASE}/api/monitor/port`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ protocolName, netProtocol, localPort, remotePort })
+      body: JSON.stringify({ id })
     });
     if (!r.ok) { alert(t('errMonitor')); return; }
-    activeMon = monKey;
+    activeMon = id;
     monitorCursor = 0;
     autoScroll = true;
     logFilter = '';
@@ -1177,8 +1220,9 @@ async function setMonitor(monKey, protocolName, netProtocol, localPort, remotePo
     document.getElementById('scroll-lock-icon').innerHTML = '<polyline points="18 15 12 21 6 15"/><line x1="12" y1="3" x2="12" y2="21"/>';
     document.getElementById('log-box').innerHTML = '';
     document.getElementById('monitor-log-card').style.display = '';
-    const portNum = localPort && localPort !== '--' ? localPort : remotePort && remotePort !== '--' ? remotePort : '';
-    document.getElementById('mon-target').textContent = portNum ? `${netProtocol} : ${portNum}` : netProtocol;
+    const mp = portList.find(x => x.id === id);
+    const portNum = mp?.localPort && mp.localPort !== '--' ? mp.localPort : mp?.remotePort && mp.remotePort !== '--' ? mp.remotePort : '';
+    document.getElementById('mon-target').textContent = portNum ? `${mp?.netProtocol} : ${portNum}` : (mp?.netProtocol || '');
     startMonitorStream();
     await loadPorts();
   } catch { alert(t('errMonitor')); }
@@ -1251,23 +1295,6 @@ function toggleScrollLock() {
   }
 }
 
-// ── Monitor Log ───────────────────────────────────────
-async function loadMonitorLogs() {
-  const r = await fetch(`${BASE}/api/monitor-logs?cursor=${monitorCursor}`);
-  if (!r.ok) return;
-  const d = await r.json();
-  if (!d.logs || d.logs.length === 0) return;
-  const box = document.getElementById('log-box');
-  const atBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 30;
-  d.logs.forEach(line => {
-    const el = document.createElement('div');
-    el.textContent = line;
-    box.appendChild(el);
-  });
-  monitorCursor = d.total;
-  if (atBottom) box.scrollTop = box.scrollHeight;
-}
-
 function clearLog() {
   document.getElementById('log-box').innerHTML = '';
   monitorCursor = 0;
@@ -1290,7 +1317,7 @@ function toggleAddPortForm() {
     srcSel.innerHTML = `<option value="">${t('apSourceNone')}</option>` +
       sources.map(p => {
         const shortId = p.id ? ' #' + p.id.slice(0, 8) : '';
-        return `<option value="${esc(p.id||p.protocolName)}">${esc(p.protocolName)}${esc(shortId)}</option>`;
+        return `<option value="${esc(p.id)}">${esc(p.protocolName)}${esc(shortId)}</option>`;
       }).join('');
     document.getElementById('ap-err').textContent = '';
     onAddPortProtocolChange();
@@ -1342,36 +1369,96 @@ async function submitAddPort() {
   } catch(e) { err.textContent = t('errAddPort') + e.message; }
 }
 
-async function deletePort(protocolName, netProtocol, localPort, remotePort) {
-  if (!confirm(t('confirmDeletePort').replace('{name}', protocolName))) return;
+async function deletePort(id) {
+  const p = portList.find(x => x.id === id);
+  if (!confirm(t('confirmDeletePort').replace('{name}', p?.protocolName ?? id))) return;
   try {
     const r = await fetch(`${BASE}/api/ports`, {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ protocolName, netProtocol, localPort, remotePort })
+      body: JSON.stringify({ id })
     });
     const d = await r.json();
     if (!d.success) { alert(t('errDeletePort') + (d.error || '')); return; }
-    const monKey = `${protocolName}||${netProtocol}||${localPort}||${remotePort}`;
-    if (activeMon === monKey) await clearMonitor();
+    if (activeMon === id) await clearMonitor();
     await loadPorts();
   } catch(e) { alert(t('errDeletePort') + e.message); }
 }
 
-async function changePortMask(protocolName, maskType) {
-  try {
-    const r = await fetch(`${BASE}/api/ports/${encodeURIComponent(protocolName)}/mask`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ maskType })
-    });
-    if (!r.ok) {
-      const d = await r.json();
-      alert('Change mask failed: ' + (d.error || r.status));
-      await loadPorts();
-    }
-  } catch(e) { alert('Change mask failed: ' + e.message); }
+// ── Edit Port ─────────────────────────────────────────
+function openEditPortForm(id) {
+  const p = portList.find(x => x.id === id);
+  if (!p) return;
+
+  document.getElementById('add-port-form').style.display = 'none';
+  const form = document.getElementById('edit-port-form');
+  form.style.display = '';
+
+  document.getElementById('ep-id').value       = p.id;
+  document.getElementById('ep-name').value     = p.protocolName;
+  document.getElementById('ep-remote').value   = p.remotePort && p.remotePort !== '--' ? p.remotePort : '';
+  document.getElementById('ep-ip').value       = p.targetIp || '';
+  document.getElementById('ep-err').textContent = '';
+
+  const proto = document.getElementById('ep-protocol');
+  proto.value = p.netProtocol;
+
+  const localVal = p.localPort && p.localPort !== '--' ? p.localPort : '';
+  document.getElementById('ep-local').value = localVal;
+
+  const maskSel = document.getElementById('ep-mask');
+  maskSel.innerHTML = masks.map(m => `<option value="${esc(m)}"${m === p.maskType ? ' selected' : ''}>${esc(maskLabel(m))}</option>`).join('');
+
+  const srcSel = document.getElementById('ep-source');
+  const sources = portList.filter(x => x.netProtocol === 'TCP Server' && x.id !== id);
+  srcSel.innerHTML = `<option value="">${t('apSourceNone')}</option>` +
+    sources.map(x => {
+      const shortId = x.id ? ' #' + x.id.slice(0, 8) : '';
+      const sel = x.id === p.sourceProtocolId ? ' selected' : '';
+      return `<option value="${esc(x.id)}"${sel}>${esc(x.protocolName)}${esc(shortId)}</option>`;
+    }).join('');
+
+  onEditPortProtocolChange();
+  form.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
+
+function closeEditPortForm() {
+  document.getElementById('edit-port-form').style.display = 'none';
+}
+
+function onEditPortProtocolChange() {
+  const proto = document.getElementById('ep-protocol').value;
+  document.getElementById('ep-local').style.display  = proto === 'TCP Client' ? 'none' : '';
+  document.getElementById('ep-source').style.display = proto === 'TCP Client' ? '' : 'none';
+  document.getElementById('ep-remote').style.display = proto === 'TCP Server' ? 'none' : '';
+  document.getElementById('ep-ip').style.display     = proto === 'TCP Server' ? 'none' : '';
+}
+
+async function submitEditPort() {
+  const id     = document.getElementById('ep-id').value;
+  const name   = document.getElementById('ep-name').value.trim();
+  const proto  = document.getElementById('ep-protocol').value;
+  const local  = document.getElementById('ep-local').value.trim();
+  const source = document.getElementById('ep-source').value;
+  const remote = document.getElementById('ep-remote').value.trim();
+  const ip     = document.getElementById('ep-ip').value.trim();
+  const mask   = document.getElementById('ep-mask').value;
+  const err    = document.getElementById('ep-err');
+  err.textContent = '';
+  if (!name) { err.textContent = t('apName') + ' required'; return; }
+  try {
+    const r = await fetch(`${BASE}/api/ports/${encodeURIComponent(id)}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ protocolName: name, netProtocol: proto, localPort: local, remotePort: remote, targetIp: ip, maskType: mask, sourceProtocolId: source })
+    });
+    const d = await r.json();
+    if (!d.success) { err.textContent = t('errEditPort') + (d.error || ''); return; }
+    closeEditPortForm();
+    await loadPorts();
+  } catch(e) { err.textContent = t('errEditPort') + e.message; }
+}
+
 </script>
 </body>
 </html>

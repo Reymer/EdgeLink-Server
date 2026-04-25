@@ -27,7 +27,7 @@ public class PortTableBinder
             table.OnMonitor += (pd) =>
             {
                 monitor.SetStatus(UIKey.Monitor_Monitor, true);
-                MainThreadDispatcher.Instance().Enqueue(() => monitorConsole.RemoveAll());
+                monitorConsole.RemoveAll();
                 handler.OnMonitorConsole(pd);
             };
         }

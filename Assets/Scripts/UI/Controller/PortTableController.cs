@@ -1,3 +1,4 @@
+using System;
 using Cysharp.Threading.Tasks;
 using DevKit;
 using DevKit.Console;
@@ -88,9 +89,25 @@ public class PortTableController : IPortTableHandler
         }, PlayerLoopTiming.Update);
     }
 
+    public void OnPortModified(PortData portData)
+    {
+        UniTask.Post(() =>
+        {
+            spawner.RefreshAndRecreateTables();
+            NetworkPortManager.Instance.RefreshAndRecreateTables(spawner, uiCollector);
+        }, PlayerLoopTiming.Update);
+    }
+
     public async void OnRemove(PortData portData)
     {
-        await ExecuteWithRefreshAsync(async () => await NetworkPortManager.Instance.RemovePortData(portData));
+        try
+        {
+            await ExecuteWithRefreshAsync(async () => await NetworkPortManager.Instance.RemovePortData(portData));
+        }
+        catch (Exception ex)
+        {
+            UnityEngine.Debug.LogError($"[PortTableController] OnRemove failed: {ex.Message}");
+        }
     }
 
     public void OnConnect(PortData portData)
@@ -101,8 +118,15 @@ public class PortTableController : IPortTableHandler
 
     public async void OnDisconnectedPort(PortData portData)
     {
-        await NetworkPortManager.Instance.DisconnectedPort(portData);
-        spawner.UpdateTableDynamicUI(portData);
+        try
+        {
+            await NetworkPortManager.Instance.DisconnectedPort(portData);
+            spawner.UpdateTableDynamicUI(portData);
+        }
+        catch (Exception ex)
+        {
+            UnityEngine.Debug.LogError($"[PortTableController] OnDisconnectedPort failed: {ex.Message}");
+        }
     }
 
     public void OnMaskType(PortData portData)
@@ -122,27 +146,13 @@ public class PortTableController : IPortTableHandler
 
     public async void OnEditConfirm(PortData oldPortData, PortData newPortData)
     {
-        newPortData.Id = oldPortData.Id; // 編輯時保留原 UUID
-        manualAddGuard.Start();
         try
         {
-            spawner.RefreshAndRecreateTables();
-            await NetworkPortManager.Instance.RemovePortData(oldPortData);
-
-            if (NetworkPortManager.Instance.IsPortUnique(newPortData))
-            {
-                NetworkPortManager.Instance.AddPortData(newPortData);
-            }
-            else
-            {
-                consoleUI.AddLog(Localization.Instance.GetText(LanguageKeys.Log_DuplicatePort));
-            }
-
-            NetworkPortManager.Instance.RefreshAndRecreateTables(spawner, uiCollector);
+            await NetworkPortManager.Instance.UpdatePortData(oldPortData, newPortData);
         }
-        finally
+        catch (InvalidOperationException)
         {
-            manualAddGuard.End();
+            consoleUI.AddLog(Localization.Instance.GetText(LanguageKeys.Log_DuplicatePort));
         }
     }
 
