@@ -1,4 +1,4 @@
-Key|zh-TW,繁體中文|en-US,English|ja-JP,日本語┤
+﻿Key|zh-TW,繁體中文|en-US,English|ja-JP,日本語┤
 Name|名稱|Name|名前┤
 NetProtocol|網絡協議|Network Protocol|ネットワークプロトコル┤
 RemotePort|遠端端口|Remote Port|リモートポート┤
@@ -64,3 +64,5 @@ Log_ProcessPacketsError|ProcessPackets 未預期錯誤|ProcessPackets unexpected
 Log_ReceiveClientError|ReceiveClient 未預期錯誤|ReceiveClient unexpected error|ReceiveClient 予期しないエラー┤
 UI_SourceNone|不指定|(none)|指定なし┤
 UI_Source|來源|Source|送信元┤
+Log_ConnectTimeout|連線逾時，重試中|Connection timed out, retrying|接続タイムアウト、再試行中┤
+Log_ConnectFailed|連線失敗，重試中|Connection failed, retrying|接続失敗、再試行中┤

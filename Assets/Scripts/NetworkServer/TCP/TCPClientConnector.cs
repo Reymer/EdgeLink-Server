@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using Cysharp.Threading.Tasks;
 using DevKit;
 using iotserver;
+using UnityEngine;
 
 /// <summary>
 /// TCP Client 連線管理器
@@ -198,6 +199,8 @@ public class TCPClientConnector : NetworkConnectorBase
                     if (stream == null || !stream.CanWrite)
                         throw new Exception("TCP Stream 不可寫入，視為連線失敗");
 
+                    ConfigureKeepAlive(clientData.tcpClient.Client);
+
                     portData.IsConnected = true;
                     LogHelper.LogToConsole($"{LogHelper.Tag("TCP Client", portData)} {Localization.Instance.GetText(LanguageKeys.Log_Connected)} → {portData.TargetIP}:{portData.RemotePortDetails.Port}");
                     dispatcher.Enqueue(() => portData.OnUpdate?.Invoke(portData));
@@ -214,16 +217,22 @@ public class TCPClientConnector : NetworkConnectorBase
             catch (TimeoutException)
             {
                 portData.IsConnected = false;
+                if (retryCount == 0)
+                    LogHelper.LogToConsole($"{LogHelper.Tag("TCP Client", portData)} {Localization.Instance.GetText(LanguageKeys.Log_ConnectTimeout)} → {portData.TargetIP}:{portData.RemotePortDetails.Port}", isError: true);
                 dispatcher.Enqueue(() => portData.OnUpdate?.Invoke(portData));
             }
-            catch (SocketException)
+            catch (SocketException ex)
             {
                 portData.IsConnected = false;
+                if (retryCount == 0)
+                    LogHelper.LogToConsole($"{LogHelper.Tag("TCP Client", portData)} {Localization.Instance.GetText(LanguageKeys.Log_ConnectFailed)} ({ex.SocketErrorCode}) → {portData.TargetIP}:{portData.RemotePortDetails.Port}", isError: true);
                 dispatcher.Enqueue(() => portData.OnUpdate?.Invoke(portData));
             }
-            catch (Exception)
+            catch (Exception ex)
             {
                 portData.IsConnected = false;
+                if (retryCount == 0)
+                    LogHelper.LogToConsole($"{LogHelper.Tag("TCP Client", portData)} {Localization.Instance.GetText(LanguageKeys.Log_ConnectFailed)} ({ex.Message}) → {portData.TargetIP}:{portData.RemotePortDetails.Port}", isError: true);
                 dispatcher.Enqueue(() => portData.OnUpdate?.Invoke(portData));
             }
 
@@ -256,30 +265,6 @@ public class TCPClientConnector : NetworkConnectorBase
                     ConnectWithRetryAsync(clientData, isFirstConnect: false).Forget();
                     break;
                 }
-
-                try
-                {
-                    var stream = clientData.tcpClient.GetStream();
-                    if (stream.CanWrite)
-                    {
-                        await stream.WriteAsync(Array.Empty<byte>(), 0, 0, token);
-                    }
-                    else
-                    {
-                        throw new Exception("Stream 不可寫入");
-                    }
-                }
-                catch (OperationCanceledException)
-                {
-                    break;
-                }
-                catch (Exception ex)
-                {
-                    LogHelper.LogToConsole($"{LogHelper.Tag("TCP Client", portData)} {Localization.Instance.GetText(LanguageKeys.Log_HeartbeatFailed)}: {ex.Message}", isError: true);
-                    portData.IsConnected = false;
-                    ConnectWithRetryAsync(clientData, isFirstConnect: false).Forget();
-                    break;
-                }
             }
         }
         catch (OperationCanceledException)
@@ -289,6 +274,24 @@ public class TCPClientConnector : NetworkConnectorBase
         catch (Exception ex)
         {
             LogHelper.LogToConsole($"{LogHelper.Tag("TCP Client", portData)} {Localization.Instance.GetText(LanguageKeys.Log_HeartbeatFailed)}: {ex.Message}", isError: true);
+        }
+    }
+
+    private static void ConfigureKeepAlive(Socket socket)
+    {
+        try
+        {
+            socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.KeepAlive, true);
+            // Windows IOControl：idle 10s 後開始探測，每 1s 探測一次
+            byte[] inValue = new byte[12];
+            BitConverter.GetBytes(1u).CopyTo(inValue, 0);
+            BitConverter.GetBytes(10_000u).CopyTo(inValue, 4);
+            BitConverter.GetBytes(1_000u).CopyTo(inValue, 8);
+            socket.IOControl(IOControlCode.KeepAliveValues, inValue, null);
+        }
+        catch (Exception ex)
+        {
+            Debug.LogWarning($"[TCPClient] ConfigureKeepAlive failed: {ex.Message}");
         }
     }
 

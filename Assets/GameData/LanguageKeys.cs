@@ -33,8 +33,10 @@ namespace iotserver {
         public static readonly string Log_RestartFailed    = "Log_RestartFailed";
         public static readonly string Log_MaxConnections   = "Log_MaxConnections";
         public static readonly string Log_AlreadyConnected = "Log_AlreadyConnected";
-        public static readonly string Log_ReconnectSuccess = "Log_ReconnectSuccess";
-        public static readonly string Log_ReconnectFailed  = "Log_ReconnectFailed";
+        public static readonly string Log_ReconnectSuccess  = "Log_ReconnectSuccess";
+        public static readonly string Log_ReconnectFailed   = "Log_ReconnectFailed";
+        public static readonly string Log_ConnectTimeout    = "Log_ConnectTimeout";
+        public static readonly string Log_ConnectFailed     = "Log_ConnectFailed";
 
         public static readonly string Log_DataLoaded              = "Log_DataLoaded";
         public static readonly string Log_UnknownProtocol         = "Log_UnknownProtocol";

@@ -153,6 +153,7 @@ public class TCPServerConnector : NetworkConnectorBase
                 try { serverData.tcpListener?.Stop(); } catch { }
                 serverData.tcpListener = new TcpListener(IPAddress.Any, localPort);
                 serverData.tcpListener.Start();
+                serverData.CancellationTokenSource?.Cancel();
                 serverData.CancellationTokenSource?.Dispose();
                 serverData.CancellationTokenSource = new CancellationTokenSource();
                 portData.IsConnected = false; // 等待 client 連入後由 AcceptClientsAsync 設為 true

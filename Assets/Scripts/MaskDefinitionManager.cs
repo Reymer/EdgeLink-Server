@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using UnityEngine;
 
 /// <summary>
@@ -16,6 +17,7 @@ public class MaskDefinitionManager
     private readonly MaskDefinitionStorageService storage = new();
     private readonly Dictionary<string, MaskDefinition> definitions = new();
     private readonly List<string> order = new();
+    private readonly ReaderWriterLockSlim _lock = new(LockRecursionPolicy.NoRecursion);
 
     public event Action OnMaskTypesChanged;
 
@@ -41,23 +43,34 @@ public class MaskDefinitionManager
     private void Load()
     {
         var data = storage.Load();
-        foreach (var def in data.definitions)
+        _lock.EnterWriteLock();
+        try
         {
-            if (string.IsNullOrEmpty(def.maskId)) continue;
-            definitions[def.maskId] = def;
-            order.Add(def.maskId);
+            foreach (var def in data.definitions)
+            {
+                if (string.IsNullOrEmpty(def.maskId)) continue;
+                definitions[def.maskId] = def;
+                order.Add(def.maskId);
+            }
         }
+        finally { _lock.ExitWriteLock(); }
     }
 
     private void Save()
     {
-        var data = new MaskDefinitions
+        MaskDefinitions data;
+        _lock.EnterReadLock();
+        try
         {
-            definitions = order
-                .Where(id => definitions.ContainsKey(id))
-                .Select(id => definitions[id])
-                .ToList()
-        };
+            data = new MaskDefinitions
+            {
+                definitions = order
+                    .Where(id => definitions.ContainsKey(id))
+                    .Select(id => definitions[id])
+                    .ToList()
+            };
+        }
+        finally { _lock.ExitReadLock(); }
         storage.Save(data);
     }
 
@@ -77,21 +90,26 @@ public class MaskDefinitionManager
             Debug.LogWarning("[MaskDefinitionManager] maskId cannot be empty");
             return;
         }
-        if (definitions.ContainsKey(maskId))
-        {
-            Debug.LogWarning($"[MaskDefinitionManager] Mask '{maskId}' already exists");
-            return;
-        }
 
-        AddDefinitionInternal(new MaskDefinition
+        _lock.EnterWriteLock();
+        try
         {
-            maskId = maskId,
-            localizationKey = string.IsNullOrEmpty(localizationKey) ? maskId : localizationKey,
-            description = "",
-            fieldDelimiter = ";",
-            kvSeparator = ":",
-            outputTemplate = "{raw}"
-        });
+            if (definitions.ContainsKey(maskId))
+            {
+                Debug.LogWarning($"[MaskDefinitionManager] Mask '{maskId}' already exists");
+                return;
+            }
+            AddDefinitionInternal(new MaskDefinition
+            {
+                maskId = maskId,
+                localizationKey = string.IsNullOrEmpty(localizationKey) ? maskId : localizationKey,
+                description = "",
+                fieldDelimiter = ";",
+                kvSeparator = ":",
+                outputTemplate = "{raw}"
+            });
+        }
+        finally { _lock.ExitWriteLock(); }
         Save();
         OnMaskTypesChanged?.Invoke();
     }
@@ -103,14 +121,19 @@ public class MaskDefinitionManager
             Debug.LogWarning($"[MaskDefinitionManager] Cannot delete default mask '{DEFAULT_MASK_ID}'");
             return;
         }
-        if (!definitions.ContainsKey(maskId))
-        {
-            Debug.LogWarning($"[MaskDefinitionManager] Mask '{maskId}' not found");
-            return;
-        }
 
-        definitions.Remove(maskId);
-        order.Remove(maskId);
+        _lock.EnterWriteLock();
+        try
+        {
+            if (!definitions.ContainsKey(maskId))
+            {
+                Debug.LogWarning($"[MaskDefinitionManager] Mask '{maskId}' not found");
+                return;
+            }
+            definitions.Remove(maskId);
+            order.Remove(maskId);
+        }
+        finally { _lock.ExitWriteLock(); }
         Save();
         OnMaskTypesChanged?.Invoke();
     }
@@ -119,22 +142,26 @@ public class MaskDefinitionManager
     {
         if (oldId == DEFAULT_MASK_ID)
             throw new InvalidOperationException($"不能重命名預設遮罩 '{DEFAULT_MASK_ID}'");
-        if (!definitions.ContainsKey(oldId))
-            throw new KeyNotFoundException($"遮罩 '{oldId}' 不存在");
         if (string.IsNullOrWhiteSpace(newId))
             throw new ArgumentException("新名稱不能為空");
-        if (definitions.ContainsKey(newId))
-            throw new InvalidOperationException($"遮罩 '{newId}' 已存在");
 
-        var def = definitions[oldId];
-        def.maskId = newId;
-        if (def.localizationKey == oldId) def.localizationKey = newId;
+        _lock.EnterWriteLock();
+        try
+        {
+            if (!definitions.ContainsKey(oldId))
+                throw new KeyNotFoundException($"遮罩 '{oldId}' 不存在");
+            if (definitions.ContainsKey(newId))
+                throw new InvalidOperationException($"遮罩 '{newId}' 已存在");
 
-        definitions.Remove(oldId);
-        int idx = order.IndexOf(oldId);
-        if (idx >= 0) order[idx] = newId; else order.Add(newId);
-        definitions[newId] = def;
-
+            var def = definitions[oldId];
+            def.maskId = newId;
+            if (def.localizationKey == oldId) def.localizationKey = newId;
+            definitions.Remove(oldId);
+            int idx = order.IndexOf(oldId);
+            if (idx >= 0) order[idx] = newId; else order.Add(newId);
+            definitions[newId] = def;
+        }
+        finally { _lock.ExitWriteLock(); }
         Save();
         OnMaskTypesChanged?.Invoke();
     }
@@ -145,7 +172,9 @@ public class MaskDefinitionManager
     public void SaveDefinition(MaskDefinition def)
     {
         if (def == null || string.IsNullOrEmpty(def.maskId)) return;
-        AddDefinitionInternal(def);
+        _lock.EnterWriteLock();
+        try { AddDefinitionInternal(def); }
+        finally { _lock.ExitWriteLock(); }
         Save();
         OnMaskTypesChanged?.Invoke();
     }
@@ -154,21 +183,45 @@ public class MaskDefinitionManager
 
     public MaskDefinition GetDefinition(string maskId)
     {
-        definitions.TryGetValue(maskId ?? "", out var def);
-        return def;
+        _lock.EnterReadLock();
+        try { definitions.TryGetValue(maskId ?? "", out var def); return def; }
+        finally { _lock.ExitReadLock(); }
     }
 
-    public bool HasMaskType(string maskId) => definitions.ContainsKey(maskId ?? "");
+    public bool HasMaskType(string maskId)
+    {
+        _lock.EnterReadLock();
+        try { return definitions.ContainsKey(maskId ?? ""); }
+        finally { _lock.ExitReadLock(); }
+    }
 
-    public List<string> GetMaskTypeIds() => new(order);
+    public List<string> GetMaskTypeIds()
+    {
+        _lock.EnterReadLock();
+        try { return new List<string>(order); }
+        finally { _lock.ExitReadLock(); }
+    }
 
-    public string GetLocalizationKey(string maskId) =>
-        definitions.TryGetValue(maskId, out var def) ? def.localizationKey : maskId;
+    public string GetLocalizationKey(string maskId)
+    {
+        _lock.EnterReadLock();
+        try { return definitions.TryGetValue(maskId, out var def) ? def.localizationKey : maskId; }
+        finally { _lock.ExitReadLock(); }
+    }
 
-    public string[] GetLocalizationKeys() =>
-        order.Select(id => definitions.TryGetValue(id, out var d) ? d.localizationKey : id).ToArray();
+    public string[] GetLocalizationKeys()
+    {
+        _lock.EnterReadLock();
+        try { return order.Select(id => definitions.TryGetValue(id, out var d) ? d.localizationKey : id).ToArray(); }
+        finally { _lock.ExitReadLock(); }
+    }
 
-    public int GetCount() => definitions.Count;
+    public int GetCount()
+    {
+        _lock.EnterReadLock();
+        try { return definitions.Count; }
+        finally { _lock.ExitReadLock(); }
+    }
 
     public void NotifyChanged() => OnMaskTypesChanged?.Invoke();
 }

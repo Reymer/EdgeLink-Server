@@ -75,12 +75,22 @@ public class AddPortReq
 }
 
 [Serializable]
-public class DeletePortReq
+public class UpdatePortReq
 {
     public string protocolName;
     public string netProtocol;
     public string localPort;
     public string remotePort;
+    public string targetIp;
+    public string maskType;
+    public string sourceProtocolName;
+    public string sourceProtocolId;
+}
+
+[Serializable]
+public class DeletePortReq
+{
+    public string id;
 }
 
 [Serializable]
@@ -92,10 +102,7 @@ public class LanguageReq
 [Serializable]
 public class MonitorPortReq
 {
-    public string protocolName;
-    public string netProtocol;
-    public string localPort;
-    public string remotePort;
+    public string id;
 }
 
 [Serializable]

@@ -39,11 +39,18 @@ public class ApiRouter
             if (method == "GET"    && segments.Length == 2) { await _portHandler.GetAllAsync(ctx); return; }
             if (method == "POST"   && segments.Length == 2) { await _portHandler.AddAsync(ctx);    return; }
             if (method == "DELETE" && segments.Length == 2) { await _portHandler.DeleteAsync(ctx); return; }
-            // POST /api/ports/{name}/mask
+            // PUT /api/ports/{id}
+            if (method == "PUT" && segments.Length == 3)
+            {
+                string portId = Uri.UnescapeDataString(segments[2]);
+                await _portHandler.UpdateAsync(ctx, portId);
+                return;
+            }
+            // POST /api/ports/{id}/mask
             if (method == "POST" && segments.Length == 4 && segments[3] == "mask")
             {
-                string name = Uri.UnescapeDataString(segments[2]);
-                await _portHandler.ChangeMaskAsync(ctx, name);
+                string id = Uri.UnescapeDataString(segments[2]);
+                await _portHandler.ChangeMaskAsync(ctx, id);
                 return;
             }
         }
