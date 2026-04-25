@@ -111,3 +111,7 @@ vr-training-tfaz/Assets/Course_VR360/VR360_Video/2022-03-28-第一次閃爆燃-�
 vr-training-tfaz/Assets/Course_VR360/VR360_Video/2022-03-28-第一次閃爆燃-降噪-銳化高-8K-H.265-修剪.mov.meta
 vr-training-tfaz/Assets/Course_VR360/VR360_Video/2022-07-25-火災成長.mp4
 vr-training-tfaz/Assets/Course_VR360/VR360_Video/2022-07-25-火災成長.mp4.meta
+
+# Personal docs (not for company repo)
+docs/*.pdf
+docs/gen_manual.py
