@@ -1,8 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
 using Cysharp.Threading.Tasks;
-using DevKit;
-using DevKit.Console;
 using iotserver;
 
 public class NetworkConnectorCore
