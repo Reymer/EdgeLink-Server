@@ -123,3 +123,7 @@ docs/gen_manual.py
 # DevKit (第三方函式庫，著作權非本專案所有)
 Assets/DevKit/
 Assets/DevKit.meta
+
+# Server publish output
+publish/
+EdgeLink-*.zip
