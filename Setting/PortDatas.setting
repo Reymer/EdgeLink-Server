@@ -1,3 +1,28 @@
-{
-    "portDatas": []
+﻿{
+    "portDatas": [
+        {
+            "Id": "0f77ef25c30647c9a9adc18e15821e24",
+            "Key": "8888",
+            "ProtocolName": "123",
+            "NetProtocol": "TCP Server",
+            "LocalPortDetails": {
+                "Port": "8888",
+                "Description": ""
+            },
+            "RemotePortDetails": {
+                "Port": "--",
+                "Description": ""
+            },
+            "TargetIP": "",
+            "IsConnected": true,
+            "COMReceived": 0,
+            "NetReceived": 0,
+            "IsEnabled": true,
+            "MaskType": "OriginalData",
+            "ResponseMaskType": "",
+            "RequestMode": "serial",
+            "SourceProtocolName": "",
+            "SourceProtocolId": ""
+        }
+    ]
 }
