@@ -72,13 +72,15 @@ public class UdpConnector : NetworkConnectorBase
         try { udpClient = new UdpClient(remotePort); }
         catch (SocketException ex) when (ex.SocketErrorCode == SocketError.AddressAlreadyInUse)
         {
-            LogHelper.LogToConsole($"{LogHelper.Tag("UDP", portData)} Port occupied: {portData.RemotePortDetails.Port}", isError: true);
-            throw new InvalidOperationException($"Port occupied: {portData.RemotePortDetails.Port}");
+            portData.IsConnected = false;
+            LogHelper.LogToConsole($"{LogHelper.Tag("UDP", portData)} Port {portData.RemotePortDetails.Port} is already in use — skipping.", isError: true);
+            return;
         }
         catch (Exception ex)
         {
+            portData.IsConnected = false;
             LogHelper.LogToConsole($"{LogHelper.Tag("UDP", portData)} Start failed: {ex.Message}", isError: true);
-            throw new InvalidOperationException(ex.Message, ex);
+            return;
         }
 
         portData.IsConnected = true;

@@ -14,6 +14,7 @@ public class PortManager
 {
     private static PortManager? _instance;
     public static PortManager Instance => _instance ?? throw new InvalidOperationException("PortManager not initialized");
+    public static bool IsInitialized => _instance != null;
 
     public static void Initialize(NetworkConnectorCore core) => _instance = new PortManager(core);
 
@@ -34,8 +35,12 @@ public class PortManager
         foreach (var p in loaded)
         {
             p.OnUpdate = OnPortUpdate;
-            if (p.IsEnabled)
-                _core.AddPort(p);
+            if (!p.IsEnabled) continue;
+            try { _core.AddPort(p); }
+            catch (Exception ex)
+            {
+                AppLogger.Warning($"[PortManager] Failed to start port '{p.ProtocolName}': {ex.Message}");
+            }
         }
     }
 
@@ -134,8 +139,12 @@ public class PortManager
         _storage.SavePortData(snapshot);
     }
 
-    public async Task ShutdownAsync()
+    public async Task ShutdownAsync(TimeSpan? timeout = null)
     {
-        await _core.UnInit();
+        var shutdownTask = _core.UnInit();
+        var completed = await Task.WhenAny(shutdownTask,
+            Task.Delay(timeout ?? Timeout.InfiniteTimeSpan));
+        if (completed != shutdownTask)
+            AppLogger.Warning("[PortManager] Shutdown timed out — some connectors may still be running.");
     }
 }

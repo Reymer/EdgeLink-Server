@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Text.Json.Serialization;
 
 namespace EdgeLink.NetworkServer.Base.Models;
 
@@ -29,10 +30,10 @@ public class PortData
     public string SourceProtocolName = "";
     public string SourceProtocolId = "";
 
-    [NonSerialized] public int CurrentConnections;
-    [NonSerialized] public int TotalConnections;
-    [NonSerialized] public long TotalReceivedBytes;
-    [NonSerialized] public Action<PortData>? OnUpdate;
+    [JsonIgnore] public int CurrentConnections;
+    [JsonIgnore] public int TotalConnections;
+    [JsonIgnore] public long TotalReceivedBytes;
+    [JsonIgnore] public Action<PortData>? OnUpdate;
 }
 
 [Serializable]

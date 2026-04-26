@@ -7,8 +7,9 @@ public static class Json
 {
     private static readonly JsonSerializerOptions _opts = new()
     {
-        WriteIndented = true,
+        WriteIndented = false,
         PropertyNameCaseInsensitive = true,
+        IncludeFields = true,
     };
 
     public static string ToJson<T>(T obj) =>
