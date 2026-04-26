@@ -14,12 +14,18 @@ public class PortDto
     public string protocolName;
     public string netProtocol;
     public string maskType;
+    public string responseMaskType;
+    public string requestMode;
     public string localPort;
     public string remotePort;
     public string targetIp;
     public bool isConnected;
+    public bool isEnabled;
     public string sourceProtocolName;
     public string sourceProtocolId;
+    public int currentConnections;
+    public int totalConnections;
+    public long totalReceivedBytes;
 }
 
 [Serializable]
@@ -70,6 +76,8 @@ public class AddPortReq
     public string remotePort;
     public string targetIp;
     public string maskType;
+    public string responseMaskType;
+    public string requestMode;
     public string sourceProtocolName;
     public string sourceProtocolId;
 }
@@ -83,6 +91,8 @@ public class UpdatePortReq
     public string remotePort;
     public string targetIp;
     public string maskType;
+    public string responseMaskType;
+    public string requestMode;
     public string sourceProtocolName;
     public string sourceProtocolId;
 }
@@ -91,6 +101,36 @@ public class UpdatePortReq
 public class DeletePortReq
 {
     public string id;
+}
+
+[Serializable]
+public class ToggleEnabledReq
+{
+    public bool enabled;
+}
+
+[Serializable]
+public class ClientListResponse
+{
+    public List<string> clients = new();
+}
+
+[Serializable]
+public class TcpClientInfo
+{
+    public string endpoint;
+    public float connectedSeconds;
+    public float lastActivitySec;
+    public long messageCount;
+    public long totalBytes;
+    public float rateBytesPerSec;
+    public float rttMs; // -1 = no measurement yet
+}
+
+[Serializable]
+public class ClientDetailListResponse
+{
+    public List<TcpClientInfo> clients = new();
 }
 
 [Serializable]
@@ -112,6 +152,29 @@ public class MonitorPortResponse
 }
 
 [Serializable]
+public class SettingsExportDto
+{
+    public List<PortExportDto> ports = new();
+    public List<MaskDefinitionDto> masks = new();
+}
+
+[Serializable]
+public class PortExportDto
+{
+    public string protocolName;
+    public string netProtocol;
+    public string localPort;
+    public string remotePort;
+    public string targetIp;
+    public string maskType;
+    public string responseMaskType;
+    public string requestMode;
+    public string sourceProtocolName;
+    public string sourceProtocolId;
+    public bool isEnabled;
+}
+
+[Serializable]
 public class MaskDefinitionDto
 {
     public string maskId;
@@ -121,4 +184,6 @@ public class MaskDefinitionDto
     public string kvSeparator;
     public string outputTemplate;
     public string sampleData;
+    public string routeMode;
+    public string correlationIdField;
 }

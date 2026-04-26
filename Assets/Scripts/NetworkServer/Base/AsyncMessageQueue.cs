@@ -9,15 +9,20 @@ public class AsyncMessageQueue<T>
 {
     private readonly ConcurrentQueue<T> queue = new();
     private readonly SemaphoreSlim semaphoreSlim = new(0);
-    private const int MAX_QUEUE_SIZE = 10000;
+    private readonly int maxQueueSize;
     private volatile int currentCount = 0;
+
+    public AsyncMessageQueue(int maxSize = 10000)
+    {
+        maxQueueSize = maxSize;
+    }
 
     public void Enqueue(T item)
     {
-        if (System.Threading.Interlocked.Increment(ref currentCount) > MAX_QUEUE_SIZE)
+        if (System.Threading.Interlocked.Increment(ref currentCount) > maxQueueSize)
         {
             System.Threading.Interlocked.Decrement(ref currentCount);
-            UnityEngine.Debug.LogWarning($"[安全] 訊息佇列已達到最大容量 {MAX_QUEUE_SIZE}，丟棄新訊息");
+            UnityEngine.Debug.LogWarning($"[安全] 訊息佇列已達到最大容量 {maxQueueSize}，丟棄新訊息");
             return;
         }
 
@@ -42,4 +47,16 @@ public class AsyncMessageQueue<T>
     }
 
     public int Count => currentCount;
+
+    /// <summary>
+    /// 清空佇列並歸零 semaphore，用於重連前丟棄舊 session 的殘留請求。
+    /// 呼叫時須確保無其他 Enqueue/DequeueAsync 同時進行。
+    /// </summary>
+    public void Clear()
+    {
+        while (queue.TryDequeue(out _))
+            System.Threading.Interlocked.Decrement(ref currentCount);
+        while (semaphoreSlim.CurrentCount > 0)
+            semaphoreSlim.Wait(0);
+    }
 }

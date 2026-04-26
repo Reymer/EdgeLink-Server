@@ -1,0 +1,39 @@
+{
+  "runtimeTarget": {
+    "name": ".NETCoreApp,Version=v8.0",
+    "signature": ""
+  },
+  "compilationOptions": {},
+  "targets": {
+    ".NETCoreApp,Version=v8.0": {
+      "ReceiverConsole/1.0.0": {
+        "dependencies": {
+          "EdgeLinkSdk": "1.0.0"
+        },
+        "runtime": {
+          "ReceiverConsole.dll": {}
+        }
+      },
+      "EdgeLinkSdk/1.0.0": {
+        "runtime": {
+          "EdgeLinkSdk.dll": {
+            "assemblyVersion": "1.0.0.0",
+            "fileVersion": "1.0.0.0"
+          }
+        }
+      }
+    }
+  },
+  "libraries": {
+    "ReceiverConsole/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "EdgeLinkSdk/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    }
+  }
+}

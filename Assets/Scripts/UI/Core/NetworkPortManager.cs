@@ -106,6 +106,8 @@ public class NetworkPortManager
             NetReceived = 0,
             OnUpdate = OnUpdate,
             MaskType = portData.MaskType,
+            ResponseMaskType = portData.ResponseMaskType ?? "",
+            RequestMode = portData.RequestMode ?? "serial",
             SourceProtocolName = portData.SourceProtocolName ?? "",
             SourceProtocolId = portData.SourceProtocolId ?? "",
         };
@@ -181,6 +183,7 @@ public class NetworkPortManager
             portRegistry.Remove(type, key);
             data.OnUpdate = null;
             SaveData();
+            LogHelper.LogToConsole($"{LogHelper.Tag(data.NetProtocol, data)} {Localization.Instance.GetText(LanguageKeys.Log_Removed)}");
             PortDataRemoved?.Invoke(data);
         }
     }
@@ -208,6 +211,8 @@ public class NetworkPortManager
         existing.RemotePortDetails  = new PortDetails { Port = req.RemotePortDetails.Port };
         existing.TargetIP           = req.TargetIP;
         existing.MaskType           = req.MaskType;
+        existing.ResponseMaskType   = req.ResponseMaskType ?? "";
+        existing.RequestMode        = req.RequestMode ?? "serial";
         existing.SourceProtocolName = req.SourceProtocolName;
         existing.SourceProtocolId   = req.SourceProtocolId;
         existing.Key                = newKey;
@@ -242,6 +247,32 @@ public class NetworkPortManager
     public async System.Threading.Tasks.Task DisconnectedPort(PortData portData)
     {
         await networkConnectorCore.Disconnected(portData);
+    }
+
+    /// <summary>
+    /// 切換啟用/停用
+    /// </summary>
+    public async System.Threading.Tasks.Task TogglePortEnabled(string id, bool enabled)
+    {
+        await MainThreadTaskDispatcher.RunOnMainThread(async () =>
+        {
+            var port = portRegistry.GetAll().FirstOrDefault(p => p.Id == id);
+            if (port == null)
+                throw new KeyNotFoundException($"Port '{id}' not found");
+
+            port.IsEnabled = enabled;
+
+            if (enabled)
+                networkConnectorCore.AddPort(port);
+            else
+            {
+                await networkConnectorCore.Stop(port);
+                LogHelper.LogToConsole($"{LogHelper.Tag(port.NetProtocol, port)} {Localization.Instance.GetText(LanguageKeys.Log_Stopped)}");
+            }
+
+            SaveData();
+            PortDataModified?.Invoke(port);
+        });
     }
 
     /// <summary>

@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Text;
 using System.Text.RegularExpressions;
 using UnityEngine;
 
@@ -9,7 +8,7 @@ public static class MaskProcessor
     private static readonly Regex PlaceholderPattern =
         new Regex(@"\{([^{}]+)\}", RegexOptions.Compiled);
 
-    public static string Process(MaskDefinition def, byte[] rawBytes, string textMessage)
+    public static string Process(MaskDefinition def, byte[] rawBytes, string textMessage, Dictionary<string, string> extraFields = null)
     {
         if (def == null) return textMessage;
 
@@ -26,6 +25,10 @@ public static class MaskProcessor
             Debug.LogWarning($"[MaskProcessor] 欄位解析失敗 ({def.maskId}): {ex}");
             return "";
         }
+
+        if (extraFields != null)
+            foreach (var kv in extraFields)
+                fields[kv.Key] = kv.Value;
 
         return ApplyTemplate(def.outputTemplate, fields);
     }
@@ -53,16 +56,15 @@ public static class MaskProcessor
 
     private static string ApplyTemplate(string template, Dictionary<string, string> fields)
     {
-        // 未填佔位符的偵測必須在替換前做，否則欄位值本身含 '{' / '}' 會被誤判整段丟空。
         foreach (Match m in PlaceholderPattern.Matches(template))
         {
             if (!fields.ContainsKey(m.Groups[1].Value))
                 return "";
         }
 
-        var sb = new StringBuilder(template);
-        foreach (var kv in fields)
-            sb.Replace("{" + kv.Key + "}", kv.Value);
-        return sb.ToString();
+        // MatchEvaluator 逐一替換原始樣板的佔位符，替換結果不會被再次掃描，
+        // 因此欄位值包含 '{' / '}' 也不會干擾其他佔位符的替換。
+        return PlaceholderPattern.Replace(template, m =>
+            fields.TryGetValue(m.Groups[1].Value, out var val) ? val : m.Value);
     }
 }

@@ -16,7 +16,7 @@ using UnityEngine.UI;
 public class EdgeLinkExample : MonoBehaviour
 {
     [Header("通訊設定")]
-    public Protocol protocol  = Protocol.TCP;
+    public Protocol protocol   = Protocol.TCP;
     public int      listenPort = 9090;
 
     [Header("遮罩定義（選填）")]
@@ -27,6 +27,7 @@ public class EdgeLinkExample : MonoBehaviour
     public Text statusText;
     public Text rawText;
     public Text fieldsText;
+    public Text deviceStatusText;
 
     private EdgeLinkReceiver _receiver;
     private MaskParser       _parser;
@@ -40,9 +41,10 @@ public class EdgeLinkExample : MonoBehaviour
             _parser = new MaskParser(mask);
 
         _receiver = new EdgeLinkReceiver(protocol, mask);
-        _receiver.OnConnectionChanged += OnConnected;
-        _receiver.OnMessage           += OnMessage;
-        _receiver.OnError             += OnError;
+        _receiver.OnConnectionChanged  += OnConnected;
+        _receiver.OnDeviceStatusChanged += OnDeviceStatus;
+        _receiver.OnMessage            += OnMessage;
+        _receiver.OnError              += OnError;
         _receiver.Start(listenPort);
 
         Debug.Log($"[EdgeLink] 監聽 {protocol} port {listenPort}");
@@ -61,8 +63,18 @@ public class EdgeLinkExample : MonoBehaviour
     void OnConnected(bool connected)
     {
         string s = connected ? "已連線" : "已斷線";
-        Debug.Log($"[EdgeLink] {s}");
+        Debug.Log($"[EdgeLink] EdgeLink Server {s}");
         if (statusText) statusText.text = s;
+    }
+
+    void OnDeviceStatus(string portName, string endpoint, bool connected)
+    {
+        // IoT 設備本身的連線狀態（與 EdgeLink Server 的連線無關）
+        // endpoint 為設備的 IP:Port，例如 "192.168.1.101:5000"
+        // 同一個 portName 下有多台設備時，可透過 endpoint 區分個別設備
+        string s = connected ? "上線" : "離線";
+        Debug.Log($"[EdgeLink] 設備 [{portName}] ({endpoint}) {s}");
+        if (deviceStatusText) deviceStatusText.text = $"{portName} ({endpoint}): {s}";
     }
 
     void OnMessage(IotMessage msg)
@@ -90,6 +102,19 @@ public class EdgeLinkExample : MonoBehaviour
 
     void OnError(System.Exception ex) =>
         Debug.LogError($"[EdgeLink] 錯誤：{ex.Message}");
+
+    // ── 發送指令範例 ──────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// 對 IoT 設備發送指令（透過 EdgeLink Server 轉發）。
+    /// 可綁定在 UI Button 的 OnClick 上呼叫。
+    /// </summary>
+    public async void SendCommand(string command)
+    {
+        if (_receiver == null) return;
+        await _receiver.SendAsync(command);
+        Debug.Log($"[EdgeLink] 已送出指令：{command}");
+    }
 
     // ── 工具 ──────────────────────────────────────────────────────────────────
 

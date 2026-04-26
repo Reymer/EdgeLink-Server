@@ -27,7 +27,11 @@ public class PortData
     public bool IsConnected;
     public int COMReceived;
     public int NetReceived;
+    public bool IsEnabled = true;
     public string MaskType;
+    public string ResponseMaskType;
+    /// <summary>serial（排隊序列）| concurrent（並發，需設備支援 correlation ID）</summary>
+    public string RequestMode;
     public string SourceProtocolName;
     public string SourceProtocolId;
 

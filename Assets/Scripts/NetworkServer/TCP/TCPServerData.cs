@@ -2,14 +2,25 @@
 using System.Net.Sockets;
 using System.Net;
 using System.Threading;
+using System.Collections.Concurrent;
 
 public class TCPServerData : DisposableBase
 {
     public TcpListener tcpListener;
     public CancellationTokenSource CancellationTokenSource = new();
-    public AsyncMessageQueue<byte[]> asyncMessageQueue = new();
+    public AsyncMessageQueue<(byte[] rawBytes, string text, IPEndPoint sourceEndpoint, string clientKey)> asyncMessageQueue = new();
     public IPEndPoint RemoteEndPoint;
     public PortData portData;
+    public readonly ConcurrentDictionary<string, TcpClientMetrics> ConnectedClients = new();
+
+    /// <summary>clientKey → 對應的 NetworkStream，供反向路由寫回 frontend client 用</summary>
+    public readonly ConcurrentDictionary<string, NetworkStream> ClientStreams = new();
+
+    /// <summary>
+    /// clientKey → 寫入鎖，防止 SendPingsAsync（PING）與 TrySendToServerClient（回應/廣播）
+    /// 並發寫入同一條 IoT client NetworkStream。
+    /// </summary>
+    public readonly ConcurrentDictionary<string, SemaphoreSlim> ClientWriteLocks = new();
 
     // 使用私有欄位以確保原子操作
     private int totalConnections = 0;
