@@ -130,22 +130,43 @@ void loop() {
 
 ---
 
-## API 端點（HTTP）
+## API 文件（OpenAPI / Swagger UI）
+
+啟動 Server 後，開啟瀏覽器前往：
+
+```
+http://localhost:8181/docs
+```
+
+即可看到完整的互動式 API 文件（Swagger UI），支援直接在頁面上執行請求測試。
+
+原始規格檔：`http://localhost:8181/openapi.json`（OpenAPI 3.0.3）
+
+### 主要端點一覽
 
 Base URL：`http://<IP>:8181`
 
-| 方法 | 路徑 | 說明 |
-|------|------|------|
-| GET | `/api/masks` | 取得所有遮罩 |
-| POST | `/api/masks` | 新增遮罩 |
-| PUT | `/api/masks` | 更新遮罩 |
-| DELETE | `/api/masks` | 刪除遮罩 |
-| GET | `/api/ports` | 取得所有 Port |
-| POST | `/api/ports` | 新增 Port |
-| DELETE | `/api/ports` | 刪除 Port |
-| GET | `/api/syslog` | 取得系統日誌 |
-| POST | `/api/auth/login` | 登入取得 Token |
-| GET | `/api/settings` | 取得系統設定 |
+| 標籤 | 方法 | 路徑 | 說明 |
+|------|------|------|------|
+| Auth | POST | `/api/auth/login` | 登入 |
+| Auth | POST | `/api/auth/logout` | 登出 |
+| Auth | GET | `/api/auth/status` | 查詢登入狀態 |
+| Auth | POST | `/api/auth/change-password` | 修改密碼 |
+| Ports | GET | `/api/ports` | 取得所有 Port |
+| Ports | POST | `/api/ports` | 新增 Port |
+| Ports | PUT | `/api/ports/{id}` | 更新 Port |
+| Ports | DELETE | `/api/ports` | 刪除 Port |
+| Ports | GET | `/api/ports/{id}/clients` | 查詢 TCP 連線 |
+| Masks | GET | `/api/masks` | 取得所有遮罩 |
+| Masks | POST | `/api/masks` | 新增遮罩 |
+| Masks | PUT | `/api/masks/{id}` | 更新遮罩定義 |
+| Masks | DELETE | `/api/masks/{id}` | 刪除遮罩 |
+| Monitor | GET | `/api/monitor-stream` | SSE 即時訊息串流 |
+| Logs | GET | `/api/logs` | 系統日誌 |
+| Settings | GET | `/api/settings/export` | 匯出設定 |
+| Settings | POST | `/api/settings/import` | 匯入設定 |
+
+> 詳細 Request / Response Schema 請見 `/docs`
 
 ---
 

@@ -35,6 +35,20 @@ public class ApiRouter
             return;
         }
 
+        // GET /docs  — Swagger UI
+        if (method == "GET" && ctx.Request.Url.AbsolutePath == "/docs")
+        {
+            await ServeStaticAsync(ctx, "docs.html", "text/html; charset=utf-8");
+            return;
+        }
+
+        // GET /openapi.json
+        if (method == "GET" && ctx.Request.Url.AbsolutePath == "/openapi.json")
+        {
+            await ServeStaticAsync(ctx, "openapi.json", "application/json; charset=utf-8");
+            return;
+        }
+
         // /api/auth/* — login / logout / status 不需認證；其他管理端點需認證
         if (segments.Length >= 2 && segments[0] == "api" && segments[1] == "auth")
         {
@@ -199,6 +213,25 @@ public class ApiRouter
         catch (FileNotFoundException)
         {
             HttpApiServer.WriteError(ctx, 404, $"index.html not found at: {_webUiPath}");
+        }
+    }
+
+    private async Task ServeStaticAsync(HttpListenerContext ctx, string fileName, string contentType)
+    {
+        string dir = Path.GetDirectoryName(_webUiPath) ?? ".";
+        string filePath = Path.Combine(dir, fileName);
+        try
+        {
+            byte[] buf = await Task.Run(() => File.ReadAllBytes(filePath));
+            ctx.Response.StatusCode = 200;
+            ctx.Response.ContentType = contentType;
+            ctx.Response.ContentLength64 = buf.Length;
+            ctx.Response.OutputStream.Write(buf, 0, buf.Length);
+            ctx.Response.Close();
+        }
+        catch (FileNotFoundException)
+        {
+            HttpApiServer.WriteError(ctx, 404, $"{fileName} not found");
         }
     }
 }
