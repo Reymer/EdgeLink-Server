@@ -1,9 +1,9 @@
-using TMPro;
 using UnityEngine;
+using UnityEngine.UI;
 
 public class LogUI : MonoBehaviour
 {
-    [SerializeField] private TMP_Text logText;
+    [SerializeField] private Text logText;
 
     public void Log(string log)
     {
