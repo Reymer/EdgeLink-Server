@@ -1,6 +1,6 @@
 using System.Net;
 using System.Text;
-using EdgeLink.Infrastructure;
+using System.Text.Json;
 
 namespace EdgeLink.WebApi;
 
@@ -11,8 +11,10 @@ public class AuthApiHandler
         try
         {
             string body = new StreamReader(ctx.Request.InputStream, Encoding.UTF8).ReadToEnd();
-            var req = Json.FromJson<LoginRequest>(body);
-            if (req == null || !AuthManager.Instance.ValidatePassword(req.password ?? ""))
+            using var doc = JsonDocument.Parse(body);
+            string password = doc.RootElement.TryGetProperty("password", out var p) ? p.GetString() ?? "" : "";
+
+            if (!AuthManager.Instance.ValidatePassword(password))
             {
                 HttpApiServer.WriteJson(ctx, 401, "{\"success\":false,\"error\":\"Invalid password\"}");
                 return Task.CompletedTask;
@@ -54,24 +56,24 @@ public class AuthApiHandler
         try
         {
             string body = new StreamReader(ctx.Request.InputStream, Encoding.UTF8).ReadToEnd();
-            var req = Json.FromJson<ChangePasswordRequest>(body);
-            if (req == null || string.IsNullOrEmpty(req.currentPassword) || string.IsNullOrEmpty(req.newPassword))
+            using var doc = JsonDocument.Parse(body);
+            string current = doc.RootElement.TryGetProperty("currentPassword", out var c) ? c.GetString() ?? "" : "";
+            string next    = doc.RootElement.TryGetProperty("newPassword",     out var n) ? n.GetString() ?? "" : "";
+
+            if (string.IsNullOrEmpty(current) || string.IsNullOrEmpty(next))
             {
                 HttpApiServer.WriteJson(ctx, 400, "{\"success\":false,\"error\":\"Bad request\"}");
                 return Task.CompletedTask;
             }
-            if (!AuthManager.Instance.ValidatePassword(req.currentPassword))
+            if (!AuthManager.Instance.ValidatePassword(current))
             {
                 HttpApiServer.WriteJson(ctx, 401, "{\"success\":false,\"error\":\"Invalid current password\"}");
                 return Task.CompletedTask;
             }
-            AuthManager.Instance.ChangePassword(req.newPassword);
+            AuthManager.Instance.ChangePassword(next);
             HttpApiServer.WriteJson(ctx, 200, "{\"success\":true}");
         }
         catch { HttpApiServer.WriteJson(ctx, 400, "{\"success\":false,\"error\":\"Bad request\"}"); }
         return Task.CompletedTask;
     }
-
-    private class LoginRequest          { public string password = ""; }
-    private class ChangePasswordRequest { public string currentPassword = ""; public string newPassword = ""; }
 }

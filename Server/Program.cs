@@ -1,44 +1,32 @@
+using EdgeLink;
 using EdgeLink.Infrastructure;
-using EdgeLink.NetworkServer.Connector;
-using EdgeLink.NetworkServer.Logging;
-using EdgeLink.NetworkServer.Services;
-using EdgeLink.WebApi;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 
-AppLogger.Log("[EdgeLink] Starting...");
+var config = AppConfig.FromArgs(args);
 
-AppDomain.CurrentDomain.UnhandledException += (_, args) =>
-    AppLogger.Error($"[Critical] Unhandled exception: {args.ExceptionObject}");
+// ── Service install / uninstall ──────────────────────────────────────────────
+if (config.InstallService)   { ServiceManager.Install(config); return; }
+if (config.UninstallService) { ServiceManager.Uninstall();     return; }
 
-TaskScheduler.UnobservedTaskException += (_, args) =>
+// ── Host ─────────────────────────────────────────────────────────────────────
+AppDomain.CurrentDomain.UnhandledException += (_, e) =>
+    AppLogger.Error($"[Critical] Unhandled exception: {e.ExceptionObject}");
+
+TaskScheduler.UnobservedTaskException += (_, e) =>
 {
-    AppLogger.Error($"[Critical] Unobserved task exception: {args.Exception.Message}");
-    args.SetObserved();
+    AppLogger.Error($"[Critical] Unobserved task: {e.Exception.Message}");
+    e.SetObserved();
 };
 
-// ── Init core ────────────────────────────────────────────────────────────────
-
-var core = new NetworkConnectorCore();
-core.Init(MonitorSseHandler.Publish);
-
-PortManager.Initialize(core);
-PortManager.Instance.LoadAndStart();
-
-var httpServer = new HttpApiServer();
-httpServer.Start(port: 8080, webUiPath: AppPaths.WebUiIndex);
-
-AppLogger.Log("[EdgeLink] Running — press Ctrl+C to stop.");
-
-// ── Wait for shutdown ────────────────────────────────────────────────────────
-
-var cts = new CancellationTokenSource();
-Console.CancelKeyPress += (_, e) => { e.Cancel = true; cts.Cancel(); };
-
-await Task.Delay(Timeout.Infinite, cts.Token).ContinueWith(_ => { });
-
-// ── Shutdown ─────────────────────────────────────────────────────────────────
-
-AppLogger.Log("[EdgeLink] Shutting down...");
-httpServer.Stop();
-await PortManager.Instance.ShutdownAsync();
-LogHelper.Shutdown();
-AppLogger.Log("[EdgeLink] Stopped.");
+await Host.CreateDefaultBuilder(args)
+    .UseWindowsService(o => o.ServiceName = "EdgeLink")
+    .ConfigureLogging(b => b.ClearProviders())   // AppLogger handles all output
+    .ConfigureServices((_, services) =>
+    {
+        services.AddSingleton(config);
+        services.AddHostedService<EdgeLinkService>();
+    })
+    .Build()
+    .RunAsync();

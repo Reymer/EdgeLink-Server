@@ -77,7 +77,15 @@ public class MonitorSseHandler
                     client.Signal.Wait(0);
             }
         }
-        catch { }
+        catch (OperationCanceledException) { }
+        catch (Exception ex) when (ex is IOException or HttpListenerException)
+        {
+            // Normal client disconnect
+        }
+        catch (Exception ex)
+        {
+            EdgeLink.Infrastructure.AppLogger.Warning($"[SSE] Client {id}: {ex.GetType().Name}: {ex.Message}");
+        }
         finally
         {
             _clients.TryRemove(id, out _);

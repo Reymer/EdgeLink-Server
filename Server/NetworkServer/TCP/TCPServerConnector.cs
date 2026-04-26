@@ -66,13 +66,15 @@ public class TCPServerConnector : NetworkConnectorBase
         try { listener.Start(); }
         catch (SocketException ex) when (ex.SocketErrorCode == SocketError.AddressAlreadyInUse)
         {
-            LogHelper.LogToConsole($"{LogHelper.Tag("TCP Server", portData)} Port occupied: {portData.LocalPortDetails.Port}", isError: true);
-            throw new InvalidOperationException($"Port occupied: {portData.LocalPortDetails.Port}");
+            portData.IsConnected = false;
+            LogHelper.LogToConsole($"{LogHelper.Tag("TCP Server", portData)} Port {portData.LocalPortDetails.Port} is already in use — skipping.", isError: true);
+            return;
         }
         catch (Exception ex)
         {
+            portData.IsConnected = false;
             LogHelper.LogToConsole($"{LogHelper.Tag("TCP Server", portData)} Start failed: {ex.Message}", isError: true);
-            throw new InvalidOperationException(ex.Message, ex);
+            return;
         }
 
         var serverData = new TCPServerData
