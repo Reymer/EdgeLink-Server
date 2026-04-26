@@ -1,3 +1,4 @@
+using DevKit;
 using UnityEngine;
 
 public class MonitorConsole : MonoBehaviour
