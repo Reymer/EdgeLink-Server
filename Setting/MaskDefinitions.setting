@@ -7,7 +7,9 @@
             "fieldDelimiter": "",
             "kvSeparator": "",
             "outputTemplate": "{raw}",
-            "sampleData": ""
+            "sampleData": "",
+            "routeMode": "",
+            "correlationIdField": ""
         }
     ]
 }
