@@ -7,16 +7,7 @@
       "dependencies": {},
       "hash": "a9e27c03d411d2fca01cc7410c24c97cd77cb539"
     },
-    "com.devkit.foundation": {
-      "version": "http://git.var.live/unity-plugins/upm-devkit.git",
-      "depth": 0,
-      "source": "git",
-      "dependencies": {
-        "com.unity.textmeshpro": "3.0.6"
-      },
-      "hash": "d25dad22bea2df74a0699bffb17ad4a6dfbd59be"
-    },
-    "com.unity.ai.navigation": {
+"com.unity.ai.navigation": {
       "version": "1.1.5",
       "depth": 0,
       "source": "registry",

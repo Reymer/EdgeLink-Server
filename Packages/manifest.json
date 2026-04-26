@@ -1,8 +1,7 @@
 {
   "dependencies": {
     "com.cysharp.unitask": "https://github.com/Cysharp/UniTask.git?path=src/UniTask/Assets/Plugins/UniTask",
-    "com.devkit.foundation": "http://git.var.live/unity-plugins/upm-devkit.git",
-    "com.unity.ai.navigation": "1.1.5",
+"com.unity.ai.navigation": "1.1.5",
     "com.unity.collab-proxy": "2.7.1",
     "com.unity.feature.development": "1.0.1",
     "com.unity.ide.rider": "3.0.34",
