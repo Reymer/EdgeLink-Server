@@ -1,11 +1,184 @@
-By 昌霖 開發日誌 2024/09/27
-做了一個 TCP/UDP 管理系統，可以轉發訊息到目標 IP
-這東西是為了讓軟硬體串接資料更方便明朗
+# EdgeLink Server
 
-1. 日誌系統
-2. TCP/UDP Server、Client
-3. 轉發功能 目前只能把原始資料轉發
-​4. 新增TCP Client連線指示燈
+> IoT 訊息中繼與協定管理平台，基於 Unity 執行，提供 TCP/UDP 多端口管理、遮罩協定定義、WebUI 操作介面與 SDK 整合。
 
+---
 
+## 功能特色
 
+- **多協定支援**：TCP Server / TCP Client / UDP，每個端口獨立設定
+- **遮罩系統**：自訂欄位分隔符與 KV 分隔符，定義 IoT 韌體的輸出格式並自動解析
+- **訊息路由**：廣播、單播、反向路由（回傳給來源設備）
+- **WebUI**：瀏覽器操作介面，支援遮罩管理、Port 管理、系統日誌三個分頁
+- **EdgeLink SDK**：C# 接收端函式庫，可整合至 Unity 或任何 .NET 應用
+- **Arduino Client**：Arduino Library，讓嵌入式設備直接串接 EdgeLink Server
+- **登入驗證**：WebUI 登入保護，Token-based 身份驗證
+- **多語系**：繁體中文 / English / 日本語
+
+---
+
+## 系統需求
+
+| 項目 | 需求 |
+|------|------|
+| Unity | 2022.3 LTS 以上 |
+| .NET | .NET 8（SDK 工具） |
+| 瀏覽器 | Chrome / Edge（WebUI） |
+| Arduino | Arduino IDE 1.8+ 或 2.x（EdgeLinkClient） |
+
+---
+
+## 專案結構
+
+```
+EdgeLink-Server/
+├── Assets/
+│   ├── Scripts/
+│   │   ├── NetworkServer/       # TCP/UDP 核心、Router、Log
+│   │   ├── Mask/                # 遮罩定義與解析
+│   │   ├── WebApi/              # HTTP API Server（Auth、Port、Mask、SSE）
+│   │   └── UI/                  # Unity UI 元件
+│   └── GameData/                # 多語系語言鍵值
+│
+├── IOT-Server/
+│   ├── WebUI/                   # 前端單頁 HTML（index.html）
+│   ├── EdgeLinkSdk/             # C# 接收端 SDK
+│   ├── ReceiverConsole/         # SDK 測試主控台（非 Unity 環境用）
+│   └── DeviceSimulator/         # 模擬 IoT 設備發送資料
+│
+├── tools/
+│   ├── EdgeLinkClient/          # Arduino Library
+│   └── *.py                     # 整合測試 / 壓力測試腳本
+│
+└── Setting/                     # 執行期設定檔（Port、遮罩）
+```
+
+---
+
+## 快速開始
+
+### 1. 啟動 Server（Unity）
+
+1. 用 Unity 開啟本專案
+2. 執行 `Main` 場景
+3. 瀏覽器開啟 `http://<本機IP>:8181` 進入 WebUI
+
+> 若要從同網域其他裝置存取，請用 `ipconfig` 查詢本機 IP，不要使用 `localhost`
+
+### 2. 新增 Port
+
+在 WebUI「Port 管理」分頁，點選「新增 Port」，填入：
+
+- **協定名稱**：自訂識別名
+- **類型**：TCP Server / TCP Client / UDP
+- **連接埠**：監聽或連線的 Port 號
+- **遮罩**：選擇對應的協定遮罩（選填）
+
+### 3. 整合 EdgeLink SDK（C#）
+
+```csharp
+using EdgeLink;
+
+var receiver = new EdgeLinkReceiver(Protocol.TCP);
+
+receiver.OnMessage += msg =>
+{
+    Debug.Log(msg.Raw);
+    // msg.Parsed.Fields["TEMP"] 等欄位（需搭配遮罩）
+};
+
+receiver.OnDeviceStatusChanged += (portName, endpoint, connected) =>
+{
+    Debug.Log($"{portName} {endpoint} {(connected ? "上線" : "離線")}");
+};
+
+receiver.Start(9090); // 監聽 Port
+
+// 在 MonoBehaviour.Update() 呼叫：
+receiver.Flush();
+```
+
+### 4. 整合 Arduino（C++）
+
+```cpp
+#include <EdgeLinkClient.h>
+
+EdgeLinkClient client;
+
+void setup() {
+    client.begin("192.168.1.100", 5000); // EdgeLink Server IP & Port
+}
+
+void loop() {
+    String data = "TEMP:" + String(readTemp()) + ";HUM:" + String(readHum());
+    client.send(data);
+    delay(1000);
+}
+```
+
+> Arduino Library 位於 `tools/EdgeLinkClient/`，加入 Arduino IDE 後即可使用
+
+---
+
+## WebUI 功能說明
+
+| 分頁 | 功能 |
+|------|------|
+| 遮罩管理 | 新增 / 編輯 / 匯出遮罩，定義欄位解析規則與路由模式 |
+| Port 管理 | 新增 / 刪除 / 批次刪除 Port，即時監控連線狀態與流量 |
+| 系統日誌 | 查看伺服器運作日誌，支援關鍵字篩選 |
+
+---
+
+## API 端點（HTTP）
+
+Base URL：`http://<IP>:8181`
+
+| 方法 | 路徑 | 說明 |
+|------|------|------|
+| GET | `/api/masks` | 取得所有遮罩 |
+| POST | `/api/masks` | 新增遮罩 |
+| PUT | `/api/masks` | 更新遮罩 |
+| DELETE | `/api/masks` | 刪除遮罩 |
+| GET | `/api/ports` | 取得所有 Port |
+| POST | `/api/ports` | 新增 Port |
+| DELETE | `/api/ports` | 刪除 Port |
+| GET | `/api/syslog` | 取得系統日誌 |
+| POST | `/api/auth/login` | 登入取得 Token |
+| GET | `/api/settings` | 取得系統設定 |
+
+---
+
+## 測試工具
+
+```bash
+# 安裝依賴
+pip install requests
+
+# 執行全部測試
+python tools/run_all_tests.py
+
+# 壓力測試
+python tools/stress_test.py
+
+# 路由整合測試
+python tools/routing_integration_test.py
+```
+
+---
+
+## 版本紀錄
+
+| 版本 | 內容 |
+|------|------|
+| v1.4.0 | WebUI 分頁導覽、批次刪除、Arduino SDK、測試工具 |
+| v1.3.0 | 多語系、執行緒安全、WebUI 優化 |
+| v1.2.0 | TCP UUID 追蹤、Log ID、遠端端口欄位 |
+| v1.1.0 | 遮罩系統、KV 解析、即時預覽 |
+| v1.0.0 | TCP/UDP Server/Client、基礎路由、WebUI |
+
+---
+
+## 開發者
+
+**Extrakyo**（昌霖）— 2024
