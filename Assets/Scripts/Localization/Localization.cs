@@ -12,34 +12,50 @@ public class Localization
 {
     // ── Singleton ─────────────────────────────────────────────────────────
     private static Localization _instance;
-    public static Localization Instance => _instance ??= new Localization();
+    public static Localization Instance
+    {
+        get
+        {
+            if (_instance == null)
+            {
+                _instance = new Localization();
+                _instance.Load();
+                _instance._currentIndex = PlayerPrefs.GetInt(PrefKey, 0);
+            }
+            return _instance;
+        }
+    }
 
     // ── 事件 ──────────────────────────────────────────────────────────────
     public event Action LanguageChanged;
 
     // ── 內部資料 ──────────────────────────────────────────────────────────
-    private readonly List<string> _langCodes   = new();   // ["zh-TW","en-US","ja-JP"]
-    private readonly List<string> _langNames   = new();   // ["繁體中文","English","日本語"]
-    private readonly Dictionary<string, string[]> _table = new(); // key → values per lang
+    private readonly List<string> _langCodes = new();
+    private readonly List<string> _langNames = new();
+    private readonly Dictionary<string, string[]> _table = new();
 
     private int _currentIndex;
+    private bool _loaded;
 
-    private const string FileName    = "LanguageTable.dat";
-    private const char   ColSep      = '|';
-    private const char   RowEnd      = '┤';
-    private const string PrefKey     = "Localization_LangIndex";
+    private const string FileName = "LanguageTable.dat";
+    private const char   ColSep   = '|';
+    private const char   RowEnd   = '┤';
+    private const string PrefKey  = "SelectedLanguageIndex"; // 與 NetworkSettingsUI 共用同一個 key
 
-    // ── 建構 ──────────────────────────────────────────────────────────────
-    private Localization()
-    {
-        Load();
-        _currentIndex = PlayerPrefs.GetInt(PrefKey, 0);
-    }
+    private Localization() { }
 
+    // ── RuntimeInitialize：場景載入前在主執行緒初始化 ─────────────────────
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
+    private static void Init() => _ = Instance;
+
+    // ── 載入語言表 ────────────────────────────────────────────────────────
     private void Load()
     {
-        string path = Path.Combine(
-            Application.dataPath, "..", "GameData", FileName);
+        if (_loaded) return;
+        _loaded = true;
+
+        string path = Path.GetFullPath(
+            Path.Combine(Application.dataPath, "..", "GameData", FileName));
 
         if (!File.Exists(path))
         {
@@ -47,15 +63,15 @@ public class Localization
             return;
         }
 
-        string raw = File.ReadAllText(path, Encoding.UTF8);
-        // 去 BOM、換行統一
-        raw = raw.TrimStart('﻿').Replace("\r\n", "\n").Replace("\r", "\n");
+        string raw = File.ReadAllText(path, Encoding.UTF8)
+                         .TrimStart('﻿')           // 去 BOM
+                         .Replace("\r\n", "\n")
+                         .Replace("\r", "\n");
 
-        // 以 ┤ 切割列（過濾空列）
         string[] rows = raw.Split(RowEnd, StringSplitOptions.RemoveEmptyEntries);
 
         bool isHeader = true;
-        int langCount = 0;
+        int  langCount = 0;
 
         foreach (string row in rows)
         {
@@ -66,7 +82,6 @@ public class Localization
 
             if (isHeader)
             {
-                // 第一欄是 "Key"，其餘是 "langCode,顯示名稱"
                 for (int i = 1; i < cols.Length; i++)
                 {
                     string[] parts = cols[i].Split(',');
@@ -82,15 +97,16 @@ public class Localization
             string key = cols[0].Trim();
             var values = new string[langCount];
             for (int i = 0; i < langCount; i++)
-                values[i] = (i + 1 < cols.Length) ? cols[i + 1] : string.Empty;
+                values[i] = (i + 1 < cols.Length) ? cols[i + 1].Trim() : string.Empty;
 
             _table[key] = values;
         }
+
+        Debug.Log($"[Localization] 載入完成：{_table.Count} 個 key，{langCount} 種語言");
     }
 
     // ── 公開 API ──────────────────────────────────────────────────────────
 
-    /// <summary>取得目前語言的文字，找不到 key 時回傳 key 本身。</summary>
     public string GetText(string key)
     {
         if (_table.TryGetValue(key, out var values) && _currentIndex < values.Length)
@@ -98,7 +114,6 @@ public class Localization
         return key;
     }
 
-    /// <summary>切換語言（依索引）。</summary>
     public void SetCurrentLanguage(int index)
     {
         if (index < 0 || index >= _langCodes.Count) return;
@@ -108,13 +123,10 @@ public class Localization
         LanguageChanged?.Invoke();
     }
 
-    /// <summary>取得目前語言索引。</summary>
     public int GetCurrentLanguageIndex() => _currentIndex;
 
-    /// <summary>取得所有語言的顯示名稱陣列（供 Dropdown 用）。</summary>
     public string[] GetAllLanguageShownNames() => _langNames.ToArray();
 
-    /// <summary>取得目前語言代碼（例如 "zh-TW"）。</summary>
     public string GetCurrentLanguageCode() =>
         _currentIndex < _langCodes.Count ? _langCodes[_currentIndex] : string.Empty;
 }
