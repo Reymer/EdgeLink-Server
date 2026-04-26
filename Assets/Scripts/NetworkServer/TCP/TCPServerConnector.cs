@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
+using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
@@ -92,6 +94,7 @@ public class TCPServerConnector : NetworkConnectorBase
         };
 
         tcpServers[portData.Key] = serverData;
+        NetworkMessageRouter.Instance.RegisterTcpServer(portData.Id, serverData);
 
         AcceptClientsAsync(serverData).Forget(ex =>
             LogHelper.LogToConsole($"{LogHelper.Tag("TCP Server", portData)} {Localization.Instance.GetText(LanguageKeys.Log_AcceptClientsError)}: {ex}", isError: true));
@@ -105,10 +108,7 @@ public class TCPServerConnector : NetworkConnectorBase
     public override async UniTask RemovePort(PortData portData)
     {
         if (!tcpServers.TryGetValue(portData.Key, out var serverData))
-        {
-            LogHelper.LogToConsole($"{LogHelper.Tag("TCP Server", portData)} {Localization.Instance.GetText(LanguageKeys.Log_NotFound)}");
             return;
-        }
 
         try
         {
@@ -119,8 +119,7 @@ public class TCPServerConnector : NetworkConnectorBase
             await UniTask.Delay(300);
             serverData.Dispose();
             tcpServers.TryRemove(portData.Key, out _);
-
-            LogHelper.LogToConsole($"{LogHelper.Tag("TCP Server", portData)} {Localization.Instance.GetText(LanguageKeys.Log_Removed)}");
+            NetworkMessageRouter.Instance.UnregisterTcpServer(portData.Id);
 
             dispatcher.Enqueue(() =>
                 SafeExecution.Safe(() => portData.OnUpdate?.Invoke(portData), "TcpServerConnector.RemovePort.OnUpdate"));
@@ -156,6 +155,7 @@ public class TCPServerConnector : NetworkConnectorBase
                 serverData.CancellationTokenSource?.Cancel();
                 serverData.CancellationTokenSource?.Dispose();
                 serverData.CancellationTokenSource = new CancellationTokenSource();
+                serverData.asyncMessageQueue = new AsyncMessageQueue<(byte[], string, IPEndPoint, string)>();
                 portData.IsConnected = false; // 等待 client 連入後由 AcceptClientsAsync 設為 true
 
                 AcceptClientsAsync(serverData).Forget(ex =>
@@ -241,9 +241,10 @@ public class TCPServerConnector : NetworkConnectorBase
                         continue;
                     }
 
+                    var remoteEndPoint = client.Client.RemoteEndPoint as IPEndPoint;
                     SafeExecution.Safe(() =>
                     {
-                        serverData.RemoteEndPoint = client.Client.RemoteEndPoint as IPEndPoint;
+                        serverData.RemoteEndPoint = remoteEndPoint;
                         serverData.portData.IsConnected = true;
 
                         serverData.IncrementTotalConnections();
@@ -252,7 +253,9 @@ public class TCPServerConnector : NetworkConnectorBase
                         serverData.portData.CurrentConnections = serverData.CurrentConnections;
                         serverData.portData.TotalConnections = serverData.TotalConnections;
 
-                        NotifyForwardTargetStatusChange("CONNECT", serverData.portData);
+                        LogHelper.LogToConsole($"{LogHelper.Tag("TCP Server", serverData.portData)} {Localization.Instance.GetText(LanguageKeys.Log_Connected)}: {remoteEndPoint}");
+
+                        NotifyForwardTargetStatusChange("CONNECT", serverData.portData, remoteEndPoint);
                         dispatcher.Enqueue(() =>
                             SafeExecution.Safe(() => serverData.portData.OnUpdate?.Invoke(serverData.portData)));
                     });
@@ -273,7 +276,19 @@ public class TCPServerConnector : NetworkConnectorBase
         await UniTask.SwitchToThreadPool();
         var stream = client.GetStream();
         var token = serverData.CancellationTokenSource.Token;
+        var sourceEndpoint = client.Client.RemoteEndPoint as IPEndPoint;
+        string clientKey = Guid.NewGuid().ToString("N");
+        var metrics = new TcpClientMetrics(sourceEndpoint);
+        serverData.ConnectedClients[clientKey] = metrics;
+        serverData.ClientStreams[clientKey] = stream;
+        serverData.ClientWriteLocks[clientKey] = new SemaphoreSlim(1, 1);
         byte[] buffer = new byte[2048];
+        // per-client line buffer — isolates this client's partial data from all others
+        var lineBuffer = new StringBuilder();
+
+        ConfigureKeepAlive(client.Client);
+        SendPingsAsync(stream, metrics, token, serverData, clientKey).Forget(ex =>
+            LogHelper.LogToConsole($"{LogHelper.Tag("TCP Server", serverData.portData)} [Ping] {ex.Message}", isError: true));
 
         try
         {
@@ -283,12 +298,53 @@ public class TCPServerConnector : NetworkConnectorBase
                 if (bytesRead <= 0)
                     break;
 
+                metrics.RecordBytes(bytesRead);
                 serverData.AddReceivedBytes(bytesRead);
-
-                byte[] packet = new byte[bytesRead];
-                Array.Copy(buffer, 0, packet, 0, bytesRead);
-                serverData.asyncMessageQueue.Enqueue(packet);
                 serverData.portData.TotalReceivedBytes = serverData.TotalReceivedBytes;
+
+                string chunk;
+                try
+                {
+                    chunk = Encoding.UTF8.GetString(buffer, 0, bytesRead);
+                }
+                catch (Exception)
+                {
+                    chunk = Encoding.GetEncoding("UTF-8", EncoderFallback.ReplacementFallback, DecoderFallback.ReplacementFallback).GetString(buffer, 0, bytesRead);
+                    LogHelper.LogToConsole($"{LogHelper.Tag("TCP Server", serverData.portData)} {Localization.Instance.GetText(LanguageKeys.Log_InvalidUTF8)}", isError: true);
+                }
+
+                if (lineBuffer.Length + chunk.Length > MAX_BUFFER_SIZE)
+                {
+                    LogHelper.LogToConsole($"{LogHelper.Tag("TCP Server", serverData.portData)} {Localization.Instance.GetText(LanguageKeys.Log_BufferOverflow)} ({MAX_BUFFER_SIZE} bytes)", isError: true);
+                    lineBuffer.Clear();
+                    // chunk 本身也超過上限則直接捨棄，不再 Append
+                    if (chunk.Length > MAX_BUFFER_SIZE) continue;
+                }
+
+                lineBuffer.Append(chunk);
+
+                string current = lineBuffer.ToString();
+                int lastNewline = current.LastIndexOf('\n');
+                if (lastNewline < 0)
+                    continue;
+
+                string processable = current[..lastNewline];
+                string remaining   = current[(lastNewline + 1)..];
+                lineBuffer.Clear();
+                lineBuffer.Append(remaining);
+
+                foreach (var rawLine in processable.Split('\n'))
+                {
+                    string line = rawLine.Trim();
+                    if (string.IsNullOrWhiteSpace(line)) continue;
+
+                    // Intercept PONG — do not route to message pipeline
+                    if (metrics.TryHandlePong(line)) continue;
+
+                    metrics.RecordMessage();
+                    byte[] lineBytes = Encoding.UTF8.GetBytes(line);
+                    serverData.asyncMessageQueue.Enqueue((lineBytes, line, sourceEndpoint, clientKey));
+                }
             }
         }
         catch (OperationCanceledException)
@@ -298,6 +354,10 @@ public class TCPServerConnector : NetworkConnectorBase
         finally
         {
             client?.Close();
+            serverData.ConnectedClients.TryRemove(clientKey, out _);
+            serverData.ClientStreams.TryRemove(clientKey, out _);
+            if (serverData.ClientWriteLocks.TryRemove(clientKey, out var wl))
+                try { wl.Dispose(); } catch (ObjectDisposedException) { }
 
             serverData.DecrementCurrentConnections();
 
@@ -306,38 +366,52 @@ public class TCPServerConnector : NetworkConnectorBase
             serverData.portData.TotalConnections = serverData.TotalConnections;
             serverData.portData.TotalReceivedBytes = serverData.TotalReceivedBytes;
 
-            NotifyForwardTargetStatusChange("DISCONNECT", serverData.portData);
+            LogHelper.LogToConsole($"{LogHelper.Tag("TCP Server", serverData.portData)} {Localization.Instance.GetText(LanguageKeys.Log_Disconnected)}: {sourceEndpoint}");
+
+            NotifyForwardTargetStatusChange("DISCONNECT", serverData.portData, sourceEndpoint);
             dispatcher.Enqueue(() =>
                 SafeExecution.Safe(() => serverData.portData.OnUpdate?.Invoke(serverData.portData)));
         }
     }
 
-    private void NotifyForwardTargetStatusChange(string status, PortData sourcePortData)
+    private void NotifyForwardTargetStatusChange(string status, PortData sourcePortData, IPEndPoint endpoint = null)
     {
-        NotifyAsync(status, sourcePortData).Forget();
+        NotifyAsync(status, sourcePortData, endpoint).Forget();
     }
 
-    private async UniTask NotifyAsync(string status, PortData sourcePortData)
+    private async UniTask NotifyAsync(string status, PortData sourcePortData, IPEndPoint endpoint = null)
     {
         await UniTask.SwitchToThreadPool();
 
-        string notifyMessage = $"{status}:{sourcePortData.ProtocolName}";
-        byte[] notifyBytes = Encoding.UTF8.GetBytes(notifyMessage + "\n");
+        string edgeStatus    = status == "CONNECT" ? "CONNECTED" : "DISCONNECTED";
+        string endpointStr   = endpoint != null ? endpoint.ToString() : "";
+        string notifyMessage = $"EDGELINK_STATUS:{edgeStatus}:{sourcePortData.ProtocolName}@{endpointStr}";
+        byte[] notifyBytes   = Encoding.UTF8.GetBytes(notifyMessage + "\n");
 
         var targets = NetworkMessageRouter.Instance.GetTargetClients(sourcePortData.Id, sourcePortData.ProtocolName);
         foreach (var target in targets)
         {
+            if (target?.tcpClient?.Connected != true) continue;
+            using var cts = new CancellationTokenSource(1000);
             try
             {
-                if (target?.tcpClient?.Connected != true) continue;
-                var stream = target.tcpClient.GetStream();
-                using var cts = new CancellationTokenSource(1000);
-                await stream.WriteAsync(notifyBytes, 0, notifyBytes.Length, cts.Token);
-                LogHelper.LogToMonitor($"[Router] {Localization.Instance.GetText(LanguageKeys.Log_NotifyTarget)} [{target.portData?.ProtocolName}]: [{sourcePortData.ProtocolName}] {status}");
+                // 取得裝置寫入鎖，與 ProcessSerialQueueAsync 互斥，防止並發寫入同一條 stream
+                await target.DeviceWriteLock.WaitAsync(cts.Token);
+                try
+                {
+                    if (target.tcpClient == null || !target.tcpClient.Connected) continue;
+                    var stream = target.tcpClient.GetStream();
+                    await stream.WriteAsync(notifyBytes, 0, notifyBytes.Length, cts.Token);
+                    LogHelper.LogToMonitor($"[Router] {Localization.Instance.GetText(LanguageKeys.Log_NotifyTarget)} [{target.portData?.ProtocolName}]: [{sourcePortData.ProtocolName}] {status}");
+                }
+                finally
+                {
+                    try { target.DeviceWriteLock.Release(); } catch (ObjectDisposedException) { }
+                }
             }
             catch (OperationCanceledException)
             {
-                // 超時，靜默處理
+                // 超時或 DeviceWriteLock 被取消，靜默處理
             }
             catch (Exception ex)
             {
@@ -350,63 +424,17 @@ public class TCPServerConnector : NetworkConnectorBase
     {
         await UniTask.SwitchToThreadPool();
         var token = serverData.CancellationTokenSource.Token;
-        var dataBuffer = new StringBuilder();
 
         try
         {
             while (!token.IsCancellationRequested)
             {
-                byte[] packet = await serverData.asyncMessageQueue.DequeueAsync(token);
+                var (rawBytes, text, sourceEndpoint, clientKey) = await serverData.asyncMessageQueue.DequeueAsync(token);
 
-                if (token.IsCancellationRequested || packet == null)
+                if (token.IsCancellationRequested || rawBytes == null)
                     break;
 
-                string receivedData;
-                try
-                {
-                    receivedData = Encoding.UTF8.GetString(packet);
-                }
-                catch (Exception)
-                {
-                    receivedData = Encoding.GetEncoding("UTF-8", EncoderFallback.ReplacementFallback, DecoderFallback.ReplacementFallback).GetString(packet);
-                    LogHelper.LogToConsole($"{LogHelper.Tag("TCP Server", serverData.portData)} {Localization.Instance.GetText(LanguageKeys.Log_InvalidUTF8)}", isError: true);
-                }
-
-                if (receivedData.Length > MAX_BUFFER_SIZE)
-                {
-                    LogHelper.LogToConsole($"{LogHelper.Tag("TCP Server", serverData.portData)} {Localization.Instance.GetText(LanguageKeys.Log_PacketDropped)} ({MAX_BUFFER_SIZE} bytes)", isError: true);
-                    dataBuffer.Clear();
-                    continue;
-                }
-
-                if (dataBuffer.Length + receivedData.Length > MAX_BUFFER_SIZE)
-                {
-                    LogHelper.LogToConsole($"{LogHelper.Tag("TCP Server", serverData.portData)} {Localization.Instance.GetText(LanguageKeys.Log_BufferOverflow)} ({MAX_BUFFER_SIZE} bytes)", isError: true);
-                    dataBuffer.Clear();
-                }
-
-                dataBuffer.Append(receivedData);
-
-                string bufferString = dataBuffer.ToString();
-                int lastNewlineIndex = bufferString.LastIndexOf('\n');
-
-                if (lastNewlineIndex < 0)
-                    continue;
-
-                string processable = bufferString[..lastNewlineIndex];
-                string remaining = bufferString[(lastNewlineIndex + 1)..];
-                dataBuffer.Clear();
-                dataBuffer.Append(remaining);
-
-                foreach (var line in processable.Split('\n'))
-                {
-                    string message = line.Trim();
-                    if (!string.IsNullOrWhiteSpace(message))
-                    {
-                        byte[] lineBytes = Encoding.UTF8.GetBytes(message);
-                        await NetworkMessageRouter.Instance.RouteMessageAsync(serverData, lineBytes, message);
-                    }
-                }
+                await NetworkMessageRouter.Instance.RouteMessageAsync(serverData, rawBytes, text, sourceEndpoint, clientKey);
             }
         }
         catch (OperationCanceledException)
@@ -418,6 +446,75 @@ public class TCPServerConnector : NetworkConnectorBase
     public TCPServerData GetServerData(PortData portData)
     {
         return tcpServers.TryGetValue(portData.Key, out var serverData) ? serverData : null;
+    }
+
+    private async UniTask SendPingsAsync(System.Net.Sockets.NetworkStream stream, TcpClientMetrics metrics,
+        System.Threading.CancellationToken token, TCPServerData serverData, string clientKey)
+    {
+        await UniTask.SwitchToThreadPool();
+        await UniTask.Delay(3000, cancellationToken: token);
+        while (!token.IsCancellationRequested)
+        {
+            // 連續 3 個 PING 未收到 PONG（15s），視為設備掉線，強制關閉 stream
+            // 讓 ReceiveClientAsync 的 ReadAsync 拋 IOException，觸發 finally 斷線通知
+            if (metrics.IsUnresponsive(missedThreshold: 3))
+            {
+                try { stream.Close(); } catch { }
+                break;
+            }
+
+            try
+            {
+                string ping = metrics.BuildPingMessage();
+                byte[] bytes = Encoding.UTF8.GetBytes(ping);
+                serverData.ClientWriteLocks.TryGetValue(clientKey, out var writeLock);
+                if (writeLock != null) await writeLock.WaitAsync(token);
+                try
+                {
+                    await stream.WriteAsync(bytes, 0, bytes.Length, token);
+                }
+                finally
+                {
+                    writeLock?.Release();
+                }
+            }
+            catch (OperationCanceledException) { break; }
+            catch { break; }
+            await UniTask.Delay(5000, cancellationToken: token);
+        }
+    }
+
+    private static void ConfigureKeepAlive(Socket socket)
+    {
+        try
+        {
+            socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.KeepAlive, true);
+            // idle 10s 後開始探測，每 1s 探測一次，最多 3 次
+            byte[] inValue = new byte[12];
+            BitConverter.GetBytes(1u).CopyTo(inValue, 0);
+            BitConverter.GetBytes(10_000u).CopyTo(inValue, 4);
+            BitConverter.GetBytes(1_000u).CopyTo(inValue, 8);
+            socket.IOControl(IOControlCode.KeepAliveValues, inValue, null);
+        }
+        catch (Exception ex)
+        {
+            Debug.LogWarning($"[TCPServer] ConfigureKeepAlive failed: {ex.Message}");
+        }
+    }
+
+    public List<TcpClientInfo> GetConnectedClients(string portKey)
+    {
+        if (!tcpServers.TryGetValue(portKey, out var s)) return new List<TcpClientInfo>();
+        return s.ConnectedClients.Values.Select(m => new TcpClientInfo
+        {
+            endpoint          = m.EndPoint?.ToString() ?? "",
+            connectedSeconds  = (float)m.GetConnectedSeconds(),
+            lastActivitySec   = (float)m.GetLastActivitySeconds(),
+            messageCount      = m.GetMessageCount(),
+            totalBytes        = m.GetTotalBytes(),
+            rateBytesPerSec   = (float)m.GetRateBytesPerSec(),
+            rttMs             = (float)m.GetLastRttMs()
+        }).ToList();
     }
 
     public override async UniTask ShutdownAsync()

@@ -22,6 +22,7 @@ namespace iotserver {
         public static readonly string Log_Connected        = "Log_Connected";
         public static readonly string Log_Disconnected     = "Log_Disconnected";
         public static readonly string Log_Removed          = "Log_Removed";
+        public static readonly string Log_Stopped          = "Log_Stopped";
         public static readonly string Log_NotFound         = "Log_NotFound";
         public static readonly string Log_HeartbeatLost    = "Log_HeartbeatLost";
         public static readonly string Log_HeartbeatFailed  = "Log_HeartbeatFailed";

@@ -20,6 +20,7 @@ OriginalData|原始資料|Original Data|元データ┤
 Log_Connected|連線成功|Connected|接続成功┤
 Log_Disconnected|已斷線|Disconnected|切断されました┤
 Log_Removed|已移除|Removed|削除されました┤
+Log_Stopped|已停用|Stopped|停止されました┤
 Log_NotFound|未找到，請先新增|Not found, please add first|見つかりません、先に追加してください┤
 Log_HeartbeatLost|心跳偵測斷線，啟動重連|Heartbeat lost, reconnecting|ハートビート断線、再接続中┤
 Log_HeartbeatFailed|心跳失敗，啟動重連|Heartbeat failed, reconnecting|ハートビート失敗、再接続中┤

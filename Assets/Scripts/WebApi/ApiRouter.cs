@@ -13,6 +13,8 @@ public class ApiRouter
     private readonly MonitorApiHandler _monitorHandler = new();
     private readonly MonitorSseHandler _monitorSseHandler = new();
     private readonly LanguageApiHandler _languageHandler = new();
+    private readonly AuthApiHandler _authHandler = new();
+    private readonly SettingsApiHandler _settingsHandler = new();
     private readonly string _webUiPath;
 
     public ApiRouter(string webUiPath)
@@ -26,11 +28,36 @@ public class ApiRouter
         string[] segments = ctx.Request.Url.AbsolutePath.Trim('/').Split('/');
         // segments[0] = "" or "api", segments[1] = "ports"/"masks", segments[2] = {id}, segments[3] = "mask"
 
-        // GET /
+        // GET / — 永遠提供 HTML（登入狀態由前端 JS 判斷）
         if (method == "GET" && ctx.Request.Url.AbsolutePath == "/")
         {
             await ServeUiAsync(ctx);
             return;
+        }
+
+        // /api/auth/* — login / logout / status 不需認證；其他管理端點需認證
+        if (segments.Length >= 2 && segments[0] == "api" && segments[1] == "auth")
+        {
+            if (method == "POST" && segments.Length == 3 && segments[2] == "login")  { await _authHandler.LoginAsync(ctx);  return; }
+            if (method == "POST" && segments.Length == 3 && segments[2] == "logout") { await _authHandler.LogoutAsync(ctx); return; }
+            if (method == "GET"  && segments.Length == 3 && segments[2] == "status") { await _authHandler.StatusAsync(ctx); return; }
+
+            if (!AuthManager.Instance.IsAuthenticated(ctx.Request))
+            {
+                HttpApiServer.WriteJson(ctx, 401, "{\"success\":false,\"error\":\"Unauthorized\"}");
+                return;
+            }
+            if (method == "POST" && segments.Length == 3 && segments[2] == "change-password") { await _authHandler.ChangePasswordAsync(ctx); return; }
+        }
+
+        // 其餘所有 /api/* 端點皆需認證
+        if (segments.Length >= 1 && segments[0] == "api")
+        {
+            if (!AuthManager.Instance.IsAuthenticated(ctx.Request))
+            {
+                HttpApiServer.WriteJson(ctx, 401, "{\"success\":false,\"error\":\"Unauthorized\"}");
+                return;
+            }
         }
 
         // /api/ports
@@ -51,6 +78,20 @@ public class ApiRouter
             {
                 string id = Uri.UnescapeDataString(segments[2]);
                 await _portHandler.ChangeMaskAsync(ctx, id);
+                return;
+            }
+            // POST /api/ports/{id}/enabled
+            if (method == "POST" && segments.Length == 4 && segments[3] == "enabled")
+            {
+                string id = Uri.UnescapeDataString(segments[2]);
+                await _portHandler.ToggleEnabledAsync(ctx, id);
+                return;
+            }
+            // GET /api/ports/{id}/clients
+            if (method == "GET" && segments.Length == 4 && segments[3] == "clients")
+            {
+                string id = Uri.UnescapeDataString(segments[2]);
+                await _portHandler.GetClientsAsync(ctx, id);
                 return;
             }
         }
@@ -133,6 +174,13 @@ public class ApiRouter
             if (method == "POST") { await _languageHandler.SetAsync(ctx); return; }
         }
 
+        // /api/settings
+        if (segments.Length == 3 && segments[0] == "api" && segments[1] == "settings")
+        {
+            if (method == "GET"  && segments[2] == "export") { await _settingsHandler.ExportAsync(ctx); return; }
+            if (method == "POST" && segments[2] == "import") { await _settingsHandler.ImportAsync(ctx); return; }
+        }
+
         HttpApiServer.WriteError(ctx, 404, $"Not found: {method} {ctx.Request.Url.AbsolutePath}");
     }
 
@@ -146,7 +194,7 @@ public class ApiRouter
             ctx.Response.ContentType = "text/html; charset=utf-8";
             ctx.Response.ContentLength64 = buf.Length;
             ctx.Response.OutputStream.Write(buf, 0, buf.Length);
-            ctx.Response.OutputStream.Close();
+            ctx.Response.Close();
         }
         catch (FileNotFoundException)
         {

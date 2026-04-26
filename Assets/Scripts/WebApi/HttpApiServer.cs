@@ -14,6 +14,9 @@ public class HttpApiServer
 
     public void Start(int port, string webUiPath)
     {
+        // AuthManager 用到 Application.persistentDataPath，必須在主執行緒初始化
+        _ = AuthManager.Instance;
+
         _listener = new HttpListener();
         _listener.Prefixes.Add($"http://localhost:{port}/");
         _router = new ApiRouter(webUiPath);
@@ -39,7 +42,8 @@ public class HttpApiServer
             try
             {
                 var ctx = _listener.GetContext();
-                ThreadPool.QueueUserWorkItem(_ => HandleRequest(ctx));
+                // 用 Task.Run 而非 async void，確保未捕捉例外可被 observe
+                Task.Run(() => HandleRequest(ctx));
             }
             catch (HttpListenerException)
             {
@@ -52,13 +56,13 @@ public class HttpApiServer
         }
     }
 
-    private async void HandleRequest(HttpListenerContext ctx)
+    private async Task HandleRequest(HttpListenerContext ctx)
     {
         try
         {
             ctx.Response.Headers["Access-Control-Allow-Origin"] = "*";
-            ctx.Response.Headers["Access-Control-Allow-Methods"] = "GET, POST, DELETE, OPTIONS";
-            ctx.Response.Headers["Access-Control-Allow-Headers"] = "Content-Type";
+            ctx.Response.Headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS";
+            ctx.Response.Headers["Access-Control-Allow-Headers"] = "Content-Type, X-API-Key";
 
             if (ctx.Request.HttpMethod == "OPTIONS")
             {
@@ -97,7 +101,7 @@ public class HttpApiServer
         }
         finally
         {
-            ctx.Response.OutputStream.Close();
+            ctx.Response.Close(); // OutputStream.Close() 不送 FIN，會堆積 CLOSE_WAIT
         }
     }
 }

@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using Cysharp.Threading.Tasks;
 using DevKit;
 using DevKit.Console;
@@ -23,6 +24,12 @@ public class NetworkConnectorCore
 
     public void AddPort(PortData portData)
     {
+        if (!portData.IsEnabled)
+        {
+            portData.IsConnected = false;
+            return;
+        }
+
         string protocol = portData.NetProtocol.ToUpperInvariant();
 
         if (connectors.TryGetValue(protocol, out var connector))
@@ -73,6 +80,13 @@ public class NetworkConnectorCore
             MonitorManager.Instance.SetMonitorPort(portData, MonitorTargetType.TCPClient);
         else
             MonitorManager.Instance.SetMonitorPort(portData, MonitorTargetType.UDP);
+    }
+
+    public List<TcpClientInfo> GetTcpServerClients(string portKey)
+    {
+        if (connectors.TryGetValue("TCP SERVER", out var c) && c is TCPServerConnector tcpSvr)
+            return tcpSvr.GetConnectedClients(portKey);
+        return new List<TcpClientInfo>();
     }
 
     private async UniTask ShutdownClientsAsync()

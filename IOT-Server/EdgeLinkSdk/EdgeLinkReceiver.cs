@@ -25,6 +25,14 @@ namespace EdgeLink
         /// <summary>連線狀態變更時觸發（TCP 才有，UDP 不適用）。</summary>
         public event Action<bool> OnConnectionChanged;
 
+        /// <summary>
+        /// IoT 設備連線/斷線時觸發。
+        /// 第一個參數為 EdgeLink 上設定的 Protocol Name，
+        /// 第二個參數為設備的 IP:Port（例如 "192.168.1.101:5000"），
+        /// 第三個參數為連線狀態。
+        /// </summary>
+        public event Action<string, string, bool> OnDeviceStatusChanged;
+
         /// <summary>發生錯誤時觸發。</summary>
         public event Action<Exception> OnError;
 
@@ -46,6 +54,14 @@ namespace EdgeLink
         private UdpClient udpClient;
         private CancellationTokenSource cancelSource;
         private readonly ConcurrentQueue<Action> pendingEvents = new ConcurrentQueue<Action>();
+        private readonly ConcurrentDictionary<string, StreamEntry> streams = new ConcurrentDictionary<string, StreamEntry>();
+
+        private sealed class StreamEntry
+        {
+            public readonly NetworkStream Stream;
+            public readonly SemaphoreSlim WriteLock = new SemaphoreSlim(1, 1);
+            public StreamEntry(NetworkStream stream) => Stream = stream;
+        }
 
         /// <param name="protocol">選擇 TCP 或 UDP。</param>
         /// <param name="definition">
@@ -88,11 +104,13 @@ namespace EdgeLink
         {
             cancelSource?.Cancel();
             tcpListener?.Stop();
+            tcpListener?.Server?.Close();
             udpClient?.Close();
             cancelSource = null;
             tcpListener  = null;
             udpClient    = null;
             IsListening  = false;
+            streams.Clear();
         }
 
         /// <summary>在 MonoBehaviour.Update() 呼叫，讓事件在主執行緒觸發。</summary>
@@ -102,6 +120,19 @@ namespace EdgeLink
             {
                 try { action(); } catch { }
             }
+        }
+
+        /// <summary>
+        /// 發送訊息給所有已連線的 EdgeLink Server（TCP 限定）。
+        /// 可用於雙向通訊，例如發送指令給 IoT 設備。
+        /// </summary>
+        public async Task SendAsync(string message)
+        {
+            if (Protocol != Protocol.TCP || string.IsNullOrEmpty(message)) return;
+
+            byte[] bytes = Encoding.UTF8.GetBytes(message.EndsWith("\n") ? message : message + "\n");
+            foreach (var kv in streams)
+                await WriteAsync(kv.Value, bytes);
         }
 
         public void Dispose() => Stop();
@@ -126,18 +157,22 @@ namespace EdgeLink
 
         private async Task TcpReadLoop(TcpClient client, CancellationToken token)
         {
+            string key   = Guid.NewGuid().ToString("N");
+            var entry    = new StreamEntry(client.GetStream());
+            streams[key] = entry;
             Schedule(() => OnConnectionChanged?.Invoke(true));
+
             try
             {
                 using (client)
-                using (var reader = new StreamReader(client.GetStream(), Encoding.UTF8))
+                using (var reader = new StreamReader(entry.Stream, Encoding.UTF8))
                 {
                     string line;
                     while (!token.IsCancellationRequested &&
                            (line = await reader.ReadLineAsync()) != null)
                     {
                         if (!string.IsNullOrWhiteSpace(line))
-                            Deliver(line);
+                            await DeliverAsync(line, entry);
                     }
                 }
             }
@@ -147,6 +182,7 @@ namespace EdgeLink
             }
             finally
             {
+                streams.TryRemove(key, out _);
                 Schedule(() => OnConnectionChanged?.Invoke(false));
             }
         }
@@ -162,7 +198,7 @@ namespace EdgeLink
                     var result = await udpClient.ReceiveAsync();
                     var raw    = Encoding.UTF8.GetString(result.Buffer).TrimEnd('\n', '\r');
                     if (!string.IsNullOrWhiteSpace(raw))
-                        Deliver(raw);
+                        DeliverUdp(raw);
                 }
                 catch (ObjectDisposedException) { break; }
                 catch (SocketException) when (token.IsCancellationRequested) { break; }
@@ -172,11 +208,71 @@ namespace EdgeLink
 
         // ── 共用 ───────────────────────────────────────────────────────────────
 
-        private void Deliver(string raw)
+        private const string StatusPrefix = "EDGELINK_STATUS:";
+        private const string PingPrefix   = "EDGELINK_PING:";
+
+        private async Task DeliverAsync(string raw, StreamEntry entry)
         {
+            // PING → 立即回 PONG，不進事件佇列
+            if (raw.StartsWith(PingPrefix, StringComparison.Ordinal))
+            {
+                string ticks = raw.Substring(PingPrefix.Length);
+                byte[] pong  = Encoding.UTF8.GetBytes($"EDGELINK_PONG:{ticks}\n");
+                await WriteAsync(entry, pong);
+                return;
+            }
+
+            if (raw.StartsWith(StatusPrefix, StringComparison.Ordinal))
+            {
+                // EDGELINK_STATUS:{CONNECTED|DISCONNECTED}:{portName}@{endpoint}
+                string payload   = raw.Substring(StatusPrefix.Length);
+                int    statusSep = payload.IndexOf(':');
+                if (statusSep >= 0)
+                {
+                    bool   connected = payload.Substring(0, statusSep) == "CONNECTED";
+                    string rest      = payload.Substring(statusSep + 1);
+                    int    atIdx     = rest.IndexOf('@');
+                    string portName  = atIdx >= 0 ? rest.Substring(0, atIdx) : rest;
+                    string endpoint  = atIdx >= 0 ? rest.Substring(atIdx + 1) : "";
+                    Schedule(() => OnDeviceStatusChanged?.Invoke(portName, endpoint, connected));
+                }
+                return;
+            }
+
             var parsed = parser?.Parse(raw);
             var msg    = new IotMessage(raw, parsed);
             Schedule(() => { LatestMessage = msg; OnMessage?.Invoke(msg); });
+        }
+
+        private void DeliverUdp(string raw)
+        {
+            if (raw.StartsWith(StatusPrefix, StringComparison.Ordinal))
+            {
+                string payload = raw.Substring(StatusPrefix.Length);
+                int    sep     = payload.IndexOf(':');
+                if (sep >= 0)
+                {
+                    bool   connected = payload.Substring(0, sep) == "CONNECTED";
+                    string rest      = payload.Substring(sep + 1);
+                    int    atIdx     = rest.IndexOf('@');
+                    string portName  = atIdx >= 0 ? rest.Substring(0, atIdx) : rest;
+                    string endpoint  = atIdx >= 0 ? rest.Substring(atIdx + 1) : "";
+                    Schedule(() => OnDeviceStatusChanged?.Invoke(portName, endpoint, connected));
+                }
+                return;
+            }
+
+            var parsed = parser?.Parse(raw);
+            var msg    = new IotMessage(raw, parsed);
+            Schedule(() => { LatestMessage = msg; OnMessage?.Invoke(msg); });
+        }
+
+        private async Task WriteAsync(StreamEntry entry, byte[] bytes)
+        {
+            await entry.WriteLock.WaitAsync();
+            try   { await entry.Stream.WriteAsync(bytes, 0, bytes.Length); }
+            catch { }
+            finally { entry.WriteLock.Release(); }
         }
 
         private void Schedule(Action action) => pendingEvents.Enqueue(action);

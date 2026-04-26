@@ -9,30 +9,33 @@ using UnityEngine;
 
 public class PortApiHandler
 {
-    public async Task GetAllAsync(HttpListenerContext ctx)
+    public Task GetAllAsync(HttpListenerContext ctx)
     {
-        var response = await MainThreadTaskDispatcher.RunOnMainThread(() =>
-        {
-            var list = NetworkPortManager.Instance.GetAllPortDatas()
-                .Select(p => new PortDto
-                {
-                    id = p.Id ?? "",
-                    protocolName = p.ProtocolName,
-                    netProtocol = p.NetProtocol,
-                    maskType = p.MaskType ?? "",
-                    localPort = p.LocalPortDetails?.Port ?? "",
-                    remotePort = p.RemotePortDetails?.Port ?? "",
-                    targetIp = p.TargetIP ?? "",
-                    isConnected = p.IsConnected,
-                    sourceProtocolName = p.SourceProtocolName ?? "",
-                    sourceProtocolId = p.SourceProtocolId ?? ""
-                })
-                .ToList();
+        // NetPortRegistry.GetAll() 內部有 lock 並回傳 ToList() 快照，執行緒安全，不需主執行緒
+        var list = NetworkPortManager.Instance.GetAllPortDatas()
+            .Select(p => new PortDto
+            {
+                id = p.Id ?? "",
+                protocolName = p.ProtocolName,
+                netProtocol = p.NetProtocol,
+                maskType = p.MaskType ?? "",
+                responseMaskType = p.ResponseMaskType ?? "",
+                requestMode = p.RequestMode ?? "serial",
+                localPort = p.LocalPortDetails?.Port ?? "",
+                remotePort = p.RemotePortDetails?.Port ?? "",
+                targetIp = p.TargetIP ?? "",
+                isConnected = p.IsConnected,
+                isEnabled = p.IsEnabled,
+                sourceProtocolName = p.SourceProtocolName ?? "",
+                sourceProtocolId = p.SourceProtocolId ?? "",
+                currentConnections = p.CurrentConnections,
+                totalConnections = p.TotalConnections,
+                totalReceivedBytes = p.TotalReceivedBytes
+            })
+            .ToList();
 
-            return new PortListResponse { ports = list };
-        });
-
-        HttpApiServer.WriteJson(ctx, 200, JsonUtility.ToJson(response));
+        HttpApiServer.WriteJson(ctx, 200, JsonUtility.ToJson(new PortListResponse { ports = list }));
+        return Task.CompletedTask;
     }
 
     public async Task AddAsync(HttpListenerContext ctx)
@@ -72,6 +75,8 @@ public class PortApiHandler
                     RemotePortDetails = new PortDetails { Port = string.IsNullOrEmpty(req.remotePort) ? "--" : req.remotePort },
                     TargetIP = req.targetIp ?? "",
                     MaskType = string.IsNullOrEmpty(req.maskType) ? "OriginalData" : req.maskType,
+                    ResponseMaskType = req.responseMaskType ?? "",
+                    RequestMode = string.IsNullOrEmpty(req.requestMode) ? "serial" : req.requestMode,
                     SourceProtocolName = srcName,
                     SourceProtocolId = srcId,
                     IsConnected = false,
@@ -177,6 +182,8 @@ public class PortApiHandler
                     RemotePortDetails = new PortDetails { Port = string.IsNullOrEmpty(req.remotePort) ? "--" : req.remotePort },
                     TargetIP = req.targetIp ?? "",
                     MaskType = string.IsNullOrEmpty(req.maskType) ? "OriginalData" : req.maskType,
+                    ResponseMaskType = req.responseMaskType ?? "",
+                    RequestMode = string.IsNullOrEmpty(req.requestMode) ? "serial" : req.requestMode,
                     SourceProtocolName = srcName,
                     SourceProtocolId = srcId,
                 };
@@ -248,5 +255,34 @@ public class PortApiHandler
         {
             HttpApiServer.WriteError(ctx, 400, ex.Message);
         }
+    }
+
+    public Task GetClientsAsync(HttpListenerContext ctx, string id)
+    {
+        var port = NetworkPortManager.Instance.GetAllPortDatas().FirstOrDefault(p => p.Id == id);
+        if (port == null) { HttpApiServer.WriteError(ctx, 404, "Port not found"); return Task.CompletedTask; }
+        if (port.NetProtocol != "TCP Server") { HttpApiServer.WriteError(ctx, 400, "Only TCP Server supports client listing"); return Task.CompletedTask; }
+        var clients = NetworkPortManager.Instance.networkConnectorCore.GetTcpServerClients(port.Key);
+        HttpApiServer.WriteJson(ctx, 200, JsonUtility.ToJson(new ClientDetailListResponse { clients = clients }));
+        return Task.CompletedTask;
+    }
+
+    public async Task ToggleEnabledAsync(HttpListenerContext ctx, string id)
+    {
+        string body;
+        using (var sr = new StreamReader(ctx.Request.InputStream, Encoding.UTF8))
+            body = await sr.ReadToEndAsync();
+
+        ToggleEnabledReq req;
+        try { req = JsonUtility.FromJson<ToggleEnabledReq>(body); }
+        catch { HttpApiServer.WriteError(ctx, 400, "Invalid JSON body"); return; }
+
+        try
+        {
+            await NetworkPortManager.Instance.TogglePortEnabled(id, req.enabled);
+            HttpApiServer.WriteJson(ctx, 200, JsonUtility.ToJson(new ApiResult { success = true }));
+        }
+        catch (KeyNotFoundException ex) { HttpApiServer.WriteError(ctx, 404, ex.Message); }
+        catch (Exception ex)            { HttpApiServer.WriteError(ctx, 500, ex.Message); }
     }
 }

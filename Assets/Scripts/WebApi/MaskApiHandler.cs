@@ -182,7 +182,9 @@ public class MaskApiHandler
         fieldDelimiter = def.fieldDelimiter,
         kvSeparator = def.kvSeparator,
         outputTemplate = def.outputTemplate,
-        sampleData = def.sampleData
+        sampleData = def.sampleData,
+        routeMode = def.routeMode ?? "",
+        correlationIdField = def.correlationIdField ?? ""
     };
 
     private static MaskDefinition FromDto(MaskDefinitionDto dto) => new MaskDefinition
@@ -193,6 +195,8 @@ public class MaskApiHandler
         fieldDelimiter = dto.fieldDelimiter,
         kvSeparator = dto.kvSeparator,
         outputTemplate = dto.outputTemplate,
-        sampleData = dto.sampleData
+        sampleData = dto.sampleData,
+        routeMode = dto.routeMode ?? "",
+        correlationIdField = dto.correlationIdField ?? ""
     };
 }

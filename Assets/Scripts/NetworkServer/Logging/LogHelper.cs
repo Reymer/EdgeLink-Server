@@ -15,9 +15,11 @@ public static class LogHelper
 
     private static volatile bool _isShuttingDown = false;
 
-    // 批次緩衝：每 frame 只 flush 一次，避免每條 log 各觸發一次 Canvas rebuild
+    // 批次緩衝：每 frame 上限 MAX_PER_FLUSH 筆，queue 超過 MAX_UI_QUEUE 時丟棄最舊
     private static readonly ConcurrentQueue<string> _pendingMonitorLogs = new();
     private static int _monitorFlushScheduled; // 0=idle, 1=scheduled
+    private const int MAX_UI_QUEUE  = 500; // queue 上限；超過時 UI 丟棄（web buffer 不受影響）
+    private const int MAX_PER_FLUSH = 20;  // 每 frame 最多呼叫 AddLog 次數（20 × 60fps = 1200/s）
 
     // Web API 用環形緩衝區，保留最近 200 條 console log
     private const int WEB_LOG_BUFFER = 200;
@@ -77,17 +79,29 @@ public static class LogHelper
 
         MonitorSseHandler.Publish(stamped);
 
+        // UI queue 有上限；超過時捨棄最舊的一筆，保留最新訊息
+        if (_pendingMonitorLogs.Count >= MAX_UI_QUEUE)
+            _pendingMonitorLogs.TryDequeue(out _);
         _pendingMonitorLogs.Enqueue(stamped);
 
         if (Interlocked.CompareExchange(ref _monitorFlushScheduled, 1, 0) == 0)
+            UniTask.Post(FlushMonitorLogs, PlayerLoopTiming.Update);
+    }
+
+    private static void FlushMonitorLogs()
+    {
+        int flushed = 0;
+        while (flushed < MAX_PER_FLUSH && _pendingMonitorLogs.TryDequeue(out var msg))
         {
-            UniTask.Post(() =>
-            {
-                Interlocked.Exchange(ref _monitorFlushScheduled, 0);
-                while (_pendingMonitorLogs.TryDequeue(out var msg))
-                    monitor?.AddLog(msg);
-            }, PlayerLoopTiming.Update);
+            monitor?.AddLog(msg);
+            flushed++;
         }
+
+        // queue 還有剩 → 下一幀繼續，flag 維持 1
+        if (!_pendingMonitorLogs.IsEmpty)
+            UniTask.Post(FlushMonitorLogs, PlayerLoopTiming.Update);
+        else
+            Interlocked.Exchange(ref _monitorFlushScheduled, 0);
     }
 
     /// <summary>
@@ -181,7 +195,7 @@ public static class LogHelper
     /// </summary>
     private static string FormatLogMessage(string message, bool isError)
     {
-        string timeStamp = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
+        string timeStamp = DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss") + "Z";
         string errorLabel = isError ? "[Error]" : "[Info]";
         return $"[{timeStamp}] {errorLabel} {message}";
     }

@@ -39,7 +39,7 @@
                 "RecursiveCopy": true
             },
             "isNeedCopy": true,
-            "SelectPath": "C:/Projects/iot-server/GameData",
+            "SelectPath": "C:/Projects/EdgeLink-Server/GameData",
             "RelativePath": "/GameData",
             "buildTypeFlag": -1
         },
@@ -51,7 +51,7 @@
                 "RecursiveCopy": true
             },
             "isNeedCopy": true,
-            "SelectPath": "C:/Projects/iot-server/Setting",
+            "SelectPath": "C:/Projects/EdgeLink-Server/Setting",
             "RelativePath": "/Setting",
             "buildTypeFlag": -1
         },
@@ -63,7 +63,7 @@
                 "RecursiveCopy": true
             },
             "isNeedCopy": true,
-            "SelectPath": "C:/Projects/iot-server/IOT-Server",
+            "SelectPath": "C:/Projects/EdgeLink-Server/IOT-Server",
             "RelativePath": "/IOT-Server",
             "buildTypeFlag": -1
         }

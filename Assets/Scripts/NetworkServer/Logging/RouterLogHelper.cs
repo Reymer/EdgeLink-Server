@@ -7,12 +7,13 @@ using static NetworkPortManager;
 /// </summary>
 public static class RouterLogHelper
 {
-    public static void LogReceive(PortData portData, MonitorTargetType targetType, string parsedMessage)
+    public static void LogReceive(PortData portData, MonitorTargetType targetType, string parsedMessage, System.Net.IPEndPoint sourceEndpoint = null)
     {
         if (!MonitorManager.Instance.IsMonitoring(portData, targetType)) return;
 
         var count = MonitorCounter.Next();
-        LogHelper.LogToMonitor($"[#{count}] [Router] {GetTargetLabel(targetType)} [{portData.ProtocolName}{(!string.IsNullOrEmpty(portData.Id) ? " #" + portData.Id[..8] : "")}] {Localization.Instance.GetText(LanguageKeys.Log_PacketReceived)}: {parsedMessage}");
+        string fromTag = sourceEndpoint != null ? $" [from {sourceEndpoint.Address}:{sourceEndpoint.Port}]" : "";
+        LogHelper.LogToMonitor($"[#{count}] [Router] {GetTargetLabel(targetType)} [{portData.ProtocolName}{(!string.IsNullOrEmpty(portData.Id) ? " #" + portData.Id[..8] : "")}]{fromTag} {Localization.Instance.GetText(LanguageKeys.Log_PacketReceived)}: {parsedMessage}");
     }
 
     public static void LogSend(PortData portData, MonitorTargetType targetType, string parsedMessage)
