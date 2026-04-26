@@ -17,16 +17,16 @@
 
 ## 功能特色
 
-| | 功能 | 說明 |
-|---|---|---|
-| 🔌 | **多協定支援** | TCP Server / TCP Client / UDP，每個端口獨立設定 |
-| 🎭 | **遮罩系統** | 自訂欄位分隔符與 KV 分隔符，定義 IoT 韌體輸出格式並自動解析 |
-| 🔀 | **訊息路由** | 廣播、單播、反向路由（回傳給來源設備） |
-| 🖥️ | **WebUI** | 瀏覽器操作介面，遮罩管理、Port 管理、系統日誌三分頁 |
-| 📦 | **EdgeLink SDK** | C# 接收端函式庫，可整合至 Unity 或任何 .NET 應用 |
-| 🤖 | **Arduino Client** | Arduino Library，讓嵌入式設備直接串接 EdgeLink Server |
-| 🔒 | **登入驗證** | WebUI 登入保護，Cookie Token-based 身份驗證 |
-| 🌐 | **多語系** | 繁體中文 / English / 日本語 |
+| 功能 | 說明 |
+|------|------|
+| **多協定支援** | TCP Server / TCP Client / UDP，每個端口獨立設定 |
+| **遮罩系統** | 自訂欄位分隔符與 KV 分隔符，定義 IoT 韌體輸出格式並自動解析 |
+| **訊息路由** | 廣播、單播、反向路由（回傳給來源設備） |
+| **WebUI** | 瀏覽器操作介面，遮罩管理、Port 管理、系統日誌三分頁 |
+| **EdgeLink SDK** | C# 接收端函式庫，可整合至 Unity 或任何 .NET 應用 |
+| **Arduino Client** | Arduino Library，讓嵌入式設備直接串接 EdgeLink Server |
+| **登入驗證** | WebUI 登入保護，Cookie Token-based 身份驗證 |
+| **多語系** | 繁體中文 / English / 日本語 |
 
 ---
 
