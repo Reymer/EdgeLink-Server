@@ -44,7 +44,7 @@ public class AuthManager
         }
         _passwordHash = HashPassword("admin");
         SaveSettings();
-        AppLogger.Log("[Auth] First run — default password: admin");
+        AppLogger.Log("[Auth] First run — default credentials applied.");
     }
 
     private void SaveSettings()

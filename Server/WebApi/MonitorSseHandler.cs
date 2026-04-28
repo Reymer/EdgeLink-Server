@@ -89,6 +89,7 @@ public class MonitorSseHandler
         finally
         {
             _clients.TryRemove(id, out _);
+            client.Signal.Dispose();
             try { stream.Close(); } catch { }
         }
     }

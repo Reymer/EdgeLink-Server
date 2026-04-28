@@ -127,3 +127,8 @@ Assets/DevKit.meta
 # Server publish output
 publish/
 EdgeLink-*.zip
+
+# Server runtime secrets (auto-generated, machine-specific)
+Server/Data/cert.pass
+Server/Data/server.pfx
+Server/Data/server.cer

@@ -6,9 +6,21 @@ namespace EdgeLink.Infrastructure;
 
 public static class CertificateHelper
 {
-    private static readonly string CertPath  = Path.Combine(AppPaths.DataDir, "server.pfx");
-    private const string           CertPass  = "edgelink-cert";
-    private const string           AppId     = "{7b9d6b4a-3c22-4f5e-9a11-df6a32e5b902}";
+    private static readonly string CertPath     = Path.Combine(AppPaths.DataDir, "server.pfx");
+    private static readonly string CertPassPath = Path.Combine(AppPaths.DataDir, "cert.pass");
+    private const string           AppId        = "{7b9d6b4a-3c22-4f5e-9a11-df6a32e5b902}";
+
+    private static string? _certPass;
+    private static string CertPass => _certPass ??= LoadOrCreatePass();
+
+    private static string LoadOrCreatePass()
+    {
+        if (File.Exists(CertPassPath))
+            return File.ReadAllText(CertPassPath).Trim();
+        string pass = Convert.ToHexString(RandomNumberGenerator.GetBytes(16));
+        File.WriteAllText(CertPassPath, pass, System.Text.Encoding.ASCII);
+        return pass;
+    }
 
     private const X509KeyStorageFlags KeyFlags =
         X509KeyStorageFlags.MachineKeySet |

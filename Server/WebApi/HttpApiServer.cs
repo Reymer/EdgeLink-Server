@@ -10,12 +10,17 @@ public class HttpApiServer
     private Thread?       _listenerThread;
     private volatile bool _running;
     private ApiRouter?    _router;
+    private HashSet<string> _allowedOrigins = new(StringComparer.OrdinalIgnoreCase);
 
     public void Start(AppConfig config, string webUiPath)
     {
         _ = AuthManager.Instance;
         _router   = new ApiRouter(webUiPath);
         _listener = BuildAndStart(config);
+        if (!string.IsNullOrWhiteSpace(config.AllowedOrigins))
+            _allowedOrigins = new HashSet<string>(
+                config.AllowedOrigins.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries),
+                StringComparer.OrdinalIgnoreCase);
 
         _running = true;
         _listenerThread = new Thread(ListenLoop) { IsBackground = true, Name = "HttpApiServer" };
@@ -112,9 +117,14 @@ public class HttpApiServer
     {
         try
         {
-            ctx.Response.Headers["Access-Control-Allow-Origin"]  = "*";
-            ctx.Response.Headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS";
-            ctx.Response.Headers["Access-Control-Allow-Headers"] = "Content-Type, X-API-Key";
+            string? origin = ctx.Request.Headers["Origin"];
+            if (origin != null && _allowedOrigins.Contains(origin))
+            {
+                ctx.Response.Headers["Access-Control-Allow-Origin"]  = origin;
+                ctx.Response.Headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS";
+                ctx.Response.Headers["Access-Control-Allow-Headers"] = "Content-Type, X-API-Key";
+                ctx.Response.Headers["Vary"] = "Origin";
+            }
 
             if (ctx.Request.HttpMethod == "OPTIONS")
             {

@@ -2,11 +2,14 @@ namespace EdgeLink.Infrastructure;
 
 public class AppConfig
 {
-    public int    HttpPort         { get; init; } = 8080;
-    public bool   HttpsEnabled     { get; init; }
-    public int    HttpsPort        { get; init; } = 8443;
-    public bool   InstallService   { get; init; }
-    public bool   UninstallService { get; init; }
+    public int      HttpPort         { get; init; } = 8080;
+    public bool     HttpsEnabled     { get; init; }
+    public int      HttpsPort        { get; init; } = 8443;
+    public bool     InstallService   { get; init; }
+    public bool     UninstallService { get; init; }
+    // Comma-separated allowed CORS origins, e.g. "http://localhost:3000,https://192.168.0.10:8443"
+    // Empty string = allow only same-origin (no CORS header emitted)
+    public string   AllowedOrigins   { get; init; } = "";
 
     public static AppConfig FromArgs(string[] args) => new()
     {
@@ -15,15 +18,22 @@ public class AppConfig
         HttpsPort        = GetInt(args, "--https-port") ?? GetEnvInt("EDGELINK_HTTPS_PORT") ?? 8443,
         InstallService   = HasFlag(args, "--install"),
         UninstallService = HasFlag(args, "--uninstall"),
+        AllowedOrigins   = GetString(args, "--cors")    ?? GetEnv("EDGELINK_CORS")          ?? "",
     };
 
-    private static bool   HasFlag(string[] a, string f) => a.Any(x => x.Equals(f, StringComparison.OrdinalIgnoreCase));
-    private static string? GetEnv(string n)              => Environment.GetEnvironmentVariable(n);
-    private static int?   GetEnvInt(string n)            => int.TryParse(GetEnv(n), out int v) ? v : null;
+    private static bool    HasFlag(string[] a, string f) => a.Any(x => x.Equals(f, StringComparison.OrdinalIgnoreCase));
+    private static string? GetEnv(string n)               => Environment.GetEnvironmentVariable(n);
+    private static int?    GetEnvInt(string n)            => int.TryParse(GetEnv(n), out int v) ? v : null;
 
     private static int? GetInt(string[] a, string f)
     {
         int i = Array.FindIndex(a, x => x.Equals(f, StringComparison.OrdinalIgnoreCase));
         return i >= 0 && i + 1 < a.Length && int.TryParse(a[i + 1], out int v) ? v : null;
+    }
+
+    private static string? GetString(string[] a, string f)
+    {
+        int i = Array.FindIndex(a, x => x.Equals(f, StringComparison.OrdinalIgnoreCase));
+        return i >= 0 && i + 1 < a.Length ? a[i + 1] : null;
     }
 }

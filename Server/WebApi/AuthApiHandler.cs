@@ -10,7 +10,8 @@ public class AuthApiHandler
     {
         try
         {
-            string body = new StreamReader(ctx.Request.InputStream, Encoding.UTF8).ReadToEnd();
+            using var reader = new StreamReader(ctx.Request.InputStream, Encoding.UTF8, leaveOpen: true);
+            string body = reader.ReadToEnd();
             using var doc = JsonDocument.Parse(body);
             string password = doc.RootElement.TryGetProperty("password", out var p) ? p.GetString() ?? "" : "";
 
@@ -20,11 +21,7 @@ public class AuthApiHandler
                 return Task.CompletedTask;
             }
             string sid = AuthManager.Instance.CreateSession();
-            ctx.Response.SetCookie(new Cookie("edgelink_sid", sid)
-            {
-                HttpOnly = true, Path = "/",
-                Expires = DateTime.UtcNow.AddHours(8)
-            });
+            SetSessionCookie(ctx, sid, DateTime.UtcNow.AddHours(8));
             HttpApiServer.WriteJson(ctx, 200, "{\"success\":true}");
         }
         catch { HttpApiServer.WriteJson(ctx, 400, "{\"success\":false,\"error\":\"Bad request\"}"); }
@@ -35,11 +32,7 @@ public class AuthApiHandler
     {
         var cookie = ctx.Request.Cookies["edgelink_sid"];
         if (cookie != null) AuthManager.Instance.DestroySession(cookie.Value);
-        ctx.Response.SetCookie(new Cookie("edgelink_sid", "")
-        {
-            HttpOnly = true, Path = "/",
-            Expires = DateTime.UtcNow.AddDays(-1)
-        });
+        SetSessionCookie(ctx, "", DateTime.UtcNow.AddDays(-1));
         HttpApiServer.WriteJson(ctx, 200, "{\"success\":true}");
         return Task.CompletedTask;
     }
@@ -51,11 +44,20 @@ public class AuthApiHandler
         return Task.CompletedTask;
     }
 
+    private static void SetSessionCookie(HttpListenerContext ctx, string value, DateTime expires)
+    {
+        string header = $"edgelink_sid={value}; HttpOnly; Path=/; SameSite=Strict; Expires={expires:R}";
+        if (ctx.Request.IsSecureConnection)
+            header += "; Secure";
+        ctx.Response.Headers.Add("Set-Cookie", header);
+    }
+
     public Task ChangePasswordAsync(HttpListenerContext ctx)
     {
         try
         {
-            string body = new StreamReader(ctx.Request.InputStream, Encoding.UTF8).ReadToEnd();
+            using var reader = new StreamReader(ctx.Request.InputStream, Encoding.UTF8, leaveOpen: true);
+            string body = reader.ReadToEnd();
             using var doc = JsonDocument.Parse(body);
             string current = doc.RootElement.TryGetProperty("currentPassword", out var c) ? c.GetString() ?? "" : "";
             string next    = doc.RootElement.TryGetProperty("newPassword",     out var n) ? n.GetString() ?? "" : "";
