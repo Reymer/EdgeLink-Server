@@ -3,8 +3,8 @@ Server/bin/
 Server/obj/
 Server.Tests/bin/
 Server.Tests/obj/
-SDK/Unity/EdgeLinkSDK/bin/
-SDK/Unity/EdgeLinkSDK/obj/
+SDK/Unity/EdgeLinkSDK/
+SDK/Unity/dist/
 IOT-Server/DeviceSimulator/bin/
 IOT-Server/DeviceSimulator/obj/
 IOT-Server/EdgeLinkSdk/bin/

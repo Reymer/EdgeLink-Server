@@ -652,9 +652,11 @@ td code { font-size: .8rem; }
     <a href="#settings"><span class="nav-num">11</span>設定匯出／匯入</a>
     <a href="#cli"><span class="nav-num">12</span>CLI 選項</a>
     <a href="#api"><span class="nav-num">13</span>API 參考</a>
+    <div class="nav-group-title">SDK</div>
+    <a href="#unity-sdk"><span class="nav-num">14</span>Unity SDK</a>
     <div class="nav-group-title">參考</div>
-    <a href="#examples"><span class="nav-num">14</span>常見情境</a>
-    <a href="#troubleshoot"><span class="nav-num">15</span>疑難排解</a>
+    <a href="#examples"><span class="nav-num">15</span>常見情境</a>
+    <a href="#troubleshoot"><span class="nav-num">16</span>疑難排解</a>
   </nav>
 </aside>
 
@@ -1346,7 +1348,156 @@ sock.sendall(<span class="str">b"id:DEV01;value:36.5\n"</span>)</code></pre>
 </table></div>
 
 <!-- ─────────────────────────────────────────── -->
-<h2 id="examples"><span class="section-num">14</span>常見情境範例</h2>
+<!-- ─────────────────────────────────────────── -->
+<h2 id="unity-sdk"><span class="section-num">14</span>Unity SDK</h2>
+
+<p>EdgeLink Unity SDK 讓 Unity 應用程式直接接收 EdgeLink Server 轉發的訊息，支援 TCP Client、TCP Listener、UDP 三種連線模式，並可在執行期自動從 Server 拉取 Mask 設定。</p>
+
+<h3>安裝（UPM Git URL）</h3>
+<ol class="steps">
+  <li><div>開啟 Unity → <strong>Window → Package Manager</strong></div></li>
+  <li><div>點左上角 <strong>＋ → Add package from git URL…</strong></div></li>
+  <li><div>輸入：<code>https://github.com/Reymer249/EdgeLink-Server.git?path=SDK/Unity/Package</code></div></li>
+  <li><div>點 <strong>Add</strong>，等待 Unity 匯入完成</div></li>
+  <li><div>（選用）Package Manager → EdgeLink SDK → Samples → <strong>Import Basic Example</strong></div></li>
+</ol>
+
+<h3>Inspector 設定</h3>
+<p>在任意 GameObject 上加入 <code>EdgeLinkManager</code> 組件，Inspector 提供以下欄位：</p>
+<div class="table-wrap"><table>
+  <thead><tr><th>欄位</th><th>說明</th><th>預設值</th></tr></thead>
+  <tbody>
+    <tr><td>Server URL</td><td>EdgeLink Server 位址，用於執行期拉取 Mask 定義</td><td><code>https://192.168.1.100:8443</code></td></tr>
+    <tr><td>Password</td><td>登入密碼</td><td>（空）</td></tr>
+    <tr><td>Mask ID</td><td>要套用的 Mask 名稱（留空則不解析）</td><td><code>OriginalData</code></td></tr>
+    <tr><td>Protocol</td><td>連線模式：<code>TCP</code> / <code>TCPListener</code> / <code>UDP</code></td><td><code>TCP</code></td></tr>
+    <tr><td>TCP Host</td><td>（TCP 模式）EdgeLink Server IP</td><td><code>192.168.1.100</code></td></tr>
+    <tr><td>TCP Port</td><td>（TCP 模式）EdgeLink TCP Client Port 號</td><td><code>9001</code></td></tr>
+    <tr><td>Listen Port</td><td>（TCPListener 模式）Unity 本地監聽 Port</td><td><code>9001</code></td></tr>
+    <tr><td>UDP Local Port</td><td>（UDP 模式）Unity 本地 UDP Port</td><td><code>9002</code></td></tr>
+  </tbody>
+</table></div>
+
+<div class="callout info">
+  <div class="callout-body">
+    <strong>Mask 自動拉取</strong>
+    啟動時 EdgeLinkManager 會向 Server 登入並取得指定 Mask 的 Field Delimiter 和 KV Separator，讓 <code>Get(key)</code> 能正確解析欄位。若 Server 無法連線，則以預設值（<code>;</code> 和 <code>:</code>）繼續運行。
+  </div>
+</div>
+
+<h3>三種連線模式</h3>
+<div class="mode-grid">
+  <div class="mode-card">
+    <div class="mode-card-header">
+      <div class="mode-icon blue">→</div>
+      <div>
+        <div class="mode-title">TCP</div>
+        <div class="mode-subtitle">Unity 主動連出</div>
+      </div>
+    </div>
+    <p class="mode-desc">Unity 主動連線到 EdgeLink Server 的 TCP Client Port。EdgeLink 向 Unity 推送訊息。</p>
+    <div class="mode-tags">
+      <span class="mode-tag blue">推薦</span>
+      <span class="mode-tag green">自動重連</span>
+    </div>
+  </div>
+  <div class="mode-card">
+    <div class="mode-card-header">
+      <div class="mode-icon yellow">←</div>
+      <div>
+        <div class="mode-title">TCP Listener</div>
+        <div class="mode-subtitle">Unity 被動監聽</div>
+      </div>
+    </div>
+    <p class="mode-desc">Unity 開啟本地 Port 等待 EdgeLink 連入（EdgeLink 設定 TCP Client 指向 Unity）。</p>
+    <div class="mode-tags">
+      <span class="mode-tag">EdgeLink 主動連出</span>
+    </div>
+  </div>
+  <div class="mode-card">
+    <div class="mode-card-header">
+      <div class="mode-icon purple">◎</div>
+      <div>
+        <div class="mode-title">UDP</div>
+        <div class="mode-subtitle">無連線</div>
+      </div>
+    </div>
+    <p class="mode-desc">Unity 監聽 UDP Port，EdgeLink 以 UDP 推送訊息。無連線狀態，純接收。</p>
+    <div class="mode-tags">
+      <span class="mode-tag yellow">無重連機制</span>
+    </div>
+  </div>
+</div>
+
+<h3>讀取資料 API</h3>
+<div class="table-wrap"><table>
+  <thead><tr><th>成員</th><th>型別</th><th>說明</th></tr></thead>
+  <tbody>
+    <tr><td><code>Raw</code></td><td><code>string</code></td><td>最新一筆原始訊息字串（未解析）</td></tr>
+    <tr><td><code>Get(key)</code></td><td><code>string</code></td><td>依欄位名取得最新解析值，不存在則回傳 <code>null</code></td></tr>
+  </tbody>
+</table></div>
+
+<h3>使用範例</h3>
+<div class="code-block">
+  <div class="code-header"><div class="dots"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div></div><span class="lang-tag">C# — Example.cs</span></div>
+<pre><code><span class="kw">using</span> UnityEngine;
+
+<span class="kw">public class</span> <span class="cls">Example</span> : <span class="cls">MonoBehaviour</span>
+{
+    <span class="kw">public</span> <span class="cls">GameObject</span> edgeLinkObject;
+
+    <span class="cls">EdgeLinkManager</span> edgeLink;
+    <span class="kw">string</span>          lastRaw;
+
+    <span class="kw">void</span> <span class="fn">Start</span>()
+    {
+        edgeLink = edgeLinkObject.<span class="fn">GetComponent</span>&lt;<span class="cls">EdgeLinkManager</span>&gt;();
+    }
+
+    <span class="kw">void</span> <span class="fn">Update</span>()
+    {
+        <span class="kw">if</span> (edgeLink.Raw == lastRaw) <span class="kw">return</span>; <span class="cmt">// 無新訊息則跳過</span>
+        lastRaw = edgeLink.Raw;
+
+        <span class="kw">string</span> temp   = edgeLink.<span class="fn">Get</span>(<span class="str">"temp"</span>);
+        <span class="kw">string</span> humid  = edgeLink.<span class="fn">Get</span>(<span class="str">"humid"</span>);
+        <span class="kw">string</span> status = edgeLink.<span class="fn">Get</span>(<span class="str">"status"</span>);
+
+        Debug.<span class="fn">Log</span>(<span class="str">$"溫度:{temp} 濕度:{humid} 狀態:{status}"</span>);
+    }
+}</code></pre>
+</div>
+
+<div class="callout tip">
+  <div class="callout-body">
+    <strong>取得原始未解析訊息</strong>
+    若需要原始字串（例如 JSON、自訂格式），直接讀取 <code>edgeLink.Raw</code> 即可，不需要呼叫 <code>Get()</code>。
+  </div>
+</div>
+
+<h3>TCP 模式拓樸（推薦）</h3>
+<div class="topo">
+  <div class="topo-node green">IoT 設備（TCP 連入 EdgeLink）</div>
+  <div class="topo-connector">
+    <div class="tc-line"></div>
+    <div class="tc-label">TCP Server Port 9001</div>
+    <div class="tc-line"></div>
+    <div class="tc-arrow"></div>
+  </div>
+  <div class="topo-node accent">EdgeLink Server（TCP Client 主動連 Unity）</div>
+  <div class="topo-connector">
+    <div class="tc-line"></div>
+    <div class="tc-label">TCP Client → Unity Host:Port</div>
+    <div class="tc-line"></div>
+    <div class="tc-arrow"></div>
+  </div>
+  <div class="topo-node" style="background:var(--surface3);border-color:var(--border2)">Unity 應用程式（EdgeLinkManager Protocol = TCP）</div>
+</div>
+
+<p>EdgeLink Server 端需設定一個 <strong>TCP Client Port</strong>，Target IP 填 Unity 機器 IP，Remote Port 對應 <code>TCP Port</code> 欄位值，Source Protocol 指向接收設備的 TCP Server Port。</p>
+
+<h2 id="examples"><span class="section-num">15</span>常見情境範例</h2>
 
 <h3>情境 A：感測器 → 後端 JSON API（單向轉發）</h3>
 <p><strong>設備傳送：</strong> <code>id:SENSOR01;temp:25.3;humidity:60</code><br>
@@ -1393,7 +1544,7 @@ Output Template : {"device":"{id}","temp":{temp},"humidity":{humidity}}</code></
 </ol>
 
 <!-- ─────────────────────────────────────────── -->
-<h2 id="troubleshoot"><span class="section-num">15</span>疑難排解</h2>
+<h2 id="troubleshoot"><span class="section-num">16</span>疑難排解</h2>
 
 <h3>設備連線後約 15 秒斷線</h3>
 <div class="callout danger">
