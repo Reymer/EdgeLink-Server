@@ -9,7 +9,7 @@
 [![License](https://img.shields.io/badge/License-GPL_3.0-blue)](LICENSE)
 [![Version](https://img.shields.io/badge/Version-1.0.0-informational)](https://github.com/Reymer/EdgeLink-Server/releases/tag/v1.0.0)
 
-A lightweight .NET 8 server that bridges IoT devices over TCP/UDP, transforms protocol data via custom Mask definitions, and provides a browser-based management interface. Runs as a Windows Service.
+A lightweight .NET 8 server that bridges IoT devices over TCP/UDP, transforms protocol data via custom Mask definitions, and provides a browser-based management interface.
 
 ![Ports](https://github.com/Reymer/EdgeLink-Server/releases/download/v1.0.0/ports.png)
 
@@ -22,20 +22,21 @@ A lightweight .NET 8 server that bridges IoT devices over TCP/UDP, transforms pr
 | Feature | Description |
 |---------|-------------|
 | **Multi-protocol** | TCP Server, TCP Client, UDP — each port configured independently |
-| **Message Routing** | Automatically bridges two ports via `SourceProtocolId` |
+| **Message Routing** | Automatically bridges ports via `SourceProtocolId` |
 | **Mask System** | Custom protocol parsing and transformation rules for IoT firmware output |
-| **Real-time Monitor** | Per-port SSE-streamed log with keyword search and download |
-| **Web UI** | Browser-based management interface — no frontend setup required |
+| **Real-time Monitor** | Per-port SSE-streamed log with keyword search |
+| **Web UI** | Browser-based management — no frontend setup required |
 | **HTTPS** | Auto-generated self-signed certificate with SAN for all local IPs |
-| **Security** | PBKDF2 password hashing, session persistence, Cookie SameSite, CORS allowlist |
+| **Security** | PBKDF2 password hashing, session persistence, HttpOnly cookies, CORS allowlist |
 | **File Logging** | Daily rolling log files with 7-day retention |
+| **Unity SDK** | UPM package for receiving data in Unity (TCP / TCP Listener / UDP) |
 
 ---
 
 ## Requirements
 
 - Windows 10 / 11 x64
-- Administrator privileges (for installation only)
+- No .NET Runtime required (self-contained)
 
 ---
 
@@ -44,10 +45,9 @@ A lightweight .NET 8 server that bridges IoT devices over TCP/UDP, transforms pr
 1. Download `EdgeLink-Server-v1.0.0-win-x64.zip` from [Releases](https://github.com/Reymer/EdgeLink-Server/releases)
 2. Extract the zip
 3. Run `EdgeLinkServer.exe`
-4. Open your browser and go to `http://localhost:8080`
-   - Default password: `admin`
-
-> **HTTPS:** Run `EdgeLinkServer.exe --https` to enable HTTPS. A self-signed certificate will be generated automatically.
+4. Open your browser at `https://localhost:8443`
+   - Accept the self-signed certificate warning (click Advanced → Proceed)
+   - Default password: `admin` — **change it immediately after login**
 
 ---
 
@@ -67,58 +67,11 @@ A lightweight .NET 8 server that bridges IoT devices over TCP/UDP, transforms pr
 
 | Tab | Description |
 |-----|-------------|
-| **Mask** | Create / edit / delete Mask definitions — field parsing rules and route mode |
 | **Ports** | Add / remove / toggle ports, monitor connection status and traffic in real-time |
-| **System Log** | View server logs with keyword filtering |
+| **Mask** | Create / edit / delete Mask definitions — field parsing rules and output templates |
+| **System Log** | View server event logs with keyword filtering |
 
----
-
-## API Reference
-
-Base URL: `http://<host>:8080`
-
-| Tag | Method | Path | Description |
-|-----|--------|------|-------------|
-| Auth | `POST` | `/api/auth/login` | Login |
-| Auth | `POST` | `/api/auth/logout` | Logout |
-| Auth | `GET` | `/api/auth/status` | Check auth status |
-| Auth | `POST` | `/api/auth/change-password` | Change password |
-| Ports | `GET` | `/api/ports` | List all ports |
-| Ports | `POST` | `/api/ports` | Add port |
-| Ports | `PUT` | `/api/ports/{id}` | Update port |
-| Ports | `DELETE` | `/api/ports` | Delete port(s) |
-| Ports | `POST` | `/api/ports/{id}/enabled` | Toggle port enabled |
-| Ports | `GET` | `/api/ports/{id}/clients` | List TCP clients |
-| Masks | `GET` | `/api/masks` | List all masks |
-| Masks | `POST` | `/api/masks` | Add mask |
-| Masks | `PUT` | `/api/masks/{id}` | Update mask |
-| Masks | `DELETE` | `/api/masks/{id}` | Delete mask |
-| Monitor | `GET` | `/api/monitor-stream` | SSE real-time stream |
-| Monitor | `POST` | `/api/monitor/port` | Set monitor port |
-| Logs | `GET` | `/api/logs` | System logs |
-| Settings | `GET` | `/api/settings/export` | Export settings |
-| Settings | `POST` | `/api/settings/import` | Import settings |
-
----
-
-## Project Structure
-
-```
-EdgeLink-Server/
-└── Server/
-    ├── Infrastructure/      # AppConfig, AppLogger, AppPaths, CertificateHelper, ServiceManager
-    ├── NetworkServer/
-    │   ├── Base/            # Connector base, models (PortData, TCPServerData, ...)
-    │   ├── TCP/             # TCPServerConnector, TCPClientConnector
-    │   ├── Udp/             # UdpConnector
-    │   ├── Router/          # NetworkMessageRouter
-    │   ├── Services/        # PortManager, PortDataStorageService
-    │   └── Logging/         # LogHelper, RouterLogHelper
-    ├── WebApi/              # HttpApiServer, ApiRouter, Auth, Port, Mask, Monitor handlers
-    ├── WebUI/               # Frontend HTML/CSS/JS
-    ├── EdgeLinkService.cs   # BackgroundService (Generic Host)
-    └── Program.cs           # Entry point
-```
+Full documentation available at `/manual` after starting the server.
 
 ---
 
@@ -128,12 +81,131 @@ EdgeLink-Server/
 EdgeLinkServer.exe [options]
 
   --port <n>          HTTP port (default: 8080)
-  --https             Enable HTTPS
+  --no-https          Disable HTTPS (HTTPS is enabled by default)
   --https-port <n>    HTTPS port (default: 8443)
   --cors <origins>    Comma-separated allowed CORS origins
 
 Environment variables:
   EDGELINK_PORT, EDGELINK_HTTPS, EDGELINK_HTTPS_PORT, EDGELINK_CORS
+```
+
+Priority: CLI args > environment variables > defaults
+
+---
+
+## API Reference
+
+Base URL: `https://<host>:8443`
+
+All `/api/*` endpoints (except auth) require a session cookie. Interactive docs at `/docs`.
+
+| Tag | Method | Path | Description |
+|-----|--------|------|-------------|
+| Auth | `POST` | `/api/auth/login` | Login — body: `{"password":"..."}` |
+| Auth | `POST` | `/api/auth/logout` | Logout |
+| Auth | `GET` | `/api/auth/status` | Check session status |
+| Auth | `POST` | `/api/auth/change-password` | Change password |
+| Ports | `GET` | `/api/ports` | List all ports |
+| Ports | `POST` | `/api/ports` | Add port |
+| Ports | `PUT` | `/api/ports/{id}` | Update port |
+| Ports | `DELETE` | `/api/ports` | Delete port |
+| Ports | `POST` | `/api/ports/{id}/enabled` | Toggle port enabled |
+| Ports | `GET` | `/api/ports/{id}/clients` | List connected TCP clients |
+| Masks | `GET` | `/api/masks` | List all mask IDs |
+| Masks | `POST` | `/api/masks` | Add mask |
+| Masks | `GET` | `/api/masks/{maskId}` | Get mask definition |
+| Masks | `PUT` | `/api/masks/{maskId}` | Update mask |
+| Masks | `DELETE` | `/api/masks/{maskId}` | Delete mask |
+| Monitor | `GET` | `/api/monitor-stream` | SSE real-time message stream |
+| Monitor | `POST` | `/api/monitor/port` | Set monitor port |
+| Logs | `GET` | `/api/logs` | System logs (cursor pagination) |
+| Settings | `GET` | `/api/settings/export` | Export all settings as JSON |
+| Settings | `POST` | `/api/settings/import` | Import settings JSON |
+
+---
+
+## Unity SDK
+
+The EdgeLink Unity SDK lets Unity applications receive data forwarded by EdgeLink Server. Supports TCP, TCP Listener, and UDP connection modes with automatic Mask fetching at runtime.
+
+### Installation (UPM)
+
+In Unity → **Window → Package Manager → + → Add package from git URL**:
+
+```
+https://github.com/Reymer/EdgeLink-Server.git?path=SDK/Unity/Package
+```
+
+Then import the **Basic Example** sample via Package Manager → EdgeLink SDK → Samples.
+
+### Usage
+
+Add `EdgeLinkManager` to any GameObject and configure in the Inspector:
+
+| Field | Description |
+|-------|-------------|
+| Server URL | EdgeLink Server address for runtime Mask fetching |
+| Password | Login password |
+| Mask ID | Name of the Mask to apply for field parsing |
+| Protocol | `TCP` / `TCPListener` / `UDP` |
+| TCP Host / Port | (TCP mode) EdgeLink Server IP and port |
+| Listen Port | (TCPListener mode) Local port Unity listens on |
+| UDP Local Port | (UDP mode) Local UDP port |
+
+```csharp
+using UnityEngine;
+
+public class Example : MonoBehaviour
+{
+    public GameObject edgeLinkObject;
+
+    EdgeLinkManager edgeLink;
+    string          lastRaw;
+
+    void Start()
+    {
+        edgeLink = edgeLinkObject.GetComponent<EdgeLinkManager>();
+    }
+
+    void Update()
+    {
+        if (edgeLink.Raw == lastRaw) return;
+        lastRaw = edgeLink.Raw;
+
+        string temp   = edgeLink.Get("temp");
+        string humid  = edgeLink.Get("humid");
+        string status = edgeLink.Get("status");
+
+        Debug.Log($"Temp:{temp} Humid:{humid} Status:{status}");
+    }
+}
+```
+
+| Member | Type | Description |
+|--------|------|-------------|
+| `Raw` | `string` | Latest raw message string (unparsed) |
+| `Get(key)` | `string` | Latest parsed value by field name, `null` if not found |
+
+---
+
+## Project Structure
+
+```
+EdgeLink-Server/
+├── Server/
+│   ├── Infrastructure/      # AppConfig, AppLogger, AppPaths, CertificateHelper
+│   ├── NetworkServer/
+│   │   ├── Base/            # Connector base, models (PortData, ...)
+│   │   ├── TCP/             # TCPServerConnector, TCPClientConnector
+│   │   ├── Udp/             # UdpConnector
+│   │   ├── Router/          # NetworkMessageRouter
+│   │   └── Services/        # PortManager, PortDataStorageService
+│   ├── WebApi/              # HttpApiServer, Auth/Port/Mask/Monitor handlers
+│   ├── WebUI/               # Frontend HTML/CSS/JS (index, manual, docs)
+│   └── Program.cs           # Entry point
+└── SDK/
+    └── Unity/
+        └── Package/         # UPM package (Runtime + Editor + Samples~)
 ```
 
 ---
@@ -142,7 +214,7 @@ Environment variables:
 
 | Version | Changes |
 |---------|---------|
-| v1.0.0 | .NET 8 migration — removed Unity dependency; Windows Service, HTTPS, PBKDF2, session persistence, rolling file logger, CORS allowlist, SameSite cookies |
+| v1.0.0 | Initial release — .NET 8, HTTPS by default, PBKDF2, session persistence, rolling logger, CORS, Unity SDK |
 
 ---
 
