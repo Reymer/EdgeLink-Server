@@ -5,5 +5,8 @@
   "includePlatforms": [],
   "excludePlatforms": [],
   "allowUnsafeCode": false,
-  "autoReferenced": true
+  "autoReferenced": true,
+  "precompiledReferences": [
+    "EdgeLink.dll"
+  ]
 }
