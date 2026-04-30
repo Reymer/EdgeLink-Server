@@ -6,14 +6,17 @@ using EdgeLink;
 
 public class EdgeLinkManager : MonoBehaviour
 {
-    public enum Protocol { TCP, UDP }
+    public enum Protocol { TCP, TCPListener, UDP }
 
     [Header("連線協定")]
     public Protocol protocol = Protocol.TCP;
 
-    [Header("TCP 設定")]
+    [Header("TCP 設定（EdgeLink Server 為 TCP Server 時）")]
     public string tcpHost = "192.168.1.100";
     public int    tcpPort = 9001;
+
+    [Header("TCP Listener 設定（EdgeLink Server 為 TCP Client 時）")]
+    public int tcpListenPort = 9001;
 
     [Header("UDP 設定")]
     public int udpLocalPort = 9002;
@@ -28,8 +31,9 @@ public class EdgeLinkManager : MonoBehaviour
     public UnityEvent<string>                     onRawMessage;
     public UnityEvent<Dictionary<string, string>> onParsedMessage;
 
-    private EdgeLinkClient    _tcp;
-    private EdgeLinkUdpClient _udp;
+    private EdgeLinkClient      _tcp;
+    private EdgeLinkTcpListener _tcpListener;
+    private EdgeLinkUdpClient   _udp;
 
     private async void Start()
     {
@@ -42,6 +46,15 @@ public class EdgeLinkManager : MonoBehaviour
             _tcp.SetAutoReconnect(true, 5000);
             try   { await _tcp.ConnectAsync(); }
             catch { Debug.LogWarning("[EdgeLink TCP] Initial connect failed, will retry..."); }
+        }
+        else if (protocol == Protocol.TCPListener)
+        {
+            _tcpListener = new EdgeLinkTcpListener(tcpListenPort);
+            _tcpListener.OnConnected    += () => Debug.Log($"[EdgeLink TCPListener] EdgeLink connected");
+            _tcpListener.OnDisconnected += () => Debug.Log($"[EdgeLink TCPListener] EdgeLink disconnected");
+            _tcpListener.OnError        += ex => Debug.LogWarning($"[EdgeLink TCPListener] {ex.Message}");
+            _tcpListener.Start();
+            Debug.Log($"[EdgeLink TCPListener] Listening on port {tcpListenPort}");
         }
         else
         {
@@ -57,6 +70,9 @@ public class EdgeLinkManager : MonoBehaviour
         if (_tcp != null)
             while (_tcp.TryDequeue(out string msg)) Handle(msg);
 
+        if (_tcpListener != null)
+            while (_tcpListener.TryDequeue(out string msg)) Handle(msg);
+
         if (_udp != null)
             while (_udp.TryDequeue(out string msg)) Handle(msg);
     }
@@ -70,6 +86,7 @@ public class EdgeLinkManager : MonoBehaviour
     private void OnDestroy()
     {
         _tcp?.Dispose();
+        _tcpListener?.Dispose();
         _udp?.Dispose();
     }
 
