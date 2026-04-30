@@ -7,5 +7,12 @@
   "author": {
     "name": "Extrakyo"
   },
-  "dependencies": {}
+  "dependencies": {},
+  "samples": [
+    {
+      "displayName": "Basic Example",
+      "description": "示範如何使用 EdgeLinkManager 取得感測器資料。",
+      "path": "Samples~/Basic"
+    }
+  ]
 }
