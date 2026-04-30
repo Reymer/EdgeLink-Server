@@ -27,7 +27,6 @@ A lightweight .NET 8 server that bridges IoT devices over TCP/UDP, transforms pr
 | **Real-time Monitor** | Per-port SSE-streamed log with keyword search and download |
 | **Web UI** | Browser-based management interface — no frontend setup required |
 | **HTTPS** | Auto-generated self-signed certificate with SAN for all local IPs |
-| **Windows Service** | Auto-start on boot via `sc`, supports install / uninstall |
 | **Security** | PBKDF2 password hashing, session persistence, Cookie SameSite, CORS allowlist |
 | **File Logging** | Daily rolling log files with 7-day retention |
 
@@ -44,20 +43,11 @@ A lightweight .NET 8 server that bridges IoT devices over TCP/UDP, transforms pr
 
 1. Download `EdgeLink-Server-v1.0.0-win-x64.zip` from [Releases](https://github.com/Reymer/EdgeLink-Server/releases)
 2. Extract the zip
-3. Run `install.bat` **as Administrator**
-4. The service starts automatically
-5. Open your browser and go to `http://localhost:8080`
+3. Run `EdgeLinkServer.exe`
+4. Open your browser and go to `http://localhost:8080`
    - Default password: `admin`
 
-> **HTTPS:** Run `install.bat --https` to enable HTTPS. A self-signed certificate will be generated and trusted automatically on the local machine.
-
-### Uninstall
-
-Run `install.bat` as Administrator and choose uninstall, or run:
-
-```bat
-EdgeLinkServer.exe --uninstall
-```
+> **HTTPS:** Run `EdgeLinkServer.exe --https` to enable HTTPS. A self-signed certificate will be generated automatically.
 
 ---
 
@@ -141,8 +131,6 @@ EdgeLinkServer.exe [options]
   --https             Enable HTTPS
   --https-port <n>    HTTPS port (default: 8443)
   --cors <origins>    Comma-separated allowed CORS origins
-  --install           Install as Windows Service (requires admin)
-  --uninstall         Uninstall Windows Service (requires admin)
 
 Environment variables:
   EDGELINK_PORT, EDGELINK_HTTPS, EDGELINK_HTTPS_PORT, EDGELINK_CORS

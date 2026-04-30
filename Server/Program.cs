@@ -4,13 +4,6 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
-var config = AppConfig.FromArgs(args);
-
-// ── Service install / uninstall ──────────────────────────────────────────────
-if (config.InstallService)   { ServiceManager.Install(config); return; }
-if (config.UninstallService) { ServiceManager.Uninstall();     return; }
-
-// ── Host ─────────────────────────────────────────────────────────────────────
 AppDomain.CurrentDomain.UnhandledException += (_, e) =>
     AppLogger.Error($"[Critical] Unhandled exception: {e.ExceptionObject}");
 
@@ -21,11 +14,10 @@ TaskScheduler.UnobservedTaskException += (_, e) =>
 };
 
 await Host.CreateDefaultBuilder(args)
-    .UseWindowsService(o => o.ServiceName = "EdgeLink")
-    .ConfigureLogging(b => b.ClearProviders())   // AppLogger handles all output
+    .ConfigureLogging(b => b.ClearProviders())
     .ConfigureServices((_, services) =>
     {
-        services.AddSingleton(config);
+        services.AddSingleton(AppConfig.FromArgs(args));
         services.AddHostedService<EdgeLinkService>();
     })
     .Build()
