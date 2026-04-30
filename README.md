@@ -150,6 +150,17 @@ Environment variables:
 
 ---
 
+## Examples
+
+| Example | Language | Description |
+|---------|----------|-------------|
+| [temperature-sensor](examples/temperature-sensor/) | English | Simulated sensor → EdgeLink → receiver, end-to-end demo |
+| [temperature-sensor-zh](examples/temperature-sensor-zh/) | 繁體中文 | 溫度感測器完整範例（中文版） |
+
+Each example includes a setup script, device simulator, and data receiver. Run `python setup.py` to configure EdgeLink automatically.
+
+---
+
 ## Changelog
 
 | Version | Changes |
