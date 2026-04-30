@@ -33,6 +33,8 @@ public class EdgeLinkManager : MonoBehaviour
 
     private readonly Dictionary<string, string> latest = new();
 
+    public string Raw { get; private set; }
+
     public string Get(string key) =>
         latest.TryGetValue(key, out string val) ? val : null;
 
@@ -140,6 +142,7 @@ public class EdgeLinkManager : MonoBehaviour
 
     private void Handle(string msg)
     {
+        Raw = msg;
         var parsed = Parse(msg);
         foreach (var kv in parsed) latest[kv.Key] = kv.Value;
         onRawMessage?.Invoke(msg);
