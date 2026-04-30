@@ -11,29 +11,19 @@ public class EdgeLinkManager : MonoBehaviour
 {
     public enum Protocol { TCP, TCPListener, UDP }
 
-    [Header("EdgeLink Server")]
-    public string serverUrl = "https://192.168.1.100:8443";
-    public string password  = "";
-    public string maskId    = "OriginalData";
-
-    [Header("連線協定")]
-    public Protocol protocol = Protocol.TCP;
-
-    [Header("TCP 設定（EdgeLink Server 為 TCP Server 時）")]
-    public string tcpHost = "192.168.1.100";
-    public int    tcpPort = 9001;
-
-    [Header("TCP Listener 設定（EdgeLink Server 為 TCP Client 時）")]
-    public int tcpListenPort = 9001;
-
-    [Header("UDP 設定")]
-    public int udpLocalPort = 9002;
+    public string   serverUrl    = "https://192.168.1.100:8443";
+    public string   password     = "";
+    public string   maskId       = "OriginalData";
+    public Protocol protocol     = Protocol.TCP;
+    public string   tcpHost      = "192.168.1.100";
+    public int      tcpPort      = 9001;
+    public int      tcpListenPort = 9001;
+    public int      udpLocalPort  = 9002;
 
     [HideInInspector] public string fieldDelimiter = ";";
     [HideInInspector] public string kvSeparator    = ":";
     [HideInInspector] public string outputTemplate = "{raw}";
 
-    [Header("事件")]
     public UnityEvent<string>                     onRawMessage;
     public UnityEvent<Dictionary<string, string>> onParsedMessage;
 

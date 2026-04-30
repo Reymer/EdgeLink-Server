@@ -18,18 +18,56 @@ public class EdgeLinkManagerEditor : Editor
 
     public override void OnInspectorGUI()
     {
-        DrawDefaultInspector();
+        var m  = (EdgeLinkManager)target;
+        var so = new SerializedObject(m);
+        so.Update();
+
+        // ── Server ───────────────────────────────────────
+        EditorGUILayout.LabelField("Server", EditorStyles.boldLabel);
+        m.serverUrl = EditorGUILayout.TextField("URL",      m.serverUrl);
+        m.password  = EditorGUILayout.PasswordField("Password", m.password);
+        m.maskId    = EditorGUILayout.TextField("Mask ID",  m.maskId);
+
+        EditorGUILayout.Space(8);
+
+        // ── 連線 ─────────────────────────────────────────
+        EditorGUILayout.LabelField("連線", EditorStyles.boldLabel);
+        m.protocol = (EdgeLinkManager.Protocol)EditorGUILayout.EnumPopup("Protocol", m.protocol);
+
+        EditorGUI.indentLevel++;
+        switch (m.protocol)
+        {
+            case EdgeLinkManager.Protocol.TCP:
+                m.tcpHost = EditorGUILayout.TextField("Host", m.tcpHost);
+                m.tcpPort = EditorGUILayout.IntField("Port", m.tcpPort);
+                break;
+            case EdgeLinkManager.Protocol.TCPListener:
+                m.tcpListenPort = EditorGUILayout.IntField("Local Port", m.tcpListenPort);
+                break;
+            case EdgeLinkManager.Protocol.UDP:
+                m.udpLocalPort = EditorGUILayout.IntField("Local Port", m.udpLocalPort);
+                break;
+        }
+        EditorGUI.indentLevel--;
+
+        EditorGUILayout.Space(8);
+
+        // ── 事件 ─────────────────────────────────────────
+        EditorGUILayout.LabelField("事件", EditorStyles.boldLabel);
+        EditorGUILayout.PropertyField(so.FindProperty("onRawMessage"));
+        EditorGUILayout.PropertyField(so.FindProperty("onParsedMessage"));
+
+        so.ApplyModifiedProperties();
 
         EditorGUILayout.Space(12);
-        EditorGUILayout.LabelField("遮罩瀏覽工具", EditorStyles.boldLabel);
-        EditorGUILayout.HelpBox("從 Server 拉取遮罩清單，選取後自動填入 Mask ID 欄位。執行時會自動拉取完整遮罩定義。", MessageType.Info);
 
-        var manager = (EdgeLinkManager)target;
+        // ── 遮罩瀏覽工具 ──────────────────────────────────
+        EditorGUILayout.LabelField("遮罩瀏覽工具", EditorStyles.boldLabel);
 
         using (new EditorGUI.DisabledScope(isFetching))
         {
             if (GUILayout.Button(isFetching ? "載入中..." : "拉取遮罩清單"))
-                _ = FetchMasksAsync(manager.serverUrl, manager.password);
+                _ = FetchMasksAsync(m.serverUrl, m.password);
         }
 
         if (!string.IsNullOrEmpty(statusMsg))
@@ -41,13 +79,15 @@ public class EdgeLinkManagerEditor : Editor
             selectedIdx = EditorGUILayout.Popup("選擇遮罩", selectedIdx, maskIds);
             if (GUILayout.Button("套用 Mask ID"))
             {
-                Undo.RecordObject(manager, "Set EdgeLink Mask ID");
-                manager.maskId = maskIds[selectedIdx];
-                EditorUtility.SetDirty(manager);
-                statusMsg = $"Mask ID 已設為：{manager.maskId}";
+                Undo.RecordObject(m, "Set EdgeLink Mask ID");
+                m.maskId  = maskIds[selectedIdx];
+                statusMsg = $"Mask ID 已設為：{m.maskId}";
+                EditorUtility.SetDirty(m);
                 Repaint();
             }
         }
+
+        if (GUI.changed) EditorUtility.SetDirty(m);
     }
 
     private async Task FetchMasksAsync(string serverUrl, string password)
@@ -57,7 +97,7 @@ public class EdgeLinkManagerEditor : Editor
         Repaint();
         try
         {
-            if (!await LoginAsync(serverUrl, password)) { statusMsg = "登入失敗，請確認 Server URL 與密碼。"; return; }
+            if (!await LoginAsync(serverUrl, password)) { statusMsg = "登入失敗，請確認 URL 與密碼。"; return; }
             var resp = await http.GetAsync($"{serverUrl.TrimEnd('/')}/api/masks");
             resp.EnsureSuccessStatusCode();
             var parsed = JsonUtility.FromJson<MaskListResponse>(await resp.Content.ReadAsStringAsync());
