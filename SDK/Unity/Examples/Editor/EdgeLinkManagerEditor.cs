@@ -50,13 +50,6 @@ public class EdgeLinkManagerEditor : Editor
         }
         EditorGUI.indentLevel--;
 
-        EditorGUILayout.Space(8);
-
-        // ── 事件 ─────────────────────────────────────────
-        EditorGUILayout.LabelField("事件", EditorStyles.boldLabel);
-        EditorGUILayout.PropertyField(so.FindProperty("onRawMessage"));
-        EditorGUILayout.PropertyField(so.FindProperty("onParsedMessage"));
-
         so.ApplyModifiedProperties();
 
         EditorGUILayout.Space(12);

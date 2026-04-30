@@ -3,7 +3,6 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Text;
 using UnityEngine;
-using UnityEngine.Events;
 using UnityEngine.Networking;
 using EdgeLink;
 
@@ -11,21 +10,18 @@ public class EdgeLinkManager : MonoBehaviour
 {
     public enum Protocol { TCP, TCPListener, UDP }
 
-    public string   serverUrl    = "https://192.168.1.100:8443";
-    public string   password     = "";
-    public string   maskId       = "OriginalData";
-    public Protocol protocol     = Protocol.TCP;
-    public string   tcpHost      = "192.168.1.100";
-    public int      tcpPort      = 9001;
+    public string   serverUrl     = "https://192.168.1.100:8443";
+    public string   password      = "";
+    public string   maskId        = "OriginalData";
+    public Protocol protocol      = Protocol.TCP;
+    public string   tcpHost       = "192.168.1.100";
+    public int      tcpPort       = 9001;
     public int      tcpListenPort = 9001;
     public int      udpLocalPort  = 9002;
 
     [HideInInspector] public string fieldDelimiter = ";";
     [HideInInspector] public string kvSeparator    = ":";
     [HideInInspector] public string outputTemplate = "{raw}";
-
-    public UnityEvent<string>                     onRawMessage;
-    public UnityEvent<Dictionary<string, string>> onParsedMessage;
 
     private EdgeLinkClient      tcp;
     private EdgeLinkTcpListener tcpListener;
@@ -121,23 +117,9 @@ public class EdgeLinkManager : MonoBehaviour
 
     private void Update()
     {
-        if (tcp != null)
-            while (tcp.TryDequeue(out string msg)) Handle(msg);
-
-        if (tcpListener != null)
-            while (tcpListener.TryDequeue(out string msg)) Handle(msg);
-
-        if (udp != null)
-            while (udp.TryDequeue(out string msg)) Handle(msg);
-    }
-
-    public bool TryDequeue(out string message)
-    {
-        if (tcp         != null && tcp.TryDequeue(out message))         return true;
-        if (tcpListener != null && tcpListener.TryDequeue(out message)) return true;
-        if (udp         != null && udp.TryDequeue(out message))         return true;
-        message = null;
-        return false;
+        if (tcp         != null) while (tcp.TryDequeue(out string msg))         Handle(msg);
+        if (tcpListener != null) while (tcpListener.TryDequeue(out string msg)) Handle(msg);
+        if (udp         != null) while (udp.TryDequeue(out string msg))         Handle(msg);
     }
 
     private void Handle(string msg)
@@ -145,8 +127,6 @@ public class EdgeLinkManager : MonoBehaviour
         Raw = msg;
         var parsed = Parse(msg);
         foreach (var kv in parsed) latest[kv.Key] = kv.Value;
-        onRawMessage?.Invoke(msg);
-        onParsedMessage?.Invoke(parsed);
     }
 
     private void OnDestroy()
