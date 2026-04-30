@@ -13,10 +13,6 @@ public class Example : MonoBehaviour
 
     void Update()
     {
-        while (edgeLink.TryDequeue(out string msg))
-        {
-            Debug.Log("收到：" + msg);
-            Debug.Log("溫度：" + edgeLink.Get("temp"));
-        }
+        Debug.Log("溫度：" + edgeLink.Get("temp"));
     }
 }
