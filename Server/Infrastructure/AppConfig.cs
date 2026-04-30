@@ -3,14 +3,14 @@ namespace EdgeLink.Infrastructure;
 public class AppConfig
 {
     public int    HttpPort      { get; init; } = 8080;
-    public bool   HttpsEnabled  { get; init; }
+    public bool   HttpsEnabled  { get; init; } = true;
     public int    HttpsPort     { get; init; } = 8443;
     public string AllowedOrigins { get; init; } = "";
 
     public static AppConfig FromArgs(string[] args) => new()
     {
         HttpPort      = GetInt(args, "--port")       ?? GetEnvInt("EDGELINK_PORT")       ?? 8080,
-        HttpsEnabled  = HasFlag(args, "--https")     || GetEnv("EDGELINK_HTTPS") == "1",
+        HttpsEnabled  = !HasFlag(args, "--no-https")  && GetEnv("EDGELINK_HTTPS") != "0",
         HttpsPort     = GetInt(args, "--https-port") ?? GetEnvInt("EDGELINK_HTTPS_PORT") ?? 8443,
         AllowedOrigins = GetString(args, "--cors")   ?? GetEnv("EDGELINK_CORS")          ?? "",
     };

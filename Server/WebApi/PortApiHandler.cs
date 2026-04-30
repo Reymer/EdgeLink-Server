@@ -79,7 +79,7 @@ public class PortApiHandler
                 throw new InvalidOperationException("Port already exists (same protocol + port number)");
 
             PortManager.Instance.AddPortData(portData);
-            HttpApiServer.WriteJson(ctx, 201, Json.ToJson(new ApiResult { success = true }));
+            HttpApiServer.WriteJson(ctx, 201, Json.ToJson(new ApiResult { success = true, id = portData.Id }));
         }
         catch (InvalidOperationException ex) { HttpApiServer.WriteError(ctx, 409, ex.Message); }
         catch (ArgumentException ex)         { HttpApiServer.WriteError(ctx, 400, ex.Message); }

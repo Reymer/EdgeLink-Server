@@ -9,7 +9,7 @@ public class LogListResponse         { public int total; public List<string> log
 public class ClientDetailListResponse{ public List<TcpClientInfo> clients = new(); }
 public class MonitorPortResponse     { public string protocolName = ""; }
 public class SettingsExportDto       { public List<PortExportDto> ports = new(); public List<MaskDefinitionDto> masks = new(); }
-public class ApiResult               { public bool success; public string? error; }
+public class ApiResult               { public bool success; public string? error; public string? id; }
 
 public class PortDto
 {

@@ -1,6 +1,10 @@
 # .NET build output
 Server/bin/
 Server/obj/
+Server.Tests/bin/
+Server.Tests/obj/
+SDK/Unity/EdgeLinkSDK/bin/
+SDK/Unity/EdgeLinkSDK/obj/
 IOT-Server/DeviceSimulator/bin/
 IOT-Server/DeviceSimulator/obj/
 IOT-Server/EdgeLinkSdk/bin/
