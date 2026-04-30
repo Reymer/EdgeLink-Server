@@ -40,6 +40,7 @@ def main():
     while True:
         try:
             with socket.create_connection((args.host, args.port), timeout=5) as sock:
+                sock.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
                 print(f"✓ Connected to EdgeLink at {args.host}:{args.port}")
                 print(f"  Sending readings every {args.interval}s  (Ctrl+C to stop)\n")
 

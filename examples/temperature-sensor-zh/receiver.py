@@ -50,7 +50,7 @@ def main():
                         while "\n" in buffer:
                             line, buffer = buffer.split("\n", 1)
                             line = line.strip()
-                            if line:
+                            if line and not line.startswith("EDGELINK_STATUS:"):
                                 ts = datetime.now().strftime("%H:%M:%S")
                                 print(f"  [{ts}] {line}")
                     except (ConnectionResetError, OSError):

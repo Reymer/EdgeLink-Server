@@ -39,6 +39,7 @@ def main():
     while True:
         try:
             with socket.create_connection((args.host, args.port), timeout=5) as sock:
+                sock.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
                 print(f"✓ 已連線至 EdgeLink {args.host}:{args.port}")
                 print(f"  每 {args.interval} 秒傳送一次資料（Ctrl+C 停止）\n")
 
