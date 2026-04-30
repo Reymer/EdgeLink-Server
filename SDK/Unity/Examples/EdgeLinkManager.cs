@@ -31,6 +31,11 @@ public class EdgeLinkManager : MonoBehaviour
     private EdgeLinkTcpListener tcpListener;
     private EdgeLinkUdpClient   udp;
 
+    private readonly Dictionary<string, string> latest = new();
+
+    public string Get(string key) =>
+        latest.TryGetValue(key, out string val) ? val : null;
+
     private IEnumerator Start()
     {
         yield return FetchMaskCoroutine();
@@ -135,8 +140,10 @@ public class EdgeLinkManager : MonoBehaviour
 
     private void Handle(string msg)
     {
+        var parsed = Parse(msg);
+        foreach (var kv in parsed) latest[kv.Key] = kv.Value;
         onRawMessage?.Invoke(msg);
-        onParsedMessage?.Invoke(Parse(msg));
+        onParsedMessage?.Invoke(parsed);
     }
 
     private void OnDestroy()
