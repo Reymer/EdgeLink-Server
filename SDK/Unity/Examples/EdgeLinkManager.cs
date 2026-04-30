@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Text;
 using UnityEngine;
@@ -28,11 +29,14 @@ public class EdgeLinkManager : MonoBehaviour
     private EdgeLinkUdpClient   udp;
 
     private readonly Dictionary<string, string> latest = new();
+    private readonly ConcurrentQueue<string> userQueue = new();
 
     public string Raw { get; private set; }
 
     public string Get(string key) =>
         latest.TryGetValue(key, out string val) ? val : null;
+
+    public bool TryDequeue(out string message) => userQueue.TryDequeue(out message!);
 
     private IEnumerator Start()
     {
@@ -127,6 +131,7 @@ public class EdgeLinkManager : MonoBehaviour
         Raw = msg;
         var parsed = Parse(msg);
         foreach (var kv in parsed) latest[kv.Key] = kv.Value;
+        userQueue.Enqueue(msg);
     }
 
     private void OnDestroy()

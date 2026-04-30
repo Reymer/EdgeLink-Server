@@ -15,8 +15,8 @@ public class Example : MonoBehaviour
     {
         while (edgeLink.TryDequeue(out string msg))
         {
-            string temp = edgeLink.Get("temp");
-            Debug.Log("溫度：" + temp);
+            Debug.Log("收到：" + msg);
+            Debug.Log("溫度：" + edgeLink.Get("temp"));
         }
     }
 }
