@@ -9,12 +9,12 @@ using UnityEngine;
 [CustomEditor(typeof(EdgeLinkManager))]
 public class EdgeLinkManagerEditor : Editor
 {
-    private string[] _maskIds     = null;
-    private int      _selectedIdx = 0;
-    private string   _statusMsg   = "";
-    private bool     _isFetching  = false;
+    private string[] maskIds     = null;
+    private int      selectedIdx = 0;
+    private string   statusMsg   = "";
+    private bool     isFetching  = false;
 
-    private static readonly HttpClient _http = CreateHttpClient();
+    private static readonly HttpClient http = CreateHttpClient();
 
     public override void OnInspectorGUI()
     {
@@ -26,25 +26,25 @@ public class EdgeLinkManagerEditor : Editor
 
         var manager = (EdgeLinkManager)target;
 
-        using (new EditorGUI.DisabledScope(_isFetching))
+        using (new EditorGUI.DisabledScope(isFetching))
         {
-            if (GUILayout.Button(_isFetching ? "載入中..." : "拉取遮罩清單"))
+            if (GUILayout.Button(isFetching ? "載入中..." : "拉取遮罩清單"))
                 _ = FetchMasksAsync(manager.serverUrl, manager.password);
         }
 
-        if (!string.IsNullOrEmpty(_statusMsg))
-            EditorGUILayout.HelpBox(_statusMsg, MessageType.None);
+        if (!string.IsNullOrEmpty(statusMsg))
+            EditorGUILayout.HelpBox(statusMsg, MessageType.None);
 
-        if (_maskIds != null && _maskIds.Length > 0)
+        if (maskIds != null && maskIds.Length > 0)
         {
             EditorGUILayout.Space(4);
-            _selectedIdx = EditorGUILayout.Popup("選擇遮罩", _selectedIdx, _maskIds);
+            selectedIdx = EditorGUILayout.Popup("選擇遮罩", selectedIdx, maskIds);
             if (GUILayout.Button("套用 Mask ID"))
             {
                 Undo.RecordObject(manager, "Set EdgeLink Mask ID");
-                manager.maskId = _maskIds[_selectedIdx];
+                manager.maskId = maskIds[selectedIdx];
                 EditorUtility.SetDirty(manager);
-                _statusMsg = $"Mask ID 已設為：{manager.maskId}";
+                statusMsg = $"Mask ID 已設為：{manager.maskId}";
                 Repaint();
             }
         }
@@ -52,28 +52,28 @@ public class EdgeLinkManagerEditor : Editor
 
     private async Task FetchMasksAsync(string serverUrl, string password)
     {
-        _isFetching = true;
-        _statusMsg  = "";
+        isFetching = true;
+        statusMsg  = "";
         Repaint();
         try
         {
-            if (!await LoginAsync(serverUrl, password)) { _statusMsg = "登入失敗，請確認 Server URL 與密碼。"; return; }
-            var resp = await _http.GetAsync($"{serverUrl.TrimEnd('/')}/api/masks");
+            if (!await LoginAsync(serverUrl, password)) { statusMsg = "登入失敗，請確認 Server URL 與密碼。"; return; }
+            var resp = await http.GetAsync($"{serverUrl.TrimEnd('/')}/api/masks");
             resp.EnsureSuccessStatusCode();
             var parsed = JsonUtility.FromJson<MaskListResponse>(await resp.Content.ReadAsStringAsync());
-            _maskIds    = parsed?.maskTypes ?? Array.Empty<string>();
-            _selectedIdx = 0;
-            _statusMsg  = $"共找到 {_maskIds.Length} 個遮罩";
+            maskIds    = parsed?.maskTypes ?? Array.Empty<string>();
+            selectedIdx = 0;
+            statusMsg  = $"共找到 {maskIds.Length} 個遮罩";
         }
-        catch (Exception ex) { _statusMsg = $"錯誤：{ex.Message}"; }
-        finally { _isFetching = false; Repaint(); }
+        catch (Exception ex) { statusMsg = $"錯誤：{ex.Message}"; }
+        finally { isFetching = false; Repaint(); }
     }
 
     private async Task<bool> LoginAsync(string serverUrl, string password)
     {
         string body    = $"{{\"password\":\"{EscapeJson(password)}\"}}";
         var    content = new StringContent(body, Encoding.UTF8, "application/json");
-        var    resp    = await _http.PostAsync($"{serverUrl.TrimEnd('/')}/api/auth/login", content);
+        var    resp    = await http.PostAsync($"{serverUrl.TrimEnd('/')}/api/auth/login", content);
         return resp.IsSuccessStatusCode;
     }
 

@@ -37,9 +37,9 @@ public class EdgeLinkManager : MonoBehaviour
     public UnityEvent<string>                     onRawMessage;
     public UnityEvent<Dictionary<string, string>> onParsedMessage;
 
-    private EdgeLinkClient      _tcp;
-    private EdgeLinkTcpListener _tcpListener;
-    private EdgeLinkUdpClient   _udp;
+    private EdgeLinkClient      tcp;
+    private EdgeLinkTcpListener tcpListener;
+    private EdgeLinkUdpClient   udp;
 
     private IEnumerator Start()
     {
@@ -54,7 +54,6 @@ public class EdgeLinkManager : MonoBehaviour
 
         string baseUrl = serverUrl.TrimEnd('/');
 
-        // 登入
         byte[] loginBody = Encoding.UTF8.GetBytes($"{{\"password\":\"{EscapeJson(password)}\"}}");
         using var loginReq = new UnityWebRequest($"{baseUrl}/api/auth/login", "POST");
         loginReq.uploadHandler   = new UploadHandlerRaw(loginBody);
@@ -69,10 +68,9 @@ public class EdgeLinkManager : MonoBehaviour
             yield break;
         }
 
-        string rawCookie = loginReq.GetResponseHeader("Set-Cookie");
+        string rawCookie     = loginReq.GetResponseHeader("Set-Cookie");
         string sessionCookie = rawCookie?.Split(';')[0] ?? "";
 
-        // 拉遮罩
         using var maskReq = UnityWebRequest.Get($"{baseUrl}/api/masks/{Uri.EscapeDataString(maskId)}");
         maskReq.SetRequestHeader("Cookie", sessionCookie);
         maskReq.certificateHandler = new BypassCertificate();
@@ -98,42 +96,42 @@ public class EdgeLinkManager : MonoBehaviour
     {
         if (protocol == Protocol.TCP)
         {
-            _tcp = new EdgeLinkClient(tcpHost, tcpPort);
-            _tcp.OnConnected    += () => Debug.Log("[EdgeLink TCP] Connected");
-            _tcp.OnDisconnected += () => Debug.Log("[EdgeLink TCP] Disconnected");
-            _tcp.OnError        += ex => Debug.LogWarning($"[EdgeLink TCP] {ex.Message}");
-            _tcp.SetAutoReconnect(true, 5000);
-            try   { await _tcp.ConnectAsync(); }
+            tcp = new EdgeLinkClient(tcpHost, tcpPort);
+            tcp.OnConnected    += () => Debug.Log("[EdgeLink TCP] Connected");
+            tcp.OnDisconnected += () => Debug.Log("[EdgeLink TCP] Disconnected");
+            tcp.OnError        += ex => Debug.LogWarning($"[EdgeLink TCP] {ex.Message}");
+            tcp.SetAutoReconnect(true, 5000);
+            try   { await tcp.ConnectAsync(); }
             catch { Debug.LogWarning("[EdgeLink TCP] Initial connect failed, will retry..."); }
         }
         else if (protocol == Protocol.TCPListener)
         {
-            _tcpListener = new EdgeLinkTcpListener(tcpListenPort);
-            _tcpListener.OnConnected    += () => Debug.Log("[EdgeLink TCPListener] EdgeLink connected");
-            _tcpListener.OnDisconnected += () => Debug.Log("[EdgeLink TCPListener] EdgeLink disconnected");
-            _tcpListener.OnError        += ex => Debug.LogWarning($"[EdgeLink TCPListener] {ex.Message}");
-            _tcpListener.Start();
+            tcpListener = new EdgeLinkTcpListener(tcpListenPort);
+            tcpListener.OnConnected    += () => Debug.Log("[EdgeLink TCPListener] EdgeLink connected");
+            tcpListener.OnDisconnected += () => Debug.Log("[EdgeLink TCPListener] EdgeLink disconnected");
+            tcpListener.OnError        += ex => Debug.LogWarning($"[EdgeLink TCPListener] {ex.Message}");
+            tcpListener.Start();
             Debug.Log($"[EdgeLink TCPListener] Listening on port {tcpListenPort}");
         }
         else
         {
-            _udp = new EdgeLinkUdpClient(udpLocalPort);
-            _udp.OnError += ex => Debug.LogWarning($"[EdgeLink UDP] {ex.Message}");
-            _udp.Start();
+            udp = new EdgeLinkUdpClient(udpLocalPort);
+            udp.OnError += ex => Debug.LogWarning($"[EdgeLink UDP] {ex.Message}");
+            udp.Start();
             Debug.Log($"[EdgeLink UDP] Listening on port {udpLocalPort}");
         }
     }
 
     private void Update()
     {
-        if (_tcp != null)
-            while (_tcp.TryDequeue(out string msg)) Handle(msg);
+        if (tcp != null)
+            while (tcp.TryDequeue(out string msg)) Handle(msg);
 
-        if (_tcpListener != null)
-            while (_tcpListener.TryDequeue(out string msg)) Handle(msg);
+        if (tcpListener != null)
+            while (tcpListener.TryDequeue(out string msg)) Handle(msg);
 
-        if (_udp != null)
-            while (_udp.TryDequeue(out string msg)) Handle(msg);
+        if (udp != null)
+            while (udp.TryDequeue(out string msg)) Handle(msg);
     }
 
     private void Handle(string msg)
@@ -144,9 +142,9 @@ public class EdgeLinkManager : MonoBehaviour
 
     private void OnDestroy()
     {
-        _tcp?.Dispose();
-        _tcpListener?.Dispose();
-        _udp?.Dispose();
+        tcp?.Dispose();
+        tcpListener?.Dispose();
+        udp?.Dispose();
     }
 
     private Dictionary<string, string> Parse(string msg)
