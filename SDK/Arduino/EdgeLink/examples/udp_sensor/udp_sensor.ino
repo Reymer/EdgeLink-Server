@@ -1,0 +1,84 @@
+/*
+ * EdgeLink UDP 範例 — 溫度感測器
+ *
+ * 功能：
+ *   - 每 3 秒以 UDP 傳送感測資料到 EdgeLink Server
+ *   - 同時監聽 EdgeLink 發回的 UDP 封包
+ *
+ * 注意：UDP 無連線狀態，EdgeLink 不會對 UDP 裝置發送 PING/PONG。
+ *
+ * 適用：ESP32 / ESP8266 (WiFi)
+ */
+
+#include <WiFi.h>
+#include <WiFiUdp.h>
+#include <EdgeLink.h>
+
+// ── 設定 ──────────────────────────────────
+const char* WIFI_SSID     = "your-ssid";
+const char* WIFI_PASSWORD = "your-password";
+
+const char*    EDGELINK_HOST  = "192.168.1.100";  // EdgeLink Server IP
+const uint16_t EDGELINK_PORT  = 9002;             // UDP Port (EdgeLink 監聽的 UDP Port)
+const uint16_t LOCAL_PORT     = 4210;             // 本機接收 Port
+// ─────────────────────────────────────────
+
+WiFiUDP     wifiUdp;
+EdgeLinkUDP edgelink(wifiUdp);
+
+void onMessage(const String& msg, IPAddress remoteIP, uint16_t remotePort) {
+    Serial.print("[EdgeLink UDP] From ");
+    Serial.print(remoteIP);
+    Serial.print(":");
+    Serial.print(remotePort);
+    Serial.print(" → ");
+    Serial.println(msg);
+}
+
+void setup() {
+    Serial.begin(115200);
+
+    Serial.print("Connecting to WiFi");
+    WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+    while (WiFi.status() != WL_CONNECTED) {
+        delay(500);
+        Serial.print(".");
+    }
+    Serial.println();
+    Serial.print("WiFi connected, IP: ");
+    Serial.println(WiFi.localIP());
+
+    edgelink.begin(LOCAL_PORT);
+    edgelink.onMessage(onMessage);
+    Serial.println("EdgeLink UDP ready");
+}
+
+void loop() {
+    // 檢查是否有收到 UDP 封包
+    edgelink.loop();
+
+    // 每 3 秒傳送一筆資料
+    static uint32_t lastSend = 0;
+    if (millis() - lastSend >= 3000) {
+        float temperature = readTemperature();
+        float humidity    = readHumidity();
+
+        String msg = "id:ESP32_01;temp:" + String(temperature, 1)
+                   + ";humidity:"        + String(humidity, 1);
+
+        edgelink.send(EDGELINK_HOST, EDGELINK_PORT, msg);
+        Serial.print("[EdgeLink UDP] Sent: ");
+        Serial.println(msg);
+
+        lastSend = millis();
+    }
+}
+
+// ── 感測器讀取（替換成實際函式）──────────────
+float readTemperature() {
+    return 25.3;
+}
+
+float readHumidity() {
+    return 60.0;
+}

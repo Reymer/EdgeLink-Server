@@ -392,6 +392,7 @@
     <button class="nav-btn active" id="nav-mask" onclick="showSection('mask')" data-i18n="navMask"></button>
     <button class="nav-btn" id="nav-port" onclick="showSection('port')" data-i18n="navPort"></button>
     <button class="nav-btn" id="nav-log"  onclick="showSection('log')"  data-i18n="navLog"></button>
+    <button class="nav-btn" id="nav-manual" onclick="window.open('/manual','_blank')" data-i18n="navManual"></button>
   </nav>
   <div class="h-status">
     <select class="lang-sel" onchange="setLang(this.value)" id="lang-sel">
@@ -1043,6 +1044,7 @@ const LANGS = {
     navMask:           '遮罩管理',
     navPort:           'Port 管理',
     navLog:            '系統日誌',
+    navManual:         '說明書',
     batchDelete:       '批次刪除',
     confirmBatchDelete:'確定刪除選取的 {n} 個 Port 嗎？',
     selectedCount:     '已選取 {n} 個',
@@ -1185,6 +1187,7 @@ const LANGS = {
     navMask:           'Mask',
     navPort:           'Ports',
     navLog:            'System Log',
+    navManual:         'Manual',
     batchDelete:       'Batch Delete',
     confirmBatchDelete:'Delete {n} selected port(s)?',
     selectedCount:     '{n} selected',
@@ -1327,6 +1330,7 @@ const LANGS = {
     navMask:           'マスク管理',
     navPort:           'ポート管理',
     navLog:            'システムログ',
+    navManual:         'マニュアル',
     batchDelete:       '一括削除',
     confirmBatchDelete:'{n} 個のポートを削除しますか？',
     selectedCount:     '{n} 個選択中',
