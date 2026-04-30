@@ -124,6 +124,15 @@ public class EdgeLinkManager : MonoBehaviour
             while (udp.TryDequeue(out string msg)) Handle(msg);
     }
 
+    public bool TryDequeue(out string message)
+    {
+        if (tcp         != null && tcp.TryDequeue(out message))         return true;
+        if (tcpListener != null && tcpListener.TryDequeue(out message)) return true;
+        if (udp         != null && udp.TryDequeue(out message))         return true;
+        message = null;
+        return false;
+    }
+
     private void Handle(string msg)
     {
         onRawMessage?.Invoke(msg);
