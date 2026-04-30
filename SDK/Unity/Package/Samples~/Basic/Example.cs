@@ -5,6 +5,7 @@ public class Example : MonoBehaviour
     public GameObject edgeLinkObject;
 
     EdgeLinkManager edgeLink;
+    string lastRaw;
 
     void Start()
     {
@@ -13,8 +14,10 @@ public class Example : MonoBehaviour
 
     void Update()
     {
+        if (edgeLink.Raw == null || edgeLink.Raw == lastRaw) return;
+        lastRaw = edgeLink.Raw;
+
         string temp = edgeLink.Get("temp");
-        if (temp != null)
-            Debug.Log("溫度：" + temp);
+        Debug.Log("溫度：" + temp);
     }
 }
