@@ -11,8 +11,6 @@
 
 A lightweight .NET 8 server that bridges IoT devices over TCP/UDP, transforms protocol data via custom Mask definitions, and provides a browser-based management interface.
 
-![Ports](https://github.com/Reymer/EdgeLink-Server/releases/download/v1.0.0/ports.png)
-
 </div>
 
 ---
@@ -48,18 +46,6 @@ A lightweight .NET 8 server that bridges IoT devices over TCP/UDP, transforms pr
 4. Open your browser at `https://localhost:8443`
    - Accept the self-signed certificate warning (click Advanced → Proceed)
    - Default password: `admin` — **change it immediately after login**
-
----
-
-## Screenshots
-
-### Login
-
-![Login](https://github.com/Reymer/EdgeLink-Server/releases/download/v1.0.0/login.png)
-
-### Monitor Log
-
-![Monitor](https://github.com/Reymer/EdgeLink-Server/releases/download/v1.0.0/monitor.png)
 
 ---
 
