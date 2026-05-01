@@ -34,6 +34,14 @@ jobs:
         run: Compress-Archive -Path publish_output\* -DestinationPath EdgeLink-Server-${{ github.ref_name }}-win-x64.zip
         shell: pwsh
 
+      - name: Pack Unity UPM
+        run: npm pack
+        working-directory: SDK/Unity/Package
+
+      - name: Rename UPM tgz
+        run: Move-Item SDK/Unity/Package/com.extrakyo.edgelink-*.tgz com.extrakyo.edgelink-${{ github.ref_name }}.tgz
+        shell: pwsh
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
@@ -41,6 +49,7 @@ jobs:
           files: |
             EdgeLink-Server-${{ github.ref_name }}-win-x64.zip
             SDK/Arduino/EdgeLink.zip
+            com.extrakyo.edgelink-${{ github.ref_name }}.tgz
           generate_release_notes: false
           body: |
             ## EdgeLink Server ${{ github.ref_name }}
@@ -68,13 +77,17 @@ jobs:
             |------|-------------|
             | `EdgeLink-Server-${{ github.ref_name }}-win-x64.zip` | Server application (Windows x64, self-contained) |
             | `EdgeLink.zip` | Arduino SDK — install via Arduino IDE → Sketch → Include Library → Add .ZIP |
+            | `com.extrakyo.edgelink-${{ github.ref_name }}.tgz` | Unity UPM package (offline install) |
 
             ## Unity SDK (UPM)
 
-            Window → Package Manager → + → Add package from git URL:
+            **Option A — Git URL** (Window → Package Manager → + → Add package from git URL):
             ```
-            https://github.com/Reymer/EdgeLink-Server.git?path=SDK/Unity/Package
+            https://github.com/Reymer/EdgeLink-Server.git?path=SDK/Unity/Package#feature/dotnet-migration
             ```
+
+            **Option B — Tarball** (Window → Package Manager → + → Add package from tarball):
+            Download `com.extrakyo.edgelink-${{ github.ref_name }}.tgz` from this release.
 
             ## CLI Options
 
