@@ -14,6 +14,9 @@ namespace EdgeLink
         public event Action?            OnConnected;
         public event Action?            OnDisconnected;
         public event Action<Exception>? OnError;
+        /// <summary>Fired when an upstream device connects or disconnects from EdgeLink Server.
+        /// Parameters: isConnected, endpoint (e.g. "TCPServer@192.168.1.50:9001")</summary>
+        public event Action<bool, string>? OnDeviceStatus;
 
         public int  LocalPort  { get; }
         public bool IsRunning  { get; private set; }
@@ -98,6 +101,16 @@ namespace EdgeLink
                     await networkStream.WriteAsync(pong, 0, pong.Length);
                 }
                 catch { }
+                return;
+            }
+            if (line.StartsWith("EDGELINK_STATUS:", StringComparison.Ordinal))
+            {
+                string body      = line.Substring(16);
+                int    sep       = body.IndexOf(':');
+                string statusStr = sep >= 0 ? body.Substring(0, sep) : body;
+                string endpoint  = sep >= 0 ? body.Substring(sep + 1) : "";
+                bool   connected = statusStr.Equals("CONNECTED", StringComparison.OrdinalIgnoreCase);
+                OnDeviceStatus?.Invoke(connected, endpoint);
                 return;
             }
             if (line.StartsWith("EDGELINK_", StringComparison.Ordinal)) return;

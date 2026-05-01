@@ -28,8 +28,13 @@ public class EdgeLinkManager : MonoBehaviour
     private EdgeLinkUdpClient   udp;
 
     private readonly Dictionary<string, string> latest = new();
+    private readonly System.Collections.Concurrent.ConcurrentQueue<(bool, string)> deviceStatusQueue = new();
 
     public string Raw { get; private set; }
+
+    /// <summary>Fired on Unity main thread when an upstream device connects/disconnects.
+    /// bool = isConnected, string = endpoint (e.g. "TCPServer@192.168.1.50:9001")</summary>
+    public event Action<bool, string> OnDeviceStatus;
 
     public string Get(string key) =>
         latest.TryGetValue(key, out string val) ? val : null;
@@ -93,6 +98,7 @@ public class EdgeLinkManager : MonoBehaviour
             tcp.OnConnected    += () => Debug.Log("[EdgeLink TCP] Connected");
             tcp.OnDisconnected += () => Debug.Log("[EdgeLink TCP] Disconnected");
             tcp.OnError        += ex => Debug.LogWarning($"[EdgeLink TCP] {ex.Message}");
+            tcp.OnDeviceStatus += (connected, ep) => deviceStatusQueue.Enqueue((connected, ep));
             tcp.SetAutoReconnect(true, 5000);
             try   { await tcp.ConnectAsync(); }
             catch { Debug.LogWarning("[EdgeLink TCP] Initial connect failed, will retry..."); }
@@ -103,6 +109,7 @@ public class EdgeLinkManager : MonoBehaviour
             tcpListener.OnConnected    += () => Debug.Log("[EdgeLink TCPListener] EdgeLink connected");
             tcpListener.OnDisconnected += () => Debug.Log("[EdgeLink TCPListener] EdgeLink disconnected");
             tcpListener.OnError        += ex => Debug.LogWarning($"[EdgeLink TCPListener] {ex.Message}");
+            tcpListener.OnDeviceStatus += (connected, ep) => deviceStatusQueue.Enqueue((connected, ep));
             tcpListener.Start();
             Debug.Log($"[EdgeLink TCPListener] Listening on port {tcpListenPort}");
         }
@@ -120,6 +127,9 @@ public class EdgeLinkManager : MonoBehaviour
         if (tcp         != null) while (tcp.TryDequeue(out string msg))         Handle(msg);
         if (tcpListener != null) while (tcpListener.TryDequeue(out string msg)) Handle(msg);
         if (udp         != null) while (udp.TryDequeue(out string msg))         Handle(msg);
+
+        while (deviceStatusQueue.TryDequeue(out var ds))
+            OnDeviceStatus?.Invoke(ds.Item1, ds.Item2);
     }
 
     private void Handle(string msg)

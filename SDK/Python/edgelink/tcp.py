@@ -11,10 +11,11 @@ class EdgeLinkClient:
         self.port = port
         self._auto_reconnect   = True
         self._reconnect_delay  = 5.0
-        self._on_message:      list[Callable[[str], None]] = []
-        self._on_connected:    list[Callable[[], None]]    = []
-        self._on_disconnected: list[Callable[[], None]]    = []
-        self._on_error:        list[Callable[[Exception], None]] = []
+        self._on_message:       list[Callable[[str], None]] = []
+        self._on_connected:     list[Callable[[], None]]    = []
+        self._on_disconnected:  list[Callable[[], None]]    = []
+        self._on_error:         list[Callable[[Exception], None]] = []
+        self._on_device_status: list[Callable[[bool, str], None]] = []
         self._queue:   deque[str] = deque()
         self._writer:  asyncio.StreamWriter | None = None
         self._task:    asyncio.Task | None = None
@@ -37,6 +38,10 @@ class EdgeLinkClient:
 
     def on_error(self, cb: Callable[[Exception], None]) -> None:
         self._on_error.append(cb)
+
+    def on_device_status(self, cb: Callable[[bool, str], None]) -> None:
+        """cb(is_connected: bool, endpoint: str) — fired when an upstream device connects/disconnects."""
+        self._on_device_status.append(cb)
 
     # ── public API ─────────────────────────────────────────────────────────────
 
@@ -125,6 +130,15 @@ class EdgeLinkClient:
             if self._writer and not self._writer.is_closing():
                 self._writer.write(f"EDGELINK_PONG:{hex_val}\n".encode())
             return
+        if line.startswith("EDGELINK_STATUS:"):
+            body      = line[16:]
+            sep       = body.find(":")
+            status    = body[:sep] if sep >= 0 else body
+            endpoint  = body[sep + 1:] if sep >= 0 else ""
+            connected = status.upper() == "CONNECTED"
+            for cb in self._on_device_status:
+                cb(connected, endpoint)
+            return
         if line.startswith("EDGELINK_"):
             return
 
@@ -138,10 +152,11 @@ class EdgeLinkTcpListener:
 
     def __init__(self, local_port: int) -> None:
         self.local_port     = local_port
-        self._on_message:      list[Callable[[str], None]] = []
-        self._on_connected:    list[Callable[[], None]]    = []
-        self._on_disconnected: list[Callable[[], None]]    = []
-        self._on_error:        list[Callable[[Exception], None]] = []
+        self._on_message:       list[Callable[[str], None]] = []
+        self._on_connected:     list[Callable[[], None]]    = []
+        self._on_disconnected:  list[Callable[[], None]]    = []
+        self._on_error:         list[Callable[[Exception], None]] = []
+        self._on_device_status: list[Callable[[bool, str], None]] = []
         self._queue:   deque[str] = deque()
         self._server:  asyncio.Server | None = None
         self.is_running = False
@@ -157,6 +172,10 @@ class EdgeLinkTcpListener:
 
     def on_error(self, cb: Callable[[Exception], None]) -> None:
         self._on_error.append(cb)
+
+    def on_device_status(self, cb: Callable[[bool, str], None]) -> None:
+        """cb(is_connected: bool, endpoint: str) — fired when an upstream device connects/disconnects."""
+        self._on_device_status.append(cb)
 
     async def start(self) -> None:
         self._server  = await asyncio.start_server(self._handle_client, "0.0.0.0", self.local_port)
@@ -203,6 +222,15 @@ class EdgeLinkTcpListener:
                 await writer.drain()
             except Exception:
                 pass
+            return
+        if line.startswith("EDGELINK_STATUS:"):
+            body      = line[16:]
+            sep       = body.find(":")
+            status    = body[:sep] if sep >= 0 else body
+            endpoint  = body[sep + 1:] if sep >= 0 else ""
+            connected = status.upper() == "CONNECTED"
+            for cb in self._on_device_status:
+                cb(connected, endpoint)
             return
         if line.startswith("EDGELINK_"):
             return
