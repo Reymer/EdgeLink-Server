@@ -263,7 +263,7 @@ void loop() {
 | | `onMessage(cb)` | Callback for incoming messages (EDGELINK_* filtered out) |
 | | `isConnected()` | Returns connection state |
 | | `setAutoReconnect(enable, ms)` | Auto-reconnect on disconnect (default: enabled, 5000 ms) |
-| `EdgeLinkUDP` | `begin(localPort)` | Start listening on local UDP port |
+| `EdgeLinkUDP` | `begin(localPort = 0)` | Start listening on local UDP port (`0` = send-only) |
 | | `loop()` | Must call in `loop()` — receives incoming packets |
 | | `send(host, port, msg)` | Send UDP packet to EdgeLink |
 | | `onMessage(cb)` | Callback with `(msg, remoteIP, remotePort)` |

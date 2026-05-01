@@ -1610,7 +1610,7 @@ sock.sendall(<span class="str">b"id:DEV01;value:36.5\n"</span>)</code></pre>
     <tr><td><code>onMessage(cb)</code></td><td>設定接收回呼（<code>EDGELINK_*</code> 訊息自動過濾）</td></tr>
     <tr><td><code>isConnected()</code></td><td>回傳目前連線狀態</td></tr>
     <tr><td><code>setAutoReconnect(enable, ms)</code></td><td>斷線後自動重連（預設啟用，5000 ms）</td></tr>
-    <tr><td rowspan="3"><code>EdgeLinkUDP</code></td><td><code>begin(localPort)</code></td><td>開始監聽本機 UDP Port</td></tr>
+    <tr><td rowspan="3"><code>EdgeLinkUDP</code></td><td><code>begin(localPort = 0)</code></td><td>開始監聽本機 UDP Port（<code>0</code> = 僅傳送）</td></tr>
     <tr><td><code>loop()</code></td><td>必須在 <code>loop()</code> 中呼叫，處理接收</td></tr>
     <tr><td><code>send(host, port, msg)</code></td><td>傳送 UDP 封包到指定目標</td></tr>
   </tbody>
