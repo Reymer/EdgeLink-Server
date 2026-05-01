@@ -1361,7 +1361,7 @@ sock.sendall(<span class="str">b"id:DEV01;value:36.5\n"</span>)</code></pre>
 <ol class="steps">
   <li><div>開啟 Unity → <strong>Window → Package Manager</strong></div></li>
   <li><div>點左上角 <strong>＋ → Add package from git URL…</strong></div></li>
-  <li><div>輸入：<code>https://github.com/Reymer249/EdgeLink-Server.git?path=SDK/Unity/Package</code></div></li>
+  <li><div>輸入：<code>https://github.com/Reymer/EdgeLink-Server.git?path=SDK/Unity/Package#feature/dotnet-migration</code></div></li>
   <li><div>點 <strong>Add</strong>，等待 Unity 匯入完成</div></li>
   <li><div>（選用）Package Manager → EdgeLink SDK → Samples → <strong>Import Basic Example</strong></div></li>
 </ol>
@@ -1379,6 +1379,8 @@ sock.sendall(<span class="str">b"id:DEV01;value:36.5\n"</span>)</code></pre>
     <tr><td>TCP Port</td><td>（TCP 模式）EdgeLink TCP Client Port 號</td><td><code>9001</code></td></tr>
     <tr><td>Listen Port</td><td>（TCPListener 模式）Unity 本地監聽 Port</td><td><code>9001</code></td></tr>
     <tr><td>UDP Local Port</td><td>（UDP 模式）Unity 本地 UDP Port</td><td><code>9002</code></td></tr>
+    <tr><td>Device Id Key</td><td>訊息中代表設備 ID 的欄位名稱（例如 <code>id</code>）；留空則不啟用超時追蹤</td><td><code>id</code></td></tr>
+    <tr><td>Device Timeout (s)</td><td>超過幾秒沒收到訊息視為設備離線（<code>0</code> = 停用）</td><td><code>20</code></td></tr>
   </tbody>
 </table></div>
 
@@ -1449,26 +1451,23 @@ sock.sendall(<span class="str">b"id:DEV01;value:36.5\n"</span>)</code></pre>
 
 <span class="kw">public class</span> <span class="cls">Example</span> : <span class="cls">MonoBehaviour</span>
 {
-    <span class="kw">public</span> <span class="cls">GameObject</span> edgeLinkObject;
-
     <span class="cls">EdgeLinkManager</span> edgeLink;
     <span class="kw">string</span>          lastRaw;
 
     <span class="kw">void</span> <span class="fn">Start</span>()
     {
-        edgeLink = edgeLinkObject.<span class="fn">GetComponent</span>&lt;<span class="cls">EdgeLinkManager</span>&gt;();
+        edgeLink = <span class="fn">GetComponent</span>&lt;<span class="cls">EdgeLinkManager</span>&gt;();
     }
 
     <span class="kw">void</span> <span class="fn">Update</span>()
     {
-        <span class="kw">if</span> (edgeLink.Raw == lastRaw) <span class="kw">return</span>; <span class="cmt">// 無新訊息則跳過</span>
+        <span class="kw">if</span> (edgeLink.Raw == lastRaw) <span class="kw">return</span>;
         lastRaw = edgeLink.Raw;
 
-        <span class="kw">string</span> temp   = edgeLink.<span class="fn">Get</span>(<span class="str">"temp"</span>);
-        <span class="kw">string</span> humid  = edgeLink.<span class="fn">Get</span>(<span class="str">"humid"</span>);
-        <span class="kw">string</span> status = edgeLink.<span class="fn">Get</span>(<span class="str">"status"</span>);
+        <span class="kw">string</span> temp  = edgeLink.<span class="fn">Get</span>(<span class="str">"temp"</span>);
+        <span class="kw">string</span> humid = edgeLink.<span class="fn">Get</span>(<span class="str">"humid"</span>);
 
-        Debug.<span class="fn">Log</span>(<span class="str">$"溫度:{temp} 濕度:{humid} 狀態:{status}"</span>);
+        Debug.<span class="fn">Log</span>(<span class="str">$"溫度:{temp} 濕度:{humid}"</span>);
     }
 }</code></pre>
 </div>
@@ -1477,6 +1476,57 @@ sock.sendall(<span class="str">b"id:DEV01;value:36.5\n"</span>)</code></pre>
   <div class="callout-body">
     <strong>取得原始未解析訊息</strong>
     若需要原始字串（例如 JSON、自訂格式），直接讀取 <code>edgeLink.Raw</code> 即可，不需要呼叫 <code>Get()</code>。
+  </div>
+</div>
+
+<h3>設備連線 / 斷線偵測</h3>
+
+<p><code>EdgeLinkManager</code> 提供兩種互補的斷線偵測機制，可同時使用：</p>
+
+<div class="table-wrap"><table>
+  <thead><tr><th>事件</th><th>觸發來源</th><th>識別單位</th><th>適用情境</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><code>OnDeviceStatus(bool, string)</code></td>
+      <td>EdgeLink Server 偵測到 TCP 連線開/關</td>
+      <td>IP 位址</td>
+      <td>快速感知連線層斷線（含拔電約 15 秒）</td>
+    </tr>
+    <tr>
+      <td><code>OnDeviceTimeout(string)</code></td>
+      <td>Unity 本地計時，超過 Device Timeout 秒無訊息</td>
+      <td>設備 ID 欄位</td>
+      <td>多台設備共用一條連線，精確追蹤個別設備</td>
+    </tr>
+    <tr>
+      <td><code>OnDeviceReconnected(string)</code></td>
+      <td>超時後再次收到該設備訊息</td>
+      <td>設備 ID 欄位</td>
+      <td>設備重新上線通知</td>
+    </tr>
+  </tbody>
+</table></div>
+
+<div class="code-block">
+  <div class="code-header"><div class="dots"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div></div><span class="lang-tag">C# — 斷線偵測範例</span></div>
+<pre><code><span class="kw">void</span> <span class="fn">Start</span>()
+{
+    edgeLink = <span class="fn">GetComponent</span>&lt;<span class="cls">EdgeLinkManager</span>&gt;();
+
+    <span class="cmt">// TCP 連線層事件（由 EdgeLink Server 推送）</span>
+    edgeLink.OnDeviceStatus += (connected, endpoint) =>
+        Debug.<span class="fn">Log</span>(connected ? <span class="str">$"設備上線: {endpoint}"</span> : <span class="str">$"設備斷線: {endpoint}"</span>);
+
+    <span class="cmt">// 業務層事件（Unity 本地計時，依 Device Id Key 欄位追蹤）</span>
+    edgeLink.OnDeviceTimeout     += id => Debug.<span class="fn">LogWarning</span>(<span class="str">$"{id} 離線（超時）"</span>);
+    edgeLink.OnDeviceReconnected += id => Debug.<span class="fn">Log</span>(<span class="str">$"{id} 重新上線"</span>);
+}</code></pre>
+</div>
+
+<div class="callout info">
+  <div class="callout-body">
+    <strong>拔電斷線情境</strong>
+    設備突然斷電（無 FIN 封包）時，EdgeLink 透過 PING/PONG 機制偵測：連續 3 次 PING 無回應（約 15 秒）後，Server 強制關閉連線並推送 <code>OnDeviceStatus(false, …)</code>。之後若超過 <code>Device Timeout</code> 秒仍無訊息，<code>OnDeviceTimeout</code> 也會觸發。兩個事件一起使用可獲得最完整的斷線資訊。
   </div>
 </div>
 

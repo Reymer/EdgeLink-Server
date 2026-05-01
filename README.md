@@ -137,20 +137,22 @@ Add `EdgeLinkManager` to any GameObject and configure in the Inspector:
 | TCP Host / Port | (TCP mode) EdgeLink Server IP and port |
 | Listen Port | (TCPListener mode) Local port Unity listens on |
 | UDP Local Port | (UDP mode) Local UDP port |
+| Device Id Key | Field name in the message that identifies the device (e.g. `id`). Leave empty to disable timeout tracking. |
+| Device Timeout (s) | Seconds without a message before a device is considered offline (`0` = disabled) |
+
+### Reading Data
 
 ```csharp
 using UnityEngine;
 
 public class Example : MonoBehaviour
 {
-    public GameObject edgeLinkObject;
-
     EdgeLinkManager edgeLink;
     string          lastRaw;
 
     void Start()
     {
-        edgeLink = edgeLinkObject.GetComponent<EdgeLinkManager>();
+        edgeLink = GetComponent<EdgeLinkManager>();
     }
 
     void Update()
@@ -158,11 +160,9 @@ public class Example : MonoBehaviour
         if (edgeLink.Raw == lastRaw) return;
         lastRaw = edgeLink.Raw;
 
-        string temp   = edgeLink.Get("temp");
-        string humid  = edgeLink.Get("humid");
-        string status = edgeLink.Get("status");
-
-        Debug.Log($"Temp:{temp} Humid:{humid} Status:{status}");
+        string temp  = edgeLink.Get("temp");
+        string humid = edgeLink.Get("humid");
+        Debug.Log($"Temp:{temp} Humid:{humid}");
     }
 }
 ```
@@ -171,6 +171,33 @@ public class Example : MonoBehaviour
 |--------|------|-------------|
 | `Raw` | `string` | Latest raw message string (unparsed) |
 | `Get(key)` | `string` | Latest parsed value by field name, `null` if not found |
+
+### Device Connect / Disconnect Detection
+
+`EdgeLinkManager` provides two complementary disconnect mechanisms:
+
+```csharp
+void Start()
+{
+    edgeLink = GetComponent<EdgeLinkManager>();
+
+    // Fired when EdgeLink Server detects a TCP connection open/close (~15 s for power-cut)
+    edgeLink.OnDeviceStatus += (connected, endpoint) =>
+        Debug.Log(connected ? $"Online: {endpoint}" : $"Offline: {endpoint}");
+
+    // Fired when a specific device ID stops sending data for Device Timeout seconds
+    edgeLink.OnDeviceTimeout     += id => Debug.LogWarning($"{id} timed out");
+    edgeLink.OnDeviceReconnected += id => Debug.Log($"{id} reconnected");
+}
+```
+
+| Event | Trigger | Identifies by |
+|-------|---------|---------------|
+| `OnDeviceStatus` | EdgeLink Server detects TCP open/close | IP address |
+| `OnDeviceTimeout` | No message received for `Device Timeout (s)` | Device ID field |
+| `OnDeviceReconnected` | Message received again after timeout | Device ID field |
+
+> **Power-cut scenario:** EdgeLink detects 3 missed PINGs (≈15 s) then fires `OnDeviceStatus(false, ...)`. After your configured timeout with no new messages, `OnDeviceTimeout` also fires.
 
 ---
 
@@ -452,6 +479,7 @@ EdgeLink-Server/
 
 | Version | Changes |
 |---------|---------|
+| v1.1.0 | Unity SDK — device connect/disconnect detection (`OnDeviceStatus`, `OnDeviceTimeout`, `OnDeviceReconnected`); fix STATUS endpoint to use stable IP; C#, Python, JavaScript SDKs added |
 | v1.0.0 | Initial release — .NET 8, HTTPS by default, PBKDF2, session persistence, rolling logger, CORS, Unity SDK |
 
 ---
