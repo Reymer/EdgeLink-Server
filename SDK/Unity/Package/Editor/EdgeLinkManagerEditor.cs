@@ -52,6 +52,17 @@ public class EdgeLinkManagerEditor : Editor
 
         so.ApplyModifiedProperties();
 
+        EditorGUILayout.Space(8);
+
+        // ── 設備偵測 ──────────────────────────────────────
+        EditorGUILayout.LabelField("設備偵測", EditorStyles.boldLabel);
+        m.deviceIdKey          = EditorGUILayout.TextField(
+            new GUIContent("Device Id Key", "訊息中代表設備 ID 的欄位名稱，留空則不追蹤 Timeout"),
+            m.deviceIdKey);
+        m.deviceTimeoutSeconds = EditorGUILayout.FloatField(
+            new GUIContent("Device Timeout (s)", "超過幾秒沒收到訊息視為設備離線（0 = 停用）"),
+            m.deviceTimeoutSeconds);
+
         EditorGUILayout.Space(12);
 
         // ── 遮罩瀏覽工具 ──────────────────────────────────
