@@ -119,7 +119,7 @@ The EdgeLink Unity SDK lets Unity applications receive data forwarded by EdgeLin
 In Unity → **Window → Package Manager → + → Add package from git URL**:
 
 ```
-https://github.com/Reymer/EdgeLink-Server.git?path=SDK/Unity/Package
+https://github.com/Reymer/EdgeLink-Server.git?path=SDK/Unity/Package#feature/dotnet-migration
 ```
 
 Then import the **Basic Example** sample via Package Manager → EdgeLink SDK → Samples.
