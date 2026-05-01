@@ -27,7 +27,7 @@ A lightweight .NET 8 server that bridges IoT devices over TCP/UDP, transforms pr
 | **HTTPS** | Auto-generated self-signed certificate with SAN for all local IPs |
 | **Security** | PBKDF2 password hashing, session persistence, HttpOnly cookies, CORS allowlist |
 | **File Logging** | Daily rolling log files with 7-day retention |
-| **Unity SDK** | UPM package for receiving data in Unity (TCP / TCP Listener / UDP) |
+| **Client SDKs** | Unity (UPM), Arduino, C# (.NET 6), Python (asyncio), JavaScript (Node.js) |
 
 ---
 
@@ -270,6 +270,157 @@ void loop() {
 
 ---
 
+## C# SDK
+
+The EdgeLink C# SDK targets **.NET 6+** and works in any non-Unity .NET application (console, WPF, ASP.NET Core, etc.). No third-party dependencies.
+
+### Installation
+
+Copy the [SDK/CSharp/](SDK/CSharp/) folder into your solution and add a project reference, or build it as a class library and reference the DLL.
+
+### TCP Example
+
+```csharp
+using EdgeLink;
+
+using var client = new EdgeLinkClient("192.168.1.100", 9001);
+
+client.OnConnected    += ()  => Console.WriteLine("Connected");
+client.OnDisconnected += ()  => Console.WriteLine("Disconnected");
+client.OnMessage      += msg => Console.WriteLine($"Received: {msg}");
+
+client.SetAutoReconnect(true, delayMs: 5000);
+await client.ConnectAsync();
+
+await client.SendAsync("id:DOTNET_01;temp:25.3;humidity:60.0");
+```
+
+### API
+
+| Class | Member | Description |
+|-------|--------|-------------|
+| `EdgeLinkClient` | `ConnectAsync()` | Connect and start read loop in background |
+| | `SendAsync(msg)` | Send a message |
+| | `IsConnected` | Connection state |
+| | `SetAutoReconnect(enable, delayMs)` | Auto-reconnect on disconnect (default: enabled, 5000 ms) |
+| | `OnMessage / OnConnected / OnDisconnected / OnError` | Events |
+| | `TryDequeue(out msg)` | Poll-based alternative to the event |
+| `EdgeLinkTcpListener` | `Start()` | Accept incoming TCP connections |
+| | `Stop()` | Stop the listener |
+| | `OnMessage / OnConnected / OnDisconnected / OnError` | Events |
+| `EdgeLinkUdpClient` | `Start()` | Bind to local port and receive packets |
+| | `OnMessage / OnError` | Events |
+| `EdgeLinkUdpSender` | `SendAsync(host, port, msg)` | Send UDP packet |
+
+---
+
+## Python SDK
+
+The EdgeLink Python SDK requires **Python 3.10+** and uses only the standard library (`asyncio`, `socket`).
+
+### Installation
+
+```bash
+pip install SDK/Python   # local install
+# or simply copy the edgelink/ package into your project
+```
+
+### TCP Example
+
+```python
+import asyncio
+from edgelink import EdgeLinkClient
+
+async def main():
+    client = EdgeLinkClient("192.168.1.100", 9001)
+
+    client.on_connected(lambda: print("Connected"))
+    client.on_message(lambda msg: print(f"Received: {msg}"))
+    client.set_auto_reconnect(True, delay=5.0)
+
+    await client.connect()
+
+    while True:
+        await asyncio.sleep(3)
+        if client.is_connected:
+            await client.send("id:PYTHON_01;temp:25.3;humidity:60.0")
+
+asyncio.run(main())
+```
+
+### API
+
+| Class | Member | Description |
+|-------|--------|-------------|
+| `EdgeLinkClient` | `connect()` | Connect and start read loop (coroutine) |
+| | `send(msg)` | Send a message (coroutine) |
+| | `is_connected` | Connection state |
+| | `set_auto_reconnect(enable, delay)` | Auto-reconnect on disconnect (default: enabled, 5 s) |
+| | `on_message / on_connected / on_disconnected / on_error` | Register callbacks |
+| | `try_dequeue()` | Poll-based alternative to callbacks |
+| | `disconnect()` | Close connection (coroutine) |
+| `EdgeLinkTcpListener` | `start()` | Start listening (coroutine) |
+| | `stop()` | Stop listener (coroutine) |
+| | `on_message / on_connected / on_disconnected / on_error` | Register callbacks |
+| `EdgeLinkUdpClient` | `start()` | Bind and start receiving (coroutine) |
+| | `on_message / on_error` | Register callbacks |
+| `EdgeLinkUdpSender` | `send(host, port, msg)` | Send UDP packet |
+| | `send_async(host, port, msg)` | Send UDP packet (coroutine) |
+
+---
+
+## JavaScript SDK
+
+The EdgeLink JavaScript SDK targets **Node.js 18+** and uses only built-in modules (`net`, `dgram`, `events`).
+
+### Installation
+
+```bash
+# copy SDK/JavaScript/ into your project, then:
+const { EdgeLinkClient } = require("./edgelink/src");
+```
+
+### TCP Example
+
+```js
+const { EdgeLinkClient } = require("./edgelink/src");
+
+const client = new EdgeLinkClient("192.168.1.100", 9001);
+
+client.on("connected",    ()    => console.log("Connected"));
+client.on("message",      (msg) => console.log("Received:", msg));
+client.on("error",        (err) => console.error("Error:", err.message));
+
+client.setAutoReconnect(true, 5000);
+client.connect();
+
+setInterval(() => {
+    if (client.isConnected)
+        client.send("id:NODE_01;temp:25.3;humidity:60.0");
+}, 3000);
+```
+
+### API
+
+| Class | Member | Description |
+|-------|--------|-------------|
+| `EdgeLinkClient` | `connect()` | Connect and start reading |
+| | `send(msg)` | Send a message |
+| | `isConnected` | Connection state |
+| | `setAutoReconnect(enable, delayMs)` | Auto-reconnect on disconnect (default: enabled, 5000 ms) |
+| | `disconnect()` | Destroy the socket |
+| | Events: `"connected" / "disconnected" / "message" / "error"` | `EventEmitter` events |
+| `EdgeLinkTcpListener` | `start()` | Start TCP server |
+| | `stop()` | Stop TCP server |
+| | Events: `"connected" / "disconnected" / "message" / "error"` | `EventEmitter` events |
+| `EdgeLinkUdpClient` | `start()` | Bind and receive UDP packets |
+| | `stop()` | Stop receiving |
+| | Events: `"message" / "error"` | `EventEmitter` events |
+| `EdgeLinkUdpSender` | `send(host, port, msg)` | Send UDP packet (returns `Promise`) |
+| | `close()` | Close socket |
+
+---
+
 ## Project Structure
 
 ```
@@ -288,8 +439,11 @@ EdgeLink-Server/
 └── SDK/
     ├── Unity/
     │   └── Package/         # UPM package (Runtime + Editor + Samples~)
-    └── Arduino/
-        └── EdgeLink/        # Arduino library (TCP + UDP, PING/PONG auto-handling)
+    ├── Arduino/
+    │   └── EdgeLink/        # Arduino library (TCP + UDP, PING/PONG auto-handling)
+    ├── CSharp/              # .NET 6 class library (TCP client/listener + UDP)
+    ├── Python/              # Python 3.10+ package using asyncio (TCP + UDP)
+    └── JavaScript/          # Node.js 18+ package using net/dgram (TCP + UDP)
 ```
 
 ---
