@@ -286,8 +286,10 @@ EdgeLink-Server/
 │   ├── WebUI/               # Frontend HTML/CSS/JS (index, manual, docs)
 │   └── Program.cs           # Entry point
 └── SDK/
-    └── Unity/
-        └── Package/         # UPM package (Runtime + Editor + Samples~)
+    ├── Unity/
+    │   └── Package/         # UPM package (Runtime + Editor + Samples~)
+    └── Arduino/
+        └── EdgeLink/        # Arduino library (TCP + UDP, PING/PONG auto-handling)
 ```
 
 ---
