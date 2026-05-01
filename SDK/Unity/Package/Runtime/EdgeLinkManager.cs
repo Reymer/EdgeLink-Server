@@ -23,18 +23,31 @@ public class EdgeLinkManager : MonoBehaviour
     [HideInInspector] public string kvSeparator    = ":";
     [HideInInspector] public string outputTemplate = "{raw}";
 
+    [Tooltip("訊息中代表設備 ID 的欄位名稱，留空則不追蹤 timeout")]
+    public string deviceIdKey         = "id";
+    [Tooltip("超過幾秒沒收到訊息視為設備離線（0 = 停用）")]
+    public float  deviceTimeoutSeconds = 20f;
+
     private EdgeLinkClient      tcp;
     private EdgeLinkTcpListener tcpListener;
     private EdgeLinkUdpClient   udp;
 
-    private readonly Dictionary<string, string> latest = new();
+    private readonly Dictionary<string, string> latest      = new();
+    private readonly Dictionary<string, float>  lastSeenTime = new();
+    private readonly HashSet<string>             timedOut     = new();
     private readonly System.Collections.Concurrent.ConcurrentQueue<(bool, string)> deviceStatusQueue = new();
 
     public string Raw { get; private set; }
 
-    /// <summary>Fired on Unity main thread when an upstream device connects/disconnects.
-    /// bool = isConnected, string = endpoint (e.g. "TCPServer@192.168.1.50:9001")</summary>
+    /// <summary>Fired on Unity main thread when an upstream device connects/disconnects (TCP only).
+    /// bool = isConnected, string = endpoint (e.g. "TCPServer@192.168.1.50")</summary>
     public event Action<bool, string> OnDeviceStatus;
+
+    /// <summary>Fired on Unity main thread when a device ID stops sending data beyond deviceTimeoutSeconds.</summary>
+    public event Action<string> OnDeviceTimeout;
+
+    /// <summary>Fired on Unity main thread when a previously timed-out device sends data again.</summary>
+    public event Action<string> OnDeviceReconnected;
 
     public string Get(string key) =>
         latest.TryGetValue(key, out string val) ? val : null;
@@ -130,6 +143,23 @@ public class EdgeLinkManager : MonoBehaviour
 
         while (deviceStatusQueue.TryDequeue(out var ds))
             OnDeviceStatus?.Invoke(ds.Item1, ds.Item2);
+
+        CheckDeviceTimeouts();
+    }
+
+    private void CheckDeviceTimeouts()
+    {
+        if (deviceTimeoutSeconds <= 0 || string.IsNullOrEmpty(deviceIdKey)) return;
+
+        foreach (var kv in lastSeenTime)
+        {
+            bool isTimedOut = Time.time - kv.Value > deviceTimeoutSeconds;
+            if (isTimedOut && !timedOut.Contains(kv.Key))
+            {
+                timedOut.Add(kv.Key);
+                OnDeviceTimeout?.Invoke(kv.Key);
+            }
+        }
     }
 
     private void Handle(string msg)
@@ -137,6 +167,13 @@ public class EdgeLinkManager : MonoBehaviour
         Raw = msg;
         var parsed = Parse(msg);
         foreach (var kv in parsed) latest[kv.Key] = kv.Value;
+
+        if (!string.IsNullOrEmpty(deviceIdKey) && parsed.TryGetValue(deviceIdKey, out string deviceId))
+        {
+            lastSeenTime[deviceId] = Time.time;
+            if (timedOut.Remove(deviceId))
+                OnDeviceReconnected?.Invoke(deviceId);
+        }
     }
 
     private void OnDestroy()
