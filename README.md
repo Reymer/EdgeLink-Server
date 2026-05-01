@@ -188,6 +188,102 @@ public class Example : MonoBehaviour
 
 ---
 
+## Arduino SDK
+
+The EdgeLink Arduino Library lets ESP32 / ESP8266 / Arduino devices connect to EdgeLink Server. PING/PONG keepalive is handled automatically — no extra code needed.
+
+### Installation
+
+**Option A — ZIP import:**
+1. Download `SDK/Arduino/EdgeLink.zip`
+2. Arduino IDE → **Sketch → Include Library → Add .ZIP Library…**
+
+**Option B — manual:**  
+Copy the `SDK/Arduino/EdgeLink/` folder into your Arduino `libraries/` directory.
+
+### TCP Example (ESP32 / ESP8266)
+
+```cpp
+#include <WiFi.h>
+#include <EdgeLink.h>
+
+WiFiClient  wifiClient;
+EdgeLinkTCP edgelink(wifiClient);
+
+void onMessage(const String& msg) {
+    Serial.println(msg);  // response from backend
+}
+
+void setup() {
+    WiFi.begin("your-ssid", "your-password");
+    while (WiFi.status() != WL_CONNECTED) delay(500);
+
+    edgelink.onMessage(onMessage);
+    edgelink.setAutoReconnect(true, 5000);
+    edgelink.begin("192.168.1.100", 9001);  // EdgeLink TCP Server port
+}
+
+void loop() {
+    edgelink.loop();  // must be called — handles PING/PONG and receive
+
+    static uint32_t t = 0;
+    if (millis() - t >= 3000 && edgelink.isConnected()) {
+        edgelink.send("id:ESP32_01;temp:25.3;humidity:60.0");
+        t = millis();
+    }
+}
+```
+
+### UDP Example (ESP32 / ESP8266)
+
+```cpp
+#include <WiFi.h>
+#include <WiFiUdp.h>
+#include <EdgeLink.h>
+
+WiFiUDP     wifiUdp;
+EdgeLinkUDP edgelink(wifiUdp);
+
+void onMessage(const String& msg, IPAddress ip, uint16_t port) {
+    Serial.println(msg);
+}
+
+void setup() {
+    WiFi.begin("your-ssid", "your-password");
+    while (WiFi.status() != WL_CONNECTED) delay(500);
+
+    edgelink.begin(4210);           // local receive port
+    edgelink.onMessage(onMessage);
+}
+
+void loop() {
+    edgelink.loop();
+
+    static uint32_t t = 0;
+    if (millis() - t >= 3000) {
+        edgelink.send("192.168.1.100", 9002, "id:ESP32_01;temp:25.3;humidity:60.0");
+        t = millis();
+    }
+}
+```
+
+### API
+
+| Class | Method | Description |
+|-------|--------|-------------|
+| `EdgeLinkTCP` | `begin(host, port)` | Connect to EdgeLink TCP Server port |
+| | `loop()` | Must call in `loop()` — handles PING/PONG and receive |
+| | `send(msg)` | Send a message (newline appended automatically) |
+| | `onMessage(cb)` | Callback for incoming messages (EDGELINK_* filtered out) |
+| | `isConnected()` | Returns connection state |
+| | `setAutoReconnect(enable, ms)` | Auto-reconnect on disconnect (default: enabled, 5000 ms) |
+| `EdgeLinkUDP` | `begin(localPort)` | Start listening on local UDP port |
+| | `loop()` | Must call in `loop()` — receives incoming packets |
+| | `send(host, port, msg)` | Send UDP packet to EdgeLink |
+| | `onMessage(cb)` | Callback with `(msg, remoteIP, remotePort)` |
+
+---
+
 ## Project Structure
 
 ```

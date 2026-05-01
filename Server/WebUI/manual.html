@@ -654,9 +654,10 @@ td code { font-size: .8rem; }
     <a href="#api"><span class="nav-num">13</span>API 參考</a>
     <div class="nav-group-title">SDK</div>
     <a href="#unity-sdk"><span class="nav-num">14</span>Unity SDK</a>
+    <a href="#arduino-sdk"><span class="nav-num">15</span>Arduino SDK</a>
     <div class="nav-group-title">參考</div>
-    <a href="#examples"><span class="nav-num">15</span>常見情境</a>
-    <a href="#troubleshoot"><span class="nav-num">16</span>疑難排解</a>
+    <a href="#examples"><span class="nav-num">16</span>常見情境</a>
+    <a href="#troubleshoot"><span class="nav-num">17</span>疑難排解</a>
   </nav>
 </aside>
 
@@ -1497,7 +1498,125 @@ sock.sendall(<span class="str">b"id:DEV01;value:36.5\n"</span>)</code></pre>
 
 <p>EdgeLink Server 端需設定一個 <strong>TCP Client Port</strong>，Target IP 填 Unity 機器 IP，Remote Port 對應 <code>TCP Port</code> 欄位值，Source Protocol 指向接收設備的 TCP Server Port。</p>
 
-<h2 id="examples"><span class="section-num">15</span>常見情境範例</h2>
+<!-- ─────────────────────────────────────────── -->
+<h2 id="arduino-sdk"><span class="section-num">15</span>Arduino SDK</h2>
+
+<p>EdgeLink Arduino Library 讓 ESP32 / ESP8266 / Arduino 設備連線到 EdgeLink Server。PING/PONG 心跳自動處理，開發者只需專注在資料傳送邏輯。</p>
+
+<h3>安裝</h3>
+<div class="mode-grid" style="grid-template-columns:1fr 1fr">
+  <div class="mode-card">
+    <div class="mode-card-header">
+      <div class="mode-icon blue" style="font-size:.75rem;font-weight:700">ZIP</div>
+      <div><div class="mode-title">ZIP 匯入</div></div>
+    </div>
+    <p class="mode-desc">下載 <code>SDK/Arduino/EdgeLink.zip</code>，在 Arduino IDE 選 <strong>Sketch → Include Library → Add .ZIP Library…</strong></p>
+  </div>
+  <div class="mode-card">
+    <div class="mode-card-header">
+      <div class="mode-icon yellow" style="font-size:.75rem;font-weight:700">手動</div>
+      <div><div class="mode-title">手動複製</div></div>
+    </div>
+    <p class="mode-desc">將 <code>SDK/Arduino/EdgeLink/</code> 資料夾複製到 Arduino <code>libraries/</code> 目錄，重啟 IDE。</p>
+  </div>
+</div>
+
+<div class="callout info">
+  <div class="callout-body">
+    <strong>支援平台</strong>
+    ESP32、ESP8266、Arduino Uno（需搭配 Ethernet Shield）、SAMD、RP2040。TCP 模式只需傳入任何 <code>Client</code> 物件即可。
+  </div>
+</div>
+
+<h3>TCP 模式（ESP32 / ESP8266）</h3>
+<p>設備主動連線到 EdgeLink Server 的 TCP Server Port，EdgeLink 自動管理 PING/PONG。</p>
+
+<div class="code-block">
+  <div class="code-header"><div class="dots"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div></div><span class="lang-tag">Arduino C++ — tcp_sensor.ino</span></div>
+<pre><code><span class="kw">#include</span> <span class="str">&lt;WiFi.h&gt;</span>
+<span class="kw">#include</span> <span class="str">&lt;EdgeLink.h&gt;</span>
+
+<span class="cls">WiFiClient</span>  wifiClient;
+<span class="cls">EdgeLinkTCP</span> edgelink(wifiClient);
+
+<span class="kw">void</span> <span class="fn">onMessage</span>(<span class="kw">const</span> <span class="cls">String</span>&amp; msg) {
+    Serial.<span class="fn">println</span>(msg);  <span class="cmt">// 後端系統的回應</span>
+}
+
+<span class="kw">void</span> <span class="fn">setup</span>() {
+    Serial.<span class="fn">begin</span>(<span class="num">115200</span>);
+    WiFi.<span class="fn">begin</span>(<span class="str">"your-ssid"</span>, <span class="str">"your-password"</span>);
+    <span class="kw">while</span> (WiFi.<span class="fn">status</span>() != WL_CONNECTED) <span class="fn">delay</span>(<span class="num">500</span>);
+
+    edgelink.<span class="fn">onMessage</span>(onMessage);
+    edgelink.<span class="fn">setAutoReconnect</span>(<span class="kw">true</span>, <span class="num">5000</span>);   <span class="cmt">// 斷線後 5 秒重連</span>
+    edgelink.<span class="fn">begin</span>(<span class="str">"192.168.1.100"</span>, <span class="num">9001</span>);  <span class="cmt">// EdgeLink TCP Server Port</span>
+}
+
+<span class="kw">void</span> <span class="fn">loop</span>() {
+    edgelink.<span class="fn">loop</span>();  <span class="cmt">// 必須呼叫，處理 PING/PONG 與接收</span>
+
+    <span class="kw">static</span> uint32_t t = <span class="num">0</span>;
+    <span class="kw">if</span> (millis() - t &gt;= <span class="num">3000</span> &amp;&amp; edgelink.<span class="fn">isConnected</span>()) {
+        edgelink.<span class="fn">send</span>(<span class="str">"id:ESP32_01;temp:25.3;humidity:60.0"</span>);
+        t = millis();
+    }
+}</code></pre>
+</div>
+
+<h3>UDP 模式（ESP32 / ESP8266）</h3>
+<p>無連線狀態，每次直接傳送 UDP 封包到 EdgeLink Server 的 UDP Port。EdgeLink 不對 UDP 設備發送 PING/PONG。</p>
+
+<div class="code-block">
+  <div class="code-header"><div class="dots"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div></div><span class="lang-tag">Arduino C++ — udp_sensor.ino</span></div>
+<pre><code><span class="kw">#include</span> <span class="str">&lt;WiFi.h&gt;</span>
+<span class="kw">#include</span> <span class="str">&lt;WiFiUdp.h&gt;</span>
+<span class="kw">#include</span> <span class="str">&lt;EdgeLink.h&gt;</span>
+
+<span class="cls">WiFiUDP</span>     wifiUdp;
+<span class="cls">EdgeLinkUDP</span> edgelink(wifiUdp);
+
+<span class="kw">void</span> <span class="fn">onMessage</span>(<span class="kw">const</span> <span class="cls">String</span>&amp; msg, <span class="cls">IPAddress</span> ip, uint16_t port) {
+    Serial.<span class="fn">println</span>(msg);
+}
+
+<span class="kw">void</span> <span class="fn">setup</span>() {
+    Serial.<span class="fn">begin</span>(<span class="num">115200</span>);
+    WiFi.<span class="fn">begin</span>(<span class="str">"your-ssid"</span>, <span class="str">"your-password"</span>);
+    <span class="kw">while</span> (WiFi.<span class="fn">status</span>() != WL_CONNECTED) <span class="fn">delay</span>(<span class="num">500</span>);
+
+    edgelink.<span class="fn">begin</span>(<span class="num">4210</span>);          <span class="cmt">// 本機接收 Port</span>
+    edgelink.<span class="fn">onMessage</span>(onMessage);
+}
+
+<span class="kw">void</span> <span class="fn">loop</span>() {
+    edgelink.<span class="fn">loop</span>();  <span class="cmt">// 接收 UDP 封包</span>
+
+    <span class="kw">static</span> uint32_t t = <span class="num">0</span>;
+    <span class="kw">if</span> (millis() - t &gt;= <span class="num">3000</span>) {
+        edgelink.<span class="fn">send</span>(<span class="str">"192.168.1.100"</span>, <span class="num">9002</span>, <span class="str">"id:ESP32_01;temp:25.3;humidity:60.0"</span>);
+        t = millis();
+    }
+}</code></pre>
+</div>
+
+<h3>API 參考</h3>
+<div class="table-wrap"><table>
+  <thead><tr><th>類別</th><th>方法</th><th>說明</th></tr></thead>
+  <tbody>
+    <tr><td rowspan="6"><code>EdgeLinkTCP</code></td><td><code>begin(host, port)</code></td><td>連線到 EdgeLink TCP Server Port</td></tr>
+    <tr><td><code>loop()</code></td><td>必須在 <code>loop()</code> 中呼叫，處理 PING/PONG 與接收</td></tr>
+    <tr><td><code>send(msg)</code></td><td>傳送訊息（自動附加換行）</td></tr>
+    <tr><td><code>onMessage(cb)</code></td><td>設定接收回呼（<code>EDGELINK_*</code> 訊息自動過濾）</td></tr>
+    <tr><td><code>isConnected()</code></td><td>回傳目前連線狀態</td></tr>
+    <tr><td><code>setAutoReconnect(enable, ms)</code></td><td>斷線後自動重連（預設啟用，5000 ms）</td></tr>
+    <tr><td rowspan="3"><code>EdgeLinkUDP</code></td><td><code>begin(localPort)</code></td><td>開始監聽本機 UDP Port</td></tr>
+    <tr><td><code>loop()</code></td><td>必須在 <code>loop()</code> 中呼叫，處理接收</td></tr>
+    <tr><td><code>send(host, port, msg)</code></td><td>傳送 UDP 封包到指定目標</td></tr>
+  </tbody>
+</table></div>
+
+<h2 id="examples"><span class="section-num">16</span>常見情境範例</h2>
 
 <h3>情境 A：感測器 → 後端 JSON API（單向轉發）</h3>
 <p><strong>設備傳送：</strong> <code>id:SENSOR01;temp:25.3;humidity:60</code><br>
@@ -1544,7 +1663,7 @@ Output Template : {"device":"{id}","temp":{temp},"humidity":{humidity}}</code></
 </ol>
 
 <!-- ─────────────────────────────────────────── -->
-<h2 id="troubleshoot"><span class="section-num">16</span>疑難排解</h2>
+<h2 id="troubleshoot"><span class="section-num">17</span>疑難排解</h2>
 
 <h3>設備連線後約 15 秒斷線</h3>
 <div class="callout danger">
