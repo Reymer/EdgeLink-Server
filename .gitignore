@@ -3,8 +3,13 @@ Server/bin/
 Server/obj/
 Server.Tests/bin/
 Server.Tests/obj/
+SDK/CSharp/**/bin/
+SDK/CSharp/**/obj/
 SDK/Unity/EdgeLinkSDK/
 SDK/Unity/dist/
+
+# UPM tarball
+*.tgz
 IOT-Server/DeviceSimulator/bin/
 IOT-Server/DeviceSimulator/obj/
 IOT-Server/EdgeLinkSdk/bin/
