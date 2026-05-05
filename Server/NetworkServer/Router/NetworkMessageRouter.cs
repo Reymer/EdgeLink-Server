@@ -69,7 +69,7 @@ public class NetworkMessageRouter
         if (isPolling)
         {
             string? output = MaskProcessor.Process(def, rawBytes, parsedMessage);
-            if (output == null) return;
+            if (string.IsNullOrEmpty(output)) return;
 
             var bytes  = Encoding.UTF8.GetBytes(output.EndsWith("\n") ? output : output + "\n");
             var stream = serverData.ClientStreams.GetValueOrDefault(clientKey);
@@ -85,7 +85,7 @@ public class NetworkMessageRouter
             string correlationId = Guid.NewGuid().ToString("N")[..8];
             var extra  = new Dictionary<string, string> { ["_corrId"] = correlationId };
             string? output = MaskProcessor.Process(def, rawBytes, parsedMessage, extra);
-            if (output == null) return;
+            if (string.IsNullOrEmpty(output)) return;
 
             var bytes  = Encoding.UTF8.GetBytes(output.EndsWith("\n") ? output : output + "\n");
             var stream = serverData.ClientStreams.GetValueOrDefault(clientKey);
@@ -99,7 +99,7 @@ public class NetworkMessageRouter
         else
         {
             string? output = MaskProcessor.Process(def, rawBytes, parsedMessage);
-            if (output == null) return;
+            if (string.IsNullOrEmpty(output)) return;
 
             var bytes  = Encoding.UTF8.GetBytes(output.EndsWith("\n") ? output : output + "\n");
             var stream = serverData.ClientStreams.GetValueOrDefault(clientKey);
@@ -124,7 +124,7 @@ public class NetworkMessageRouter
         if (def == null) { LogHelper.LogToConsole($"[Router] Response mask not found: '{maskId}'", isError: true); return; }
 
         string? output = MaskProcessor.Process(def, rawBytes, text);
-        if (output == null) return;
+        if (string.IsNullOrEmpty(output)) return;
 
         var bytes     = Encoding.UTF8.GetBytes(output.EndsWith("\n") ? output : output + "\n");
         string routeMode = def.routeMode?.Trim().ToLower() ?? "broadcast";

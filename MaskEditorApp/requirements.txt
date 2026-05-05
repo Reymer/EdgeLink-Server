@@ -1,3 +1,0 @@
-pywebview>=4.4
-pyinstaller>=6.0
-pillow>=10.0

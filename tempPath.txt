@@ -1,7 +1,0 @@
-C:\Projects\iot-server\Excel
-0
-0
-iotserver
-C:\Projects\iot-server\GameData
-C:\projects\iot-server\Assets\GameData
-False

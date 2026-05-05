@@ -1,0 +1,23 @@
+{
+  "name": "com.extrakyo.edgelink",
+  "version": "1.1.0",
+  "displayName": "EdgeLink SDK",
+  "description": "Unity SDK for EdgeLink Server — TCP/UDP data receiving with automatic PING/PONG keepalive and mask-based message parsing.",
+  "unity": "2021.2",
+  "author": {
+    "name": "Extrakyo"
+  },
+  "dependencies": {},
+  "samples": [
+    {
+      "displayName": "Basic Example",
+      "description": "示範如何使用 EdgeLinkManager 取得感測器資料、設備斷線偵測。",
+      "path": "Samples~/Basic"
+    },
+    {
+      "displayName": "TCPListener Simulate",
+      "description": "模擬 TCPListener 情境：Unity 開 Port 等待 EdgeLink 連入，搭配 FakeArduino 驗證完整流程。",
+      "path": "Samples~/TCPListenerSimulate"
+    }
+  ]
+}

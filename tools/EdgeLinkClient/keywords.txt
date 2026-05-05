@@ -1,9 +1,0 @@
-# Datatypes (KEYWORD1)
-EdgeLinkClient	KEYWORD1
-
-# Methods (KEYWORD2)
-onReceive	KEYWORD2
-onStatus	KEYWORD2
-send	KEYWORD2
-update	KEYWORD2
-isConnected	KEYWORD2

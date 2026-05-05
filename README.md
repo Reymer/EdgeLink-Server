@@ -2,212 +2,490 @@
 
 # EdgeLink Server
 
-**IoT 訊息中繼與協定管理平台**
+**IoT Protocol Bridge & Message Routing Server**
 
-[![Unity](https://img.shields.io/badge/Unity-2022.3_LTS-black?logo=unity)](https://unity.com)
+[![.NET](https://img.shields.io/badge/.NET-8.0-512BD4?logo=dotnet)](https://dotnet.microsoft.com)
+[![Platform](https://img.shields.io/badge/Platform-Windows-0078D4?logo=windows)](https://github.com/Reymer/EdgeLink-Server/releases)
 [![License](https://img.shields.io/badge/License-GPL_3.0-blue)](LICENSE)
-[![OpenAPI](https://img.shields.io/badge/OpenAPI-3.0.3-6BA539?logo=openapiinitiative&logoColor=white)](http://localhost:8181/docs)
-[![Version](https://img.shields.io/badge/Version-1.4.0-informational)]()
+[![Version](https://img.shields.io/badge/Version-1.0.0-informational)](https://github.com/Reymer/EdgeLink-Server/releases/tag/v1.0.0)
 
-基於 Unity 執行，提供 TCP/UDP 多端口管理、遮罩協定定義、WebUI 操作介面與 SDK 整合。
+A lightweight .NET 8 server that bridges IoT devices over TCP/UDP, transforms protocol data via custom Mask definitions, and provides a browser-based management interface.
 
 </div>
 
 ---
 
-## 功能特色
+## Features
 
-| 功能 | 說明 |
-|------|------|
-| **多協定支援** | TCP Server / TCP Client / UDP，每個端口獨立設定 |
-| **遮罩系統** | 自訂欄位分隔符與 KV 分隔符，定義 IoT 韌體輸出格式並自動解析 |
-| **訊息路由** | 廣播、單播、反向路由（回傳給來源設備） |
-| **WebUI** | 瀏覽器操作介面，遮罩管理、Port 管理、系統日誌三分頁 |
-| **EdgeLink SDK** | C# 接收端函式庫，可整合至 Unity 或任何 .NET 應用 |
-| **Arduino Client** | Arduino Library，讓嵌入式設備直接串接 EdgeLink Server |
-| **登入驗證** | WebUI 登入保護，Cookie Token-based 身份驗證 |
-| **多語系** | 繁體中文 / English / 日本語 |
-
----
-
-## 系統需求
-
-| 項目 | 需求 |
-|------|------|
-| Unity | 2022.3 LTS 以上 |
-| .NET | .NET 8（SDK 工具） |
-| 瀏覽器 | Chrome / Edge（WebUI） |
-| Arduino | Arduino IDE 1.8+ 或 2.x（EdgeLinkClient） |
+| Feature | Description |
+|---------|-------------|
+| **Multi-protocol** | TCP Server, TCP Client, UDP — each port configured independently |
+| **Message Routing** | Automatically bridges ports via `SourceProtocolId` |
+| **Mask System** | Custom protocol parsing and transformation rules for IoT firmware output |
+| **Real-time Monitor** | Per-port SSE-streamed log with keyword search |
+| **Web UI** | Browser-based management — no frontend setup required |
+| **HTTPS** | Auto-generated self-signed certificate with SAN for all local IPs |
+| **Security** | PBKDF2 password hashing, session persistence, HttpOnly cookies, CORS allowlist |
+| **File Logging** | Daily rolling log files with 7-day retention |
+| **Client SDKs** | Unity (UPM), Arduino, C# (.NET 6), Python (asyncio), JavaScript (Node.js) |
 
 ---
 
-## 快速開始
+## Requirements
 
-### 1. 啟動 Server
+- Windows 10 / 11 x64
+- No .NET Runtime required (self-contained)
 
-1. 用 Unity 開啟本專案
-2. 執行 `Main` 場景
-3. 瀏覽器開啟 `http://<本機IP>:8181` 進入 WebUI
+---
 
-> 從同網域其他裝置存取時，請用 `ipconfig` 查詢本機 IP，不要使用 `localhost`
+## Installation
 
-### 2. 新增 Port
+1. Download `EdgeLink-Server-v1.0.0-win-x64.zip` from [Releases](https://github.com/Reymer/EdgeLink-Server/releases)
+2. Extract the zip
+3. Run `EdgeLinkServer.exe`
+4. Open your browser at `https://localhost:8443`
+   - Accept the self-signed certificate warning (click Advanced → Proceed)
+   - Default password: `admin` — **change it immediately after login**
 
-在 WebUI「Port 管理」分頁，點選「新增 Port」，填入：
+---
 
-- **協定名稱**：自訂識別名
-- **類型**：TCP Server / TCP Client / UDP
-- **連接埠**：監聽或連線的 Port 號
-- **遮罩**：選擇對應的協定遮罩（選填）
+## Web UI
 
-### 3. 整合 EdgeLink SDK（C#）
+| Tab | Description |
+|-----|-------------|
+| **Ports** | Add / remove / toggle ports, monitor connection status and traffic in real-time |
+| **Mask** | Create / edit / delete Mask definitions — field parsing rules and output templates |
+| **System Log** | View server event logs with keyword filtering |
+
+Full documentation available at `/manual` after starting the server.
+
+---
+
+## CLI Options
+
+```
+EdgeLinkServer.exe [options]
+
+  --port <n>          HTTP port (default: 8080)
+  --no-https          Disable HTTPS (HTTPS is enabled by default)
+  --https-port <n>    HTTPS port (default: 8443)
+  --cors <origins>    Comma-separated allowed CORS origins
+
+Environment variables:
+  EDGELINK_PORT, EDGELINK_HTTPS, EDGELINK_HTTPS_PORT, EDGELINK_CORS
+```
+
+Priority: CLI args > environment variables > defaults
+
+---
+
+## API Reference
+
+Base URL: `https://<host>:8443`
+
+All `/api/*` endpoints (except auth) require a session cookie. Interactive docs at `/docs`.
+
+| Tag | Method | Path | Description |
+|-----|--------|------|-------------|
+| Auth | `POST` | `/api/auth/login` | Login — body: `{"password":"..."}` |
+| Auth | `POST` | `/api/auth/logout` | Logout |
+| Auth | `GET` | `/api/auth/status` | Check session status |
+| Auth | `POST` | `/api/auth/change-password` | Change password |
+| Ports | `GET` | `/api/ports` | List all ports |
+| Ports | `POST` | `/api/ports` | Add port |
+| Ports | `PUT` | `/api/ports/{id}` | Update port |
+| Ports | `DELETE` | `/api/ports` | Delete port |
+| Ports | `POST` | `/api/ports/{id}/enabled` | Toggle port enabled |
+| Ports | `GET` | `/api/ports/{id}/clients` | List connected TCP clients |
+| Masks | `GET` | `/api/masks` | List all mask IDs |
+| Masks | `POST` | `/api/masks` | Add mask |
+| Masks | `GET` | `/api/masks/{maskId}` | Get mask definition |
+| Masks | `PUT` | `/api/masks/{maskId}` | Update mask |
+| Masks | `DELETE` | `/api/masks/{maskId}` | Delete mask |
+| Monitor | `GET` | `/api/monitor-stream` | SSE real-time message stream |
+| Monitor | `POST` | `/api/monitor/port` | Set monitor port |
+| Logs | `GET` | `/api/logs` | System logs (cursor pagination) |
+| Settings | `GET` | `/api/settings/export` | Export all settings as JSON |
+| Settings | `POST` | `/api/settings/import` | Import settings JSON |
+
+---
+
+## Unity SDK
+
+The EdgeLink Unity SDK lets Unity applications receive data forwarded by EdgeLink Server. Supports TCP, TCP Listener, and UDP connection modes with automatic Mask fetching at runtime.
+
+### Installation (UPM)
+
+In Unity → **Window → Package Manager → + → Add package from git URL**:
+
+```
+https://github.com/Reymer/EdgeLink-Server.git?path=SDK/Unity/Package#feature/dotnet-migration
+```
+
+Then import the **Basic Example** sample via Package Manager → EdgeLink SDK → Samples.
+
+### Usage
+
+Add `EdgeLinkManager` to any GameObject and configure in the Inspector:
+
+| Field | Description |
+|-------|-------------|
+| Server URL | EdgeLink Server address for runtime Mask fetching |
+| Password | Login password |
+| Mask ID | Name of the Mask to apply for field parsing |
+| Protocol | `TCP` / `TCPListener` / `UDP` |
+| TCP Host / Port | (TCP mode) EdgeLink Server IP and port |
+| Listen Port | (TCPListener mode) Local port Unity listens on |
+| UDP Local Port | (UDP mode) Local UDP port |
+| Device Id Key | Field name in the message that identifies the device (e.g. `id`). Leave empty to disable timeout tracking. |
+| Device Timeout (s) | Seconds without a message before a device is considered offline (`0` = disabled) |
+
+### Reading Data
+
+```csharp
+using UnityEngine;
+
+public class Example : MonoBehaviour
+{
+    EdgeLinkManager edgeLink;
+    string          lastRaw;
+
+    void Start()
+    {
+        edgeLink = GetComponent<EdgeLinkManager>();
+    }
+
+    void Update()
+    {
+        if (edgeLink.Raw == lastRaw) return;
+        lastRaw = edgeLink.Raw;
+
+        string temp  = edgeLink.Get("temp");
+        string humid = edgeLink.Get("humid");
+        Debug.Log($"Temp:{temp} Humid:{humid}");
+    }
+}
+```
+
+| Member | Type | Description |
+|--------|------|-------------|
+| `Raw` | `string` | Latest raw message string (unparsed) |
+| `Get(key)` | `string` | Latest parsed value by field name, `null` if not found |
+
+### Device Connect / Disconnect Detection
+
+`EdgeLinkManager` provides two complementary disconnect mechanisms:
+
+```csharp
+void Start()
+{
+    edgeLink = GetComponent<EdgeLinkManager>();
+
+    // Fired when EdgeLink Server detects a TCP connection open/close (~15 s for power-cut)
+    edgeLink.OnDeviceStatus += (connected, endpoint) =>
+        Debug.Log(connected ? $"Online: {endpoint}" : $"Offline: {endpoint}");
+
+    // Fired when a specific device ID stops sending data for Device Timeout seconds
+    edgeLink.OnDeviceTimeout     += id => Debug.LogWarning($"{id} timed out");
+    edgeLink.OnDeviceReconnected += id => Debug.Log($"{id} reconnected");
+}
+```
+
+| Event | Trigger | Identifies by |
+|-------|---------|---------------|
+| `OnDeviceStatus` | EdgeLink Server detects TCP open/close | IP address |
+| `OnDeviceTimeout` | No message received for `Device Timeout (s)` | Device ID field |
+| `OnDeviceReconnected` | Message received again after timeout | Device ID field |
+
+> **Power-cut scenario:** EdgeLink detects 3 missed PINGs (≈15 s) then fires `OnDeviceStatus(false, ...)`. After your configured timeout with no new messages, `OnDeviceTimeout` also fires.
+
+---
+
+## Arduino SDK
+
+The EdgeLink Arduino Library lets ESP32 / ESP8266 / Arduino devices connect to EdgeLink Server. PING/PONG keepalive is handled automatically — no extra code needed.
+
+### Installation
+
+**Option A — ZIP import:**
+1. Download `SDK/Arduino/EdgeLink.zip`
+2. Arduino IDE → **Sketch → Include Library → Add .ZIP Library…**
+
+**Option B — manual:**  
+Copy the `SDK/Arduino/EdgeLink/` folder into your Arduino `libraries/` directory.
+
+### TCP Example (ESP32 / ESP8266)
+
+```cpp
+#include <WiFi.h>
+#include <EdgeLink.h>
+
+WiFiClient  wifiClient;
+EdgeLinkTCP edgelink(wifiClient);
+
+void onMessage(const String& msg) {
+    Serial.println(msg);  // response from backend
+}
+
+void setup() {
+    WiFi.begin("your-ssid", "your-password");
+    while (WiFi.status() != WL_CONNECTED) delay(500);
+
+    edgelink.onMessage(onMessage);
+    edgelink.setAutoReconnect(true, 5000);
+    edgelink.begin("192.168.1.100", 9001);  // EdgeLink TCP Server port
+}
+
+void loop() {
+    edgelink.loop();  // must be called — handles PING/PONG and receive
+
+    static uint32_t t = 0;
+    if (millis() - t >= 3000 && edgelink.isConnected()) {
+        edgelink.send("id:ESP32_01;temp:25.3;humidity:60.0");
+        t = millis();
+    }
+}
+```
+
+### UDP Example (ESP32 / ESP8266)
+
+```cpp
+#include <WiFi.h>
+#include <WiFiUdp.h>
+#include <EdgeLink.h>
+
+WiFiUDP     wifiUdp;
+EdgeLinkUDP edgelink(wifiUdp);
+
+void onMessage(const String& msg, IPAddress ip, uint16_t port) {
+    Serial.println(msg);
+}
+
+void setup() {
+    WiFi.begin("your-ssid", "your-password");
+    while (WiFi.status() != WL_CONNECTED) delay(500);
+
+    edgelink.begin(4210);           // local receive port
+    edgelink.onMessage(onMessage);
+}
+
+void loop() {
+    edgelink.loop();
+
+    static uint32_t t = 0;
+    if (millis() - t >= 3000) {
+        edgelink.send("192.168.1.100", 9002, "id:ESP32_01;temp:25.3;humidity:60.0");
+        t = millis();
+    }
+}
+```
+
+### API
+
+| Class | Method | Description |
+|-------|--------|-------------|
+| `EdgeLinkTCP` | `begin(host, port)` | Connect to EdgeLink TCP Server port |
+| | `loop()` | Must call in `loop()` — handles PING/PONG and receive |
+| | `send(msg)` | Send a message (newline appended automatically) |
+| | `onMessage(cb)` | Callback for incoming messages (EDGELINK_* filtered out) |
+| | `isConnected()` | Returns connection state |
+| | `setAutoReconnect(enable, ms)` | Auto-reconnect on disconnect (default: enabled, 5000 ms) |
+| `EdgeLinkUDP` | `begin(localPort = 0)` | Start listening on local UDP port (`0` = send-only) |
+| | `loop()` | Must call in `loop()` — receives incoming packets |
+| | `send(host, port, msg)` | Send UDP packet to EdgeLink |
+| | `onMessage(cb)` | Callback with `(msg, remoteIP, remotePort)` |
+
+---
+
+## C# SDK
+
+The EdgeLink C# SDK targets **.NET 6+** and works in any non-Unity .NET application (console, WPF, ASP.NET Core, etc.). No third-party dependencies.
+
+### Installation
+
+Copy the [SDK/CSharp/](SDK/CSharp/) folder into your solution and add a project reference, or build it as a class library and reference the DLL.
+
+### TCP Example
 
 ```csharp
 using EdgeLink;
 
-var receiver = new EdgeLinkReceiver(Protocol.TCP);
+using var client = new EdgeLinkClient("192.168.1.100", 9001);
 
-receiver.OnMessage += msg =>
-{
-    Debug.Log(msg.Raw);
-    // msg.Parsed.Fields["TEMP"] 等欄位（需搭配遮罩）
-};
+client.OnConnected    += ()  => Console.WriteLine("Connected");
+client.OnDisconnected += ()  => Console.WriteLine("Disconnected");
+client.OnMessage      += msg => Console.WriteLine($"Received: {msg}");
 
-receiver.OnDeviceStatusChanged += (portName, endpoint, connected) =>
-{
-    Debug.Log($"{portName} {endpoint} {(connected ? "上線" : "離線")}");
-};
+client.SetAutoReconnect(true, delayMs: 5000);
+await client.ConnectAsync();
 
-receiver.Start(9090);
-
-// 在 MonoBehaviour.Update() 呼叫：
-receiver.Flush();
+await client.SendAsync("id:DOTNET_01;temp:25.3;humidity:60.0");
 ```
 
-### 4. 整合 Arduino（C++）
+### API
 
-```cpp
-#include <EdgeLinkClient.h>
-
-EdgeLinkClient client;
-
-void setup() {
-    client.begin("192.168.1.100", 5000);
-}
-
-void loop() {
-    String data = "TEMP:" + String(readTemp()) + ";HUM:" + String(readHum());
-    client.send(data);
-    delay(1000);
-}
-```
-
-> Arduino Library 位於 `tools/EdgeLinkClient/`，加入 Arduino IDE 後即可使用
+| Class | Member | Description |
+|-------|--------|-------------|
+| `EdgeLinkClient` | `ConnectAsync()` | Connect and start read loop in background |
+| | `SendAsync(msg)` | Send a message |
+| | `IsConnected` | Connection state |
+| | `SetAutoReconnect(enable, delayMs)` | Auto-reconnect on disconnect (default: enabled, 5000 ms) |
+| | `OnMessage / OnConnected / OnDisconnected / OnError` | Events |
+| | `TryDequeue(out msg)` | Poll-based alternative to the event |
+| `EdgeLinkTcpListener` | `Start()` | Accept incoming TCP connections |
+| | `Stop()` | Stop the listener |
+| | `OnMessage / OnConnected / OnDisconnected / OnError` | Events |
+| `EdgeLinkUdpClient` | `Start()` | Bind to local port and receive packets |
+| | `OnMessage / OnError` | Events |
+| `EdgeLinkUdpSender` | `SendAsync(host, port, msg)` | Send UDP packet |
 
 ---
 
-## WebUI 分頁
+## Python SDK
 
-| 分頁 | 功能 |
-|------|------|
-| 遮罩管理 | 新增 / 編輯 / 刪除遮罩，定義欄位解析規則與路由模式 |
-| Port 管理 | 新增 / 刪除 / 批次刪除 Port，即時監控連線狀態與流量 |
-| 系統日誌 | 查看伺服器運作日誌，支援關鍵字篩選 |
+The EdgeLink Python SDK requires **Python 3.10+** and uses only the standard library (`asyncio`, `socket`).
+
+### Installation
+
+```bash
+pip install SDK/Python   # local install
+# or simply copy the edgelink/ package into your project
+```
+
+### TCP Example
+
+```python
+import asyncio
+from edgelink import EdgeLinkClient
+
+async def main():
+    client = EdgeLinkClient("192.168.1.100", 9001)
+
+    client.on_connected(lambda: print("Connected"))
+    client.on_message(lambda msg: print(f"Received: {msg}"))
+    client.set_auto_reconnect(True, delay=5.0)
+
+    await client.connect()
+
+    while True:
+        await asyncio.sleep(3)
+        if client.is_connected:
+            await client.send("id:PYTHON_01;temp:25.3;humidity:60.0")
+
+asyncio.run(main())
+```
+
+### API
+
+| Class | Member | Description |
+|-------|--------|-------------|
+| `EdgeLinkClient` | `connect()` | Connect and start read loop (coroutine) |
+| | `send(msg)` | Send a message (coroutine) |
+| | `is_connected` | Connection state |
+| | `set_auto_reconnect(enable, delay)` | Auto-reconnect on disconnect (default: enabled, 5 s) |
+| | `on_message / on_connected / on_disconnected / on_error` | Register callbacks |
+| | `try_dequeue()` | Poll-based alternative to callbacks |
+| | `disconnect()` | Close connection (coroutine) |
+| `EdgeLinkTcpListener` | `start()` | Start listening (coroutine) |
+| | `stop()` | Stop listener (coroutine) |
+| | `on_message / on_connected / on_disconnected / on_error` | Register callbacks |
+| `EdgeLinkUdpClient` | `start()` | Bind and start receiving (coroutine) |
+| | `on_message / on_error` | Register callbacks |
+| `EdgeLinkUdpSender` | `send(host, port, msg)` | Send UDP packet |
+| | `send_async(host, port, msg)` | Send UDP packet (coroutine) |
 
 ---
 
-## API 文件
+## JavaScript SDK
 
-啟動 Server 後開啟互動式 API 文件：
+The EdgeLink JavaScript SDK targets **Node.js 18+** and uses only built-in modules (`net`, `dgram`, `events`).
 
+### Installation
+
+```bash
+# copy SDK/JavaScript/ into your project, then:
+const { EdgeLinkClient } = require("./edgelink/src");
 ```
-http://localhost:8181/docs
+
+### TCP Example
+
+```js
+const { EdgeLinkClient } = require("./edgelink/src");
+
+const client = new EdgeLinkClient("192.168.1.100", 9001);
+
+client.on("connected",    ()    => console.log("Connected"));
+client.on("message",      (msg) => console.log("Received:", msg));
+client.on("error",        (err) => console.error("Error:", err.message));
+
+client.setAutoReconnect(true, 5000);
+client.connect();
+
+setInterval(() => {
+    if (client.isConnected)
+        client.send("id:NODE_01;temp:25.3;humidity:60.0");
+}, 3000);
 ```
 
-原始規格檔（OpenAPI 3.0.3）：`http://localhost:8181/openapi.json`
+### API
 
-<details>
-<summary>端點一覽</summary>
-
-Base URL：`http://<IP>:8181`
-
-| 標籤 | 方法 | 路徑 | 說明 |
-|------|------|------|------|
-| Auth | `POST` | `/api/auth/login` | 登入 |
-| Auth | `POST` | `/api/auth/logout` | 登出 |
-| Auth | `GET` | `/api/auth/status` | 查詢登入狀態 |
-| Auth | `POST` | `/api/auth/change-password` | 修改密碼 |
-| Ports | `GET` | `/api/ports` | 取得所有 Port |
-| Ports | `POST` | `/api/ports` | 新增 Port |
-| Ports | `PUT` | `/api/ports/{id}` | 更新 Port |
-| Ports | `DELETE` | `/api/ports` | 刪除 Port |
-| Ports | `GET` | `/api/ports/{id}/clients` | 查詢 TCP 連線清單 |
-| Masks | `GET` | `/api/masks` | 取得所有遮罩 |
-| Masks | `POST` | `/api/masks` | 新增遮罩 |
-| Masks | `PUT` | `/api/masks/{id}` | 更新遮罩定義 |
-| Masks | `DELETE` | `/api/masks/{id}` | 刪除遮罩 |
-| Monitor | `GET` | `/api/monitor-stream` | SSE 即時訊息串流 |
-| Logs | `GET` | `/api/logs` | 系統日誌 |
-| Settings | `GET` | `/api/settings/export` | 匯出設定 |
-| Settings | `POST` | `/api/settings/import` | 匯入設定 |
-
-</details>
+| Class | Member | Description |
+|-------|--------|-------------|
+| `EdgeLinkClient` | `connect()` | Connect and start reading |
+| | `send(msg)` | Send a message |
+| | `isConnected` | Connection state |
+| | `setAutoReconnect(enable, delayMs)` | Auto-reconnect on disconnect (default: enabled, 5000 ms) |
+| | `disconnect()` | Destroy the socket |
+| | Events: `"connected" / "disconnected" / "message" / "error"` | `EventEmitter` events |
+| `EdgeLinkTcpListener` | `start()` | Start TCP server |
+| | `stop()` | Stop TCP server |
+| | Events: `"connected" / "disconnected" / "message" / "error"` | `EventEmitter` events |
+| `EdgeLinkUdpClient` | `start()` | Bind and receive UDP packets |
+| | `stop()` | Stop receiving |
+| | Events: `"message" / "error"` | `EventEmitter` events |
+| `EdgeLinkUdpSender` | `send(host, port, msg)` | Send UDP packet (returns `Promise`) |
+| | `close()` | Close socket |
 
 ---
 
-## 專案結構
+## Project Structure
 
 ```
 EdgeLink-Server/
-├── Assets/
-│   ├── Scripts/
-│   │   ├── NetworkServer/       # TCP/UDP 核心、Router、Log
-│   │   ├── Mask/                # 遮罩定義與解析
-│   │   ├── WebApi/              # HTTP API Server（Auth、Port、Mask、SSE）
-│   │   └── UI/                  # Unity UI 元件
-│   └── GameData/                # 多語系語言鍵值
-│
-├── IOT-Server/
-│   ├── WebUI/                   # 前端 HTML + OpenAPI 規格
-│   ├── EdgeLinkSdk/             # C# 接收端 SDK
-│   ├── ReceiverConsole/         # SDK 測試主控台（非 Unity 環境用）
-│   └── DeviceSimulator/         # 模擬 IoT 設備發送資料
-│
-├── tools/
-│   ├── EdgeLinkClient/          # Arduino Library
-│   └── *.py                     # 整合測試 / 壓力測試腳本
-│
-└── Setting/                     # 執行期設定檔（Port、遮罩）
+├── Server/
+│   ├── Infrastructure/      # AppConfig, AppLogger, AppPaths, CertificateHelper
+│   ├── NetworkServer/
+│   │   ├── Base/            # Connector base, models (PortData, ...)
+│   │   ├── TCP/             # TCPServerConnector, TCPClientConnector
+│   │   ├── Udp/             # UdpConnector
+│   │   ├── Router/          # NetworkMessageRouter
+│   │   └── Services/        # PortManager, PortDataStorageService
+│   ├── WebApi/              # HttpApiServer, Auth/Port/Mask/Monitor handlers
+│   ├── WebUI/               # Frontend HTML/CSS/JS (index, manual, docs)
+│   └── Program.cs           # Entry point
+└── SDK/
+    ├── Unity/
+    │   └── Package/         # UPM package (Runtime + Editor + Samples~)
+    ├── Arduino/
+    │   └── EdgeLink/        # Arduino library (TCP + UDP, PING/PONG auto-handling)
+    ├── CSharp/              # .NET 6 class library (TCP client/listener + UDP)
+    ├── Python/              # Python 3.10+ package using asyncio (TCP + UDP)
+    └── JavaScript/          # Node.js 18+ package using net/dgram (TCP + UDP)
 ```
 
 ---
 
-## 測試工具
+## Changelog
 
-```bash
-pip install requests
-
-python tools/run_all_tests.py          # 執行全部測試
-python tools/stress_test.py            # 壓力測試
-python tools/routing_integration_test.py  # 路由整合測試
-```
-
----
-
-## 版本紀錄
-
-| 版本 | 內容 |
-|------|------|
-| v1.4.0 | OpenAPI 文件、Swagger UI、Auth 機制、設定匯入匯出 |
-| v1.3.0 | 多語系、執行緒安全、WebUI 優化 |
-| v1.2.0 | TCP UUID 追蹤、Log ID、遠端端口欄位 |
-| v1.1.0 | 遮罩系統、KV 解析、即時預覽 |
-| v1.0.0 | TCP/UDP Server/Client、基礎路由、WebUI |
+| Version | Changes |
+|---------|---------|
+| v1.1.0 | Unity SDK — device connect/disconnect detection (`OnDeviceStatus`, `OnDeviceTimeout`, `OnDeviceReconnected`); fix STATUS endpoint to use stable IP; C#, Python, JavaScript SDKs added |
+| v1.0.0 | Initial release — .NET 8, HTTPS by default, PBKDF2, session persistence, rolling logger, CORS, Unity SDK |
 
 ---
 
 <div align="center">
 
-**Extrakyo**（昌霖）&nbsp;·&nbsp;GPL-3.0
+**Extrakyo** · GPL-3.0
 
 </div>

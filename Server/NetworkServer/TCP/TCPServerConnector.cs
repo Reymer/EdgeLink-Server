@@ -342,7 +342,7 @@ public class TCPServerConnector : NetworkConnectorBase
     private async Task NotifyAsync(string status, PortData sourcePortData, IPEndPoint? endpoint = null)
     {
         string edgeStatus    = status == "CONNECT" ? "CONNECTED" : "DISCONNECTED";
-        string endpointStr   = endpoint?.ToString() ?? "";
+        string endpointStr   = endpoint?.Address?.ToString() ?? "";
         string notifyMessage = $"EDGELINK_STATUS:{edgeStatus}:{sourcePortData.ProtocolName}@{endpointStr}";
         byte[] notifyBytes   = Encoding.UTF8.GetBytes(notifyMessage + "\n");
 

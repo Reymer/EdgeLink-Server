@@ -33,6 +33,10 @@ public class ApiRouter
         {
             await ServeStaticAsync(ctx, "openapi.json", "application/json; charset=utf-8"); return;
         }
+        if (method == "GET" && ctx.Request.Url.AbsolutePath == "/manual")
+        {
+            await ServeStaticAsync(ctx, "manual.html", "text/html; charset=utf-8"); return;
+        }
 
         // /api/auth/*
         if (segments.Length >= 2 && segments[0] == "api" && segments[1] == "auth")
