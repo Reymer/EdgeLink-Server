@@ -39,8 +39,8 @@ public class EdgeLinkManager : MonoBehaviour
     // ── 事件（Unity 主執行緒觸發）────────────────────────────
     /// <summary>每筆新訊息到達時觸發。用 Get(key) 取解析後的欄位值。</summary>
     public event Action<string>       OnMessage;
-    /// <summary>上游裝置 TCP 連線 / 斷線時觸發。bool = 是否連線，string = endpoint。</summary>
-    public event Action<bool, string> OnDeviceStatus;
+    /// <summary>上游裝置 TCP 連線 / 斷線時觸發。bool = 是否連線，string = endpoint，string = deviceId（有資料後才有值）。</summary>
+    public event Action<bool, string, string> OnDeviceStatus;
     /// <summary>裝置超過 deviceTimeoutSeconds 沒有傳資料時觸發。</summary>
     public event Action<string>       OnDeviceTimeout;
     /// <summary>逾時的裝置重新送資料時觸發。</summary>
@@ -54,7 +54,7 @@ public class EdgeLinkManager : MonoBehaviour
     private readonly Dictionary<string, string>      _latest        = new();
     private readonly Dictionary<string, float>       _lastSeenTime  = new();
     private readonly HashSet<string>                 _timedOut      = new();
-    private readonly ConcurrentQueue<(bool, string)> _deviceStatusQ = new();
+    private readonly ConcurrentQueue<(bool, string, string)> _deviceStatusQ = new();
 
     // ── 生命週期 ─────────────────────────────────────────────
 
@@ -71,7 +71,17 @@ public class EdgeLinkManager : MonoBehaviour
         if (_udp         != null) while (_udp.TryDequeue(out var m))         Handle(m);
 
         while (_deviceStatusQ.TryDequeue(out var ds))
-            OnDeviceStatus?.Invoke(ds.Item1, ds.Item2);
+        {
+            bool connected = ds.Item1;
+            string endpoint = ds.Item2;
+            string deviceId = ds.Item3;
+            if (!connected && !string.IsNullOrEmpty(deviceId))
+            {
+                _lastSeenTime.Remove(deviceId);
+                _timedOut.Remove(deviceId);
+            }
+            OnDeviceStatus?.Invoke(connected, endpoint, deviceId);
+        }
 
         CheckTimeouts();
     }
@@ -128,7 +138,7 @@ public class EdgeLinkManager : MonoBehaviour
                 _tcp.OnConnected    += () => Debug.Log("[EdgeLink TCP] Connected");
                 _tcp.OnDisconnected += () => Debug.Log("[EdgeLink TCP] Disconnected");
                 _tcp.OnError        += ex => Debug.LogWarning($"[EdgeLink TCP] {ex.Message}");
-                _tcp.OnDeviceStatus += (c, ep) => _deviceStatusQ.Enqueue((c, ep));
+                _tcp.OnDeviceStatus += (c, ep, id) => _deviceStatusQ.Enqueue((c, ep, id));
                 _tcp.SetAutoReconnect(true, 5000);
                 try   { await _tcp.ConnectAsync(); }
                 catch { Debug.LogWarning("[EdgeLink TCP] 初始連線失敗，將自動重試"); }
@@ -139,7 +149,7 @@ public class EdgeLinkManager : MonoBehaviour
                 _tcpListener.OnConnected    += () => Debug.Log("[EdgeLink TCPListener] EdgeLink connected");
                 _tcpListener.OnDisconnected += () => Debug.Log("[EdgeLink TCPListener] EdgeLink disconnected");
                 _tcpListener.OnError        += ex => Debug.LogWarning($"[EdgeLink TCPListener] {ex.Message}");
-                _tcpListener.OnDeviceStatus += (c, ep) => _deviceStatusQ.Enqueue((c, ep));
+                _tcpListener.OnDeviceStatus += (c, ep, id) => _deviceStatusQ.Enqueue((c, ep, id));
                 _tcpListener.Start();
                 Debug.Log($"[EdgeLink TCPListener] Listening on port {tcpListenPort}");
                 break;

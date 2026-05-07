@@ -63,6 +63,11 @@ public class NetworkMessageRouter
             return;
         }
 
+        // Track device ID for disconnect notifications
+        var fields = ExtractFields(def, parsedMessage);
+        if (fields.TryGetValue("id", out var devId) && !string.IsNullOrEmpty(devId))
+            serverData.ClientDeviceIds[clientKey] = devId;
+
         bool isConcurrent = string.Equals(client.portData?.RequestMode, "concurrent", StringComparison.OrdinalIgnoreCase);
         bool isPolling    = string.Equals(client.portData?.RequestMode, "polling",    StringComparison.OrdinalIgnoreCase);
 

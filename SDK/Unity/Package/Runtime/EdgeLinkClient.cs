@@ -15,7 +15,7 @@ namespace EdgeLink
         public event Action<Exception>? OnError;
         /// <summary>Fired when an upstream device connects or disconnects from EdgeLink Server.
         /// Parameters: isConnected, protocol, endpoint (e.g. "TCPServer@192.168.1.50:9001")</summary>
-        public event Action<bool, string>? OnDeviceStatus;
+        public event Action<bool, string, string>? OnDeviceStatus;
 
         public bool IsConnected => tcpClient?.Connected == true && !disposed;
         public string Host { get; }
@@ -130,15 +130,17 @@ namespace EdgeLink
                 string body      = line.Substring(16);
                 int    sep       = body.IndexOf(':');
                 string statusStr = sep >= 0 ? body.Substring(0, sep) : body;
-                string endpoint  = sep >= 0 ? body.Substring(sep + 1) : "";
+                string rest      = sep >= 0 ? body.Substring(sep + 1) : "";
                 bool   connected = statusStr.Equals("CONNECTED", StringComparison.OrdinalIgnoreCase);
-                OnDeviceStatus?.Invoke(connected, endpoint);
+                int devSep    = rest.LastIndexOf(':');
+                string endpoint = devSep >= 0 ? rest.Substring(0, devSep) : rest;
+                string deviceId = devSep >= 0 ? rest.Substring(devSep + 1) : "";
+                OnDeviceStatus?.Invoke(connected, endpoint, deviceId);
                 return;
             }
             if (line.StartsWith("EDGELINK_", StringComparison.Ordinal)) return;
 
             queue.Enqueue(line);
-            OnMessage?.Invoke(line);
         }
 
         public async Task SendAsync(string message)

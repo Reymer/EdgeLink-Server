@@ -321,6 +321,7 @@ public class TCPServerConnector : NetworkConnectorBase
             serverData.ClientStreams.TryRemove(clientKey, out _);
             if (serverData.ClientWriteLocks.TryRemove(clientKey, out var wl))
                 try { wl.Dispose(); } catch (ObjectDisposedException) { }
+            serverData.ClientDeviceIds.TryRemove(clientKey, out var disconnectedDeviceId);
 
             serverData.DecrementCurrentConnections();
             serverData.portData.IsConnected       = serverData.CurrentConnections > 0;
@@ -329,21 +330,22 @@ public class TCPServerConnector : NetworkConnectorBase
             serverData.portData.TotalReceivedBytes = serverData.TotalReceivedBytes;
 
             LogHelper.LogToConsole($"{LogHelper.Tag("TCP Server", serverData.portData)} Disconnected: {sourceEndpoint}");
-            NotifyForwardTargetStatusChange("DISCONNECT", serverData.portData, sourceEndpoint);
+            NotifyForwardTargetStatusChange("DISCONNECT", serverData.portData, sourceEndpoint, disconnectedDeviceId ?? "");
             _dispatcher.Enqueue(() => SafeExecution.Safe(() => serverData.portData.OnUpdate?.Invoke(serverData.portData)));
         }
     }
 
-    private void NotifyForwardTargetStatusChange(string status, PortData sourcePortData, IPEndPoint? endpoint = null)
+    private void NotifyForwardTargetStatusChange(string status, PortData sourcePortData, IPEndPoint? endpoint = null, string deviceId = "")
     {
-        _ = NotifyAsync(status, sourcePortData, endpoint);
+        _ = NotifyAsync(status, sourcePortData, endpoint, deviceId);
     }
 
-    private async Task NotifyAsync(string status, PortData sourcePortData, IPEndPoint? endpoint = null)
+    private async Task NotifyAsync(string status, PortData sourcePortData, IPEndPoint? endpoint = null, string deviceId = "")
     {
         string edgeStatus    = status == "CONNECT" ? "CONNECTED" : "DISCONNECTED";
         string endpointStr   = endpoint?.Address?.ToString() ?? "";
-        string notifyMessage = $"EDGELINK_STATUS:{edgeStatus}:{sourcePortData.ProtocolName}@{endpointStr}";
+        string deviceIdSuffix = string.IsNullOrEmpty(deviceId) ? "" : $":{deviceId}";
+        string notifyMessage = $"EDGELINK_STATUS:{edgeStatus}:{sourcePortData.ProtocolName}@{endpointStr}{deviceIdSuffix}";
         byte[] notifyBytes   = Encoding.UTF8.GetBytes(notifyMessage + "\n");
 
         var targets = NetworkMessageRouter.Instance.GetTargetClients(sourcePortData.Id, sourcePortData.ProtocolName);

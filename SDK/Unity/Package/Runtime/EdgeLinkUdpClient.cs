@@ -44,7 +44,6 @@ namespace EdgeLink
                     if (string.IsNullOrEmpty(msg)) continue;
 
                     queue.Enqueue(msg);
-                    OnMessage?.Invoke(msg);
                 }
                 catch (OperationCanceledException) { return; }
                 catch (ObjectDisposedException)    { return; }

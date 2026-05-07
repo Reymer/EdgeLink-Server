@@ -16,6 +16,7 @@ public class TCPServerData : DisposableBase
     public readonly ConcurrentDictionary<string, TcpClientMetrics> ConnectedClients = new();
     public readonly ConcurrentDictionary<string, NetworkStream> ClientStreams = new();
     public readonly ConcurrentDictionary<string, SemaphoreSlim> ClientWriteLocks = new();
+    public readonly ConcurrentDictionary<string, string> ClientDeviceIds = new();
 
     private int totalConnections;
     private int currentConnections;

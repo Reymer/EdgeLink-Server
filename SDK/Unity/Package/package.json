@@ -11,28 +11,8 @@
   "samples": [
     {
       "displayName": "TCP Listener",
-      "description": "Unity 開 Port 等待 EdgeLink Server 連入，接收裝置資料。",
+      "description": "完整範例：TCP Listener 連線、多設備資料接收、TCP 斷線偵測與訊息層 Timeout 偵測。",
       "path": "Samples~/TCPListener"
-    },
-    {
-      "displayName": "UDP",
-      "description": "Unity 監聽 UDP Port，適合低延遲廣播場景。",
-      "path": "Samples~/UDP"
-    },
-    {
-      "displayName": "TCP Client",
-      "description": "Unity 主動連到 EdgeLink Server TCP Port，自動重連。",
-      "path": "Samples~/TCPClient"
-    },
-    {
-      "displayName": "Multi Device",
-      "description": "多設備斷線偵測：TCP 連線層斷線 + 訊息層 Timeout 兩種機制。",
-      "path": "Samples~/MultiDevice"
-    },
-    {
-      "displayName": "Code Config",
-      "description": "純程式碼設定連線參數，不依賴 Inspector，適合動態切換環境。",
-      "path": "Samples~/CodeConfig"
     }
   ]
 }
