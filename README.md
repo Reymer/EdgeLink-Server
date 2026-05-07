@@ -199,6 +199,17 @@ void Start()
 
 > **Power-cut scenario:** EdgeLink detects 3 missed PINGs (≈15 s) then fires `OnDeviceStatus(false, ...)`. After your configured timeout with no new messages, `OnDeviceTimeout` also fires.
 
+#### When to use which event
+
+| Scenario | OnDeviceStatus | OnDeviceTimeout |
+|----------|:-:|:-:|
+| Device power-cut (TCP) | ✓ ~15 s | ✓ after timeout setting |
+| Device disappears over UDP | ✗ no connection to detect | ✓ |
+| TCP alive but firmware hangs (no data) | ✗ connection is normal | ✓ |
+| Multiple devices sharing one TCP connection | ✗ can only detect connection drop | ✓ identifies each device |
+
+Use **both** for full coverage: `OnDeviceStatus` catches TCP-level drops; `OnDeviceTimeout` catches silent failures and works across all protocols.
+
 ---
 
 ## Arduino SDK
