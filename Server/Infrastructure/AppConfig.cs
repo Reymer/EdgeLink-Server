@@ -11,7 +11,7 @@ public class AppConfig
     public static AppConfig FromArgs(string[] args) => new()
     {
         HttpPort         = GetInt(args, "--port")       ?? GetEnvInt("EDGELINK_PORT")       ?? 8080,
-        HttpsEnabled     = HasFlag(args, "--https")     || GetEnv("EDGELINK_HTTPS") == "1",
+        HttpsEnabled     = !HasFlag(args, "--no-https")  && GetEnv("EDGELINK_HTTPS") != "0",
         HttpsPort        = GetInt(args, "--https-port") ?? GetEnvInt("EDGELINK_HTTPS_PORT") ?? 8443,
         InstallService   = HasFlag(args, "--install"),
         UninstallService = HasFlag(args, "--uninstall"),
