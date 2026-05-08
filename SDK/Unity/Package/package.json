@@ -11,8 +11,13 @@
   "samples": [
     {
       "displayName": "TCP Listener",
-      "description": "完整範例：TCP Listener 連線、多設備資料接收、TCP 斷線偵測與訊息層 Timeout 偵測。",
+      "description": "基本用法：收到訊息讀欄位，10 行搞定。",
       "path": "Samples~/TCPListener"
+    },
+    {
+      "displayName": "TCP Listener（含斷線偵測）",
+      "description": "完整範例：多設備追蹤、TCP 連線層斷線 + 訊息層 Timeout 兩種偵測機制。",
+      "path": "Samples~/TCPListenerFull"
     }
   ]
 }
