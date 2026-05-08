@@ -28,8 +28,9 @@ const uint16_t LOCAL_PORT    = 0;
 AsyncUDP         asyncUdp;
 EdgeLinkAsyncUDP edgelink(asyncUdp);
 
-// LOCAL_PORT > 0 時才會觸發。callback 在 AsyncUDP task 內執行（非 loop()），
-// 盡量短、不要呼叫 Serial.print 大量輸出，必要時用 queue 傳回主執行緒處理。
+// LOCAL_PORT > 0 時才會觸發。一般業務訊息（已過濾掉 EDGELINK_* 控制訊息）
+// callback 在 AsyncUDP task 內執行（非 loop()），盡量短、不要呼叫 Serial.print 大量輸出，
+// 必要時用 queue 傳回主執行緒處理。
 void onMessage(const String& msg, IPAddress remoteIP, uint16_t remotePort) {
     Serial.print("[EdgeLink AsyncUDP] From ");
     Serial.print(remoteIP);
@@ -37,6 +38,17 @@ void onMessage(const String& msg, IPAddress remoteIP, uint16_t remotePort) {
     Serial.print(remotePort);
     Serial.print(" → ");
     Serial.println(msg);
+}
+
+// 上游設備在 EdgeLink Server 上下線通知（30s timeout-based）。
+// 需在 EdgeLink Server 把這台 ESP32 設成某 UDP port 的 forward target 才會收到。
+// 同樣在 AsyncUDP task 內執行。
+void onDeviceStatus(bool connected, const String& endpoint, const String& deviceId) {
+    Serial.print("[EdgeLink AsyncUDP] Device ");
+    Serial.print(connected ? "▲ ONLINE  " : "▼ OFFLINE ");
+    Serial.print(deviceId);
+    Serial.print("  @ ");
+    Serial.println(endpoint);
 }
 
 void setup() {
@@ -53,6 +65,7 @@ void setup() {
     Serial.println(WiFi.localIP());
 
     edgelink.onMessage(onMessage);
+    edgelink.onDeviceStatus(onDeviceStatus);
     if (!edgelink.begin(LOCAL_PORT)) {
         Serial.println("AsyncUDP listen failed");
         while (true) delay(1000);

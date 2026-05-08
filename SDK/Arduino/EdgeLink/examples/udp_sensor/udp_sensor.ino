@@ -28,7 +28,7 @@ const uint16_t LOCAL_PORT     = 0;
 WiFiUDP     wifiUdp;
 EdgeLinkUDP edgelink(wifiUdp);
 
-// LOCAL_PORT > 0 才會觸發。
+// LOCAL_PORT > 0 才會觸發。一般業務訊息（已過濾掉 EDGELINK_* 控制訊息）
 void onMessage(const String& msg, IPAddress remoteIP, uint16_t remotePort) {
     Serial.print("[EdgeLink UDP] From ");
     Serial.print(remoteIP);
@@ -36,6 +36,16 @@ void onMessage(const String& msg, IPAddress remoteIP, uint16_t remotePort) {
     Serial.print(remotePort);
     Serial.print(" → ");
     Serial.println(msg);
+}
+
+// 上游設備在 EdgeLink Server 上下線通知（30s timeout-based）。
+// 需在 EdgeLink Server 把這台 Arduino 設成某 UDP port 的 forward target 才會收到。
+void onDeviceStatus(bool connected, const String& endpoint, const String& deviceId) {
+    Serial.print("[EdgeLink UDP] Device ");
+    Serial.print(connected ? "▲ ONLINE  " : "▼ OFFLINE ");
+    Serial.print(deviceId);
+    Serial.print("  @ ");
+    Serial.println(endpoint);
 }
 
 void setup() {
@@ -53,6 +63,7 @@ void setup() {
 
     edgelink.begin(LOCAL_PORT);
     edgelink.onMessage(onMessage);
+    edgelink.onDeviceStatus(onDeviceStatus);
     Serial.println("EdgeLink UDP ready");
 }
 
