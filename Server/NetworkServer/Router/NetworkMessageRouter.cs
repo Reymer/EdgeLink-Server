@@ -27,7 +27,31 @@ public class NetworkMessageRouter
         System.Net.IPEndPoint sourceEndpoint, string clientKey)
     {
         RouterLogHelper.LogReceive(serverData.portData, MonitorTargetType.TCPServer, parsedMessage, sourceEndpoint);
+        TryIdentifyDevice(serverData, clientKey, parsedMessage);
         return RouteAndForwardAsync(serverData.portData, rawBytes, parsedMessage, clientKey, serverData);
+    }
+
+    // Extract deviceId from incoming message using source port's mask, regardless of forward target setup.
+    // First identification triggers the deferred CONNECT notification with deviceId.
+    private static void TryIdentifyDevice(TCPServerData serverData, string clientKey, string parsedMessage)
+    {
+        string maskId = serverData.portData?.MaskType?.Trim() ?? "OriginalData";
+        var def = MaskDefinitionManager.Instance.GetDefinition(maskId)
+               ?? MaskDefinitionManager.Instance.GetDefinition("OriginalData");
+        if (def == null) return;
+
+        var fields = ExtractFields(def, parsedMessage);
+        if (!fields.TryGetValue("id", out var devId) || string.IsNullOrEmpty(devId)) return;
+
+        if (serverData.ClientDeviceIds.TryAdd(clientKey, devId))
+        {
+            var ep = serverData.ConnectedClients.TryGetValue(clientKey, out var m) ? m.EndPoint : null;
+            TCPServerConnector.NotifyForwardTargetStatusChange("CONNECT", serverData.portData!, ep, devId);
+        }
+        else
+        {
+            serverData.ClientDeviceIds[clientKey] = devId;
+        }
     }
 
     private async Task RouteAndForwardAsync(PortData portData, byte[] rawBytes, string parsedMessage,
@@ -61,22 +85,6 @@ public class NetworkMessageRouter
         {
             LogHelper.LogToConsole($"[Router] Mask not found: '{maskId}'", isError: true);
             return;
-        }
-
-        // Track device ID for disconnect notifications. First time we identify a device,
-        // emit the deferred CONNECT notification so forward targets see EDGELINK_STATUS:CONNECTED with deviceId.
-        var fields = ExtractFields(def, parsedMessage);
-        if (fields.TryGetValue("id", out var devId) && !string.IsNullOrEmpty(devId))
-        {
-            if (serverData.ClientDeviceIds.TryAdd(clientKey, devId))
-            {
-                var ep = serverData.ConnectedClients.TryGetValue(clientKey, out var m) ? m.EndPoint : null;
-                TCPServerConnector.NotifyForwardTargetStatusChange("CONNECT", serverData.portData, ep, devId);
-            }
-            else
-            {
-                serverData.ClientDeviceIds[clientKey] = devId;
-            }
         }
 
         bool isConcurrent = string.Equals(client.portData?.RequestMode, "concurrent", StringComparison.OrdinalIgnoreCase);
