@@ -23,13 +23,14 @@ listener.OnDisconnected += () => Console.WriteLine("[FakeUnity] EdgeLink 已斷�
 listener.OnError        += ex => Console.WriteLine($"[FakeUnity] 錯誤: {ex.Message}");
 
 // ── 設備上線 / 斷線通知（TCP，拔電後 ~15 秒）──────────────────────────────
-listener.OnDeviceStatus += (connected, endpoint) =>
+listener.OnDeviceStatus += (connected, endpoint, deviceId) =>
 {
-    string ip = endpoint.Contains("@") ? endpoint.Split('@')[1] : endpoint;
+    string ip  = endpoint.Contains("@") ? endpoint.Split('@')[1] : endpoint;
+    string did = string.IsNullOrEmpty(deviceId) ? "(未識別)" : deviceId;
     Console.ForegroundColor = connected ? ConsoleColor.Green : ConsoleColor.Red;
     Console.WriteLine(connected
-        ? $"[FakeUnity] ▲ 設備上線  IP: {ip}"
-        : $"[FakeUnity] ▼ 設備斷線  IP: {ip}");
+        ? $"[FakeUnity] ▲ 設備上線  IP: {ip}  Device: {did}"
+        : $"[FakeUnity] ▼ 設備斷線  IP: {ip}  Device: {did}");
     Console.ResetColor();
 };
 

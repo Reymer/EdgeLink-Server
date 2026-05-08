@@ -15,7 +15,7 @@ class EdgeLinkClient:
         self._on_connected:     list[Callable[[], None]]    = []
         self._on_disconnected:  list[Callable[[], None]]    = []
         self._on_error:         list[Callable[[Exception], None]] = []
-        self._on_device_status: list[Callable[[bool, str], None]] = []
+        self._on_device_status: list[Callable[[bool, str, str], None]] = []
         self._queue:   deque[str] = deque()
         self._writer:  asyncio.StreamWriter | None = None
         self._task:    asyncio.Task | None = None
@@ -39,8 +39,9 @@ class EdgeLinkClient:
     def on_error(self, cb: Callable[[Exception], None]) -> None:
         self._on_error.append(cb)
 
-    def on_device_status(self, cb: Callable[[bool, str], None]) -> None:
-        """cb(is_connected: bool, endpoint: str) — fired when an upstream device connects/disconnects."""
+    def on_device_status(self, cb: Callable[[bool, str, str], None]) -> None:
+        """cb(is_connected: bool, endpoint: str, device_id: str) — fired when an upstream device connects/disconnects.
+        device_id is parsed from the message id field; may be empty if no message has identified the device yet."""
         self._on_device_status.append(cb)
 
     # ── public API ─────────────────────────────────────────────────────────────
@@ -131,13 +132,17 @@ class EdgeLinkClient:
                 self._writer.write(f"EDGELINK_PONG:{hex_val}\n".encode())
             return
         if line.startswith("EDGELINK_STATUS:"):
+            # body: "STATUS:protocol@ip" or "STATUS:protocol@ip:deviceId"
             body      = line[16:]
             sep       = body.find(":")
             status    = body[:sep] if sep >= 0 else body
-            endpoint  = body[sep + 1:] if sep >= 0 else ""
+            rest      = body[sep + 1:] if sep >= 0 else ""
             connected = status.upper() == "CONNECTED"
+            dev_sep   = rest.rfind(":")
+            endpoint  = rest[:dev_sep]      if dev_sep >= 0 else rest
+            device_id = rest[dev_sep + 1:]  if dev_sep >= 0 else ""
             for cb in self._on_device_status:
-                cb(connected, endpoint)
+                cb(connected, endpoint, device_id)
             return
         if line.startswith("EDGELINK_"):
             return
@@ -156,7 +161,7 @@ class EdgeLinkTcpListener:
         self._on_connected:     list[Callable[[], None]]    = []
         self._on_disconnected:  list[Callable[[], None]]    = []
         self._on_error:         list[Callable[[Exception], None]] = []
-        self._on_device_status: list[Callable[[bool, str], None]] = []
+        self._on_device_status: list[Callable[[bool, str, str], None]] = []
         self._queue:   deque[str] = deque()
         self._server:  asyncio.Server | None = None
         self.is_running = False
@@ -173,8 +178,9 @@ class EdgeLinkTcpListener:
     def on_error(self, cb: Callable[[Exception], None]) -> None:
         self._on_error.append(cb)
 
-    def on_device_status(self, cb: Callable[[bool, str], None]) -> None:
-        """cb(is_connected: bool, endpoint: str) — fired when an upstream device connects/disconnects."""
+    def on_device_status(self, cb: Callable[[bool, str, str], None]) -> None:
+        """cb(is_connected: bool, endpoint: str, device_id: str) — fired when an upstream device connects/disconnects.
+        device_id is parsed from the message id field; may be empty if no message has identified the device yet."""
         self._on_device_status.append(cb)
 
     async def start(self) -> None:
@@ -224,13 +230,17 @@ class EdgeLinkTcpListener:
                 pass
             return
         if line.startswith("EDGELINK_STATUS:"):
+            # body: "STATUS:protocol@ip" or "STATUS:protocol@ip:deviceId"
             body      = line[16:]
             sep       = body.find(":")
             status    = body[:sep] if sep >= 0 else body
-            endpoint  = body[sep + 1:] if sep >= 0 else ""
+            rest      = body[sep + 1:] if sep >= 0 else ""
             connected = status.upper() == "CONNECTED"
+            dev_sep   = rest.rfind(":")
+            endpoint  = rest[:dev_sep]      if dev_sep >= 0 else rest
+            device_id = rest[dev_sep + 1:]  if dev_sep >= 0 else ""
             for cb in self._on_device_status:
-                cb(connected, endpoint)
+                cb(connected, endpoint, device_id)
             return
         if line.startswith("EDGELINK_"):
             return

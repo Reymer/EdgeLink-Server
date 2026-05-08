@@ -105,12 +105,16 @@ class EdgeLinkClient extends EventEmitter {
             return;
         }
         if (line.startsWith("EDGELINK_STATUS:")) {
+            // body: "STATUS:protocol@ip" or "STATUS:protocol@ip:deviceId"
             const body      = line.slice(16);
             const sep       = body.indexOf(":");
             const status    = sep >= 0 ? body.slice(0, sep) : body;
-            const endpoint  = sep >= 0 ? body.slice(sep + 1) : "";
+            const rest      = sep >= 0 ? body.slice(sep + 1) : "";
             const connected = status.toUpperCase() === "CONNECTED";
-            this.emit("deviceStatus", connected, endpoint);
+            const devSep    = rest.lastIndexOf(":");
+            const endpoint  = devSep >= 0 ? rest.slice(0, devSep)  : rest;
+            const deviceId  = devSep >= 0 ? rest.slice(devSep + 1) : "";
+            this.emit("deviceStatus", connected, endpoint, deviceId);
             return;
         }
         if (line.startsWith("EDGELINK_")) return;

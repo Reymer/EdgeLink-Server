@@ -14,8 +14,8 @@ namespace EdgeLink
         public event Action?            OnDisconnected;
         public event Action<Exception>? OnError;
         /// <summary>Fired when an upstream device connects or disconnects from EdgeLink Server.
-        /// Parameters: isConnected, endpoint (e.g. "TCPServer@192.168.1.50:9001")</summary>
-        public event Action<bool, string>? OnDeviceStatus;
+        /// Parameters: isConnected, endpoint (e.g. "TCPServer@192.168.1.50"), deviceId (parsed from message id field, may be empty)</summary>
+        public event Action<bool, string, string>? OnDeviceStatus;
 
         public bool   IsConnected => tcpClient?.Connected == true && !disposed;
         public string Host        { get; }
@@ -127,12 +127,16 @@ namespace EdgeLink
             }
             if (line.StartsWith("EDGELINK_STATUS:", StringComparison.Ordinal))
             {
+                // body: "STATUS:protocol@ip" or "STATUS:protocol@ip:deviceId"
                 string body      = line[16..];
                 int    sep       = body.IndexOf(':');
                 string statusStr = sep >= 0 ? body[..sep] : body;
-                string endpoint  = sep >= 0 ? body[(sep + 1)..] : "";
+                string rest      = sep >= 0 ? body[(sep + 1)..] : "";
                 bool   connected = statusStr.Equals("CONNECTED", StringComparison.OrdinalIgnoreCase);
-                OnDeviceStatus?.Invoke(connected, endpoint);
+                int    devSep    = rest.LastIndexOf(':');
+                string endpoint  = devSep >= 0 ? rest[..devSep]      : rest;
+                string deviceId  = devSep >= 0 ? rest[(devSep + 1)..] : "";
+                OnDeviceStatus?.Invoke(connected, endpoint, deviceId);
                 return;
             }
             if (line.StartsWith("EDGELINK_", StringComparison.Ordinal)) return;

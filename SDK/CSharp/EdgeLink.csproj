@@ -11,4 +11,9 @@
     <Description>EdgeLink SDK for .NET — TCP client, TCP listener, and UDP client/sender.</Description>
   </PropertyGroup>
 
+  <ItemGroup>
+    <Compile Remove="examples\**" />
+    <None Remove="examples\**" />
+  </ItemGroup>
+
 </Project>
