@@ -2,9 +2,11 @@ namespace EdgeLink.Infrastructure;
 
 public static class AppPaths
 {
-    // 執行檔所在目錄（等同 Unity 的專案根目錄）
+    // 執行檔所在目錄（single-file publish 下用 ProcessPath，否則 BaseDirectory）
     public static string Root { get; } =
-        Path.GetFullPath(AppContext.BaseDirectory);
+        Path.GetFullPath(
+            Path.GetDirectoryName(Environment.ProcessPath ?? AppContext.BaseDirectory)
+            ?? AppContext.BaseDirectory);
 
     // 設定檔目錄：<exe目錄>/Setting/
     public static string SettingDir { get; } =

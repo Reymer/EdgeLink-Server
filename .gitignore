@@ -127,3 +127,14 @@ Assets/DevKit.meta
 # Server publish output
 publish/
 EdgeLink-*.zip
+
+# Build artifacts
+SDK/CSharp/**/bin/
+SDK/CSharp/**/obj/
+Server.Tests/bin/
+Server.Tests/obj/
+
+# Temp scripts & presentations
+*.pptx
+add_slide.py
+simulate_firmware.py
