@@ -93,8 +93,7 @@ jobs:
 
             ```
             EdgeLinkServer.exe [options]
-              --port <n>          HTTP port (default: 8080)
+              --port <n>          HTTP port (default: 8081)
               --no-https          Disable HTTPS
               --https-port <n>    HTTPS port (default: 8443)
-              --cors <origins>    Allowed CORS origins (comma-separated)
             ```

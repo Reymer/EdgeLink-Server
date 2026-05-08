@@ -25,7 +25,7 @@ A lightweight .NET 8 server that bridges IoT devices over TCP/UDP, transforms pr
 | **Real-time Monitor** | Per-port SSE-streamed log with keyword search |
 | **Web UI** | Browser-based management — no frontend setup required |
 | **HTTPS** | Auto-generated self-signed certificate with SAN for all local IPs |
-| **Security** | PBKDF2 password hashing, session persistence, HttpOnly cookies, CORS allowlist |
+| **Security** | PBKDF2 password hashing, session persistence, HttpOnly cookies |
 | **File Logging** | Daily rolling log files with 7-day retention |
 | **Client SDKs** | Unity (UPM), Arduino, C# (.NET 6), Python (asyncio), JavaScript (Node.js) |
 
@@ -66,13 +66,12 @@ Full documentation available at `/manual` after starting the server.
 ```
 EdgeLinkServer.exe [options]
 
-  --port <n>          HTTP port (default: 8080)
+  --port <n>          HTTP port (default: 8081)
   --no-https          Disable HTTPS (HTTPS is enabled by default)
   --https-port <n>    HTTPS port (default: 8443)
-  --cors <origins>    Comma-separated allowed CORS origins
 
 Environment variables:
-  EDGELINK_PORT, EDGELINK_HTTPS, EDGELINK_HTTPS_PORT, EDGELINK_CORS
+  EDGELINK_PORT, EDGELINK_HTTPS, EDGELINK_HTTPS_PORT
 ```
 
 Priority: CLI args > environment variables > defaults

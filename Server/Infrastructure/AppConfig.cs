@@ -2,7 +2,7 @@ namespace EdgeLink.Infrastructure;
 
 public class AppConfig
 {
-    public int    HttpPort         { get; init; } = 8080;
+    public int    HttpPort         { get; init; } = 8081;
     public bool   HttpsEnabled     { get; init; }
     public int    HttpsPort        { get; init; } = 8443;
     public bool   InstallService   { get; init; }
@@ -10,7 +10,7 @@ public class AppConfig
 
     public static AppConfig FromArgs(string[] args) => new()
     {
-        HttpPort         = GetInt(args, "--port")       ?? GetEnvInt("EDGELINK_PORT")       ?? 8080,
+        HttpPort         = GetInt(args, "--port")       ?? GetEnvInt("EDGELINK_PORT")       ?? 8081,
         HttpsEnabled     = !HasFlag(args, "--no-https")  && GetEnv("EDGELINK_HTTPS") != "0",
         HttpsPort        = GetInt(args, "--https-port") ?? GetEnvInt("EDGELINK_HTTPS_PORT") ?? 8443,
         InstallService   = HasFlag(args, "--install"),

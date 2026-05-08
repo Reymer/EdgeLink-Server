@@ -12,10 +12,9 @@ public class AppConfigTests
     {
         var cfg = AppConfig.FromArgs([]);
 
-        Assert.Equal(8080, cfg.HttpPort);
+        Assert.Equal(8081, cfg.HttpPort);
         Assert.True(cfg.HttpsEnabled);       // default is true after our change
         Assert.Equal(8443, cfg.HttpsPort);
-        Assert.Equal("", cfg.AllowedOrigins);
     }
 
     // ── CLI args ─────────────────────────────────────────────────────────────
@@ -42,21 +41,13 @@ public class AppConfigTests
     }
 
     [Fact]
-    public void Cors_ParsedFromCli()
-    {
-        var cfg = AppConfig.FromArgs(["--cors", "http://localhost:3000"]);
-        Assert.Equal("http://localhost:3000", cfg.AllowedOrigins);
-    }
-
-    [Fact]
     public void MultipleArgs_AllParsed()
     {
-        var cfg = AppConfig.FromArgs(["--port", "7070", "--https-port", "7443", "--no-https", "--cors", "https://example.com"]);
+        var cfg = AppConfig.FromArgs(["--port", "7070", "--https-port", "7443", "--no-https"]);
 
         Assert.Equal(7070,  cfg.HttpPort);
         Assert.Equal(7443,  cfg.HttpsPort);
         Assert.False(cfg.HttpsEnabled);
-        Assert.Equal("https://example.com", cfg.AllowedOrigins);
     }
 
     // ── Environment variables ────────────────────────────────────────────────
@@ -117,13 +108,13 @@ public class AppConfigTests
     public void InvalidPortArg_UsesDefault()
     {
         var cfg = AppConfig.FromArgs(["--port", "notanumber"]);
-        Assert.Equal(8080, cfg.HttpPort);
+        Assert.Equal(8081, cfg.HttpPort);
     }
 
     [Fact]
     public void MissingPortValue_UsesDefault()
     {
         var cfg = AppConfig.FromArgs(["--port"]);   // value missing
-        Assert.Equal(8080, cfg.HttpPort);
+        Assert.Equal(8081, cfg.HttpPort);
     }
 }

@@ -759,10 +759,7 @@ EdgeLinkServer.exe
 EdgeLinkServer.exe --no-https
 
 <span class="cmt"># 自訂 port</span>
-EdgeLinkServer.exe --port 9090 --https-port 9443
-
-<span class="cmt"># 允許跨來源請求（CORS）</span>
-EdgeLinkServer.exe --cors https://myapp.com,http://localhost:3000</code></pre>
+EdgeLinkServer.exe --port 9090 --https-port 9443</code></pre>
 </div>
 
 <h3>自動建立的目錄結構</h3>
@@ -816,13 +813,8 @@ EdgeLinkServer.exe --cors https://myapp.com,http://localhost:3000</code></pre>
   </div>
 </div>
 
-<h3>CORS 設定</h3>
-<p>若前端頁面與 EdgeLink Server 不同源，需在啟動時指定允許的來源：</p>
-<div class="code-block">
-  <div class="code-header"><div class="dots"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div></div><span class="lang-tag">CMD</span></div>
-<pre><code>EdgeLinkServer.exe --cors https://app.example.com,http://localhost:5173</code></pre>
-</div>
-<p>或使用環境變數 <code>EDGELINK_CORS</code>。</p>
+<h3>CORS</h3>
+<p>EdgeLink Server 預設對所有來源開放（<code>Access-Control-Allow-Origin: *</code>）。若需限制來源，請在反向代理層（如 Nginx）處理。</p>
 
 <!-- ─────────────────────────────────────────── -->
 <h2 id="webui"><span class="section-num">04</span>Web 管理介面</h2>
@@ -1278,10 +1270,9 @@ sock.sendall(<span class="str">b"id:DEV01;value:36.5\n"</span>)</code></pre>
 <div class="table-wrap"><table>
   <thead><tr><th>CLI 參數</th><th>環境變數</th><th>說明</th><th>預設值</th></tr></thead>
   <tbody>
-    <tr><td><code>--port &lt;n&gt;</code></td><td><code>EDGELINK_PORT</code></td><td>HTTP 監聽 port</td><td><code>8080</code></td></tr>
+    <tr><td><code>--port &lt;n&gt;</code></td><td><code>EDGELINK_PORT</code></td><td>HTTP 監聽 port</td><td><code>8081</code></td></tr>
     <tr><td><code>--no-https</code></td><td><code>EDGELINK_HTTPS=0</code></td><td>停用 HTTPS</td><td>啟用</td></tr>
     <tr><td><code>--https-port &lt;n&gt;</code></td><td><code>EDGELINK_HTTPS_PORT</code></td><td>HTTPS 監聽 port</td><td><code>8443</code></td></tr>
-    <tr><td><code>--cors &lt;origins&gt;</code></td><td><code>EDGELINK_CORS</code></td><td>允許的 CORS 來源（逗號分隔）</td><td>（不允許跨源）</td></tr>
   </tbody>
 </table></div>
 
