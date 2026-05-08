@@ -233,8 +233,8 @@ public class TCPServerConnector : NetworkConnectorBase
                         serverData.IncrementCurrentConnections();
                         serverData.portData.CurrentConnections = serverData.CurrentConnections;
                         serverData.portData.TotalConnections   = serverData.TotalConnections;
-                        LogHelper.LogToConsole($"{LogHelper.Tag("TCP Server", serverData.portData)} Connected: {remoteEndPoint}");
-                        NotifyForwardTargetStatusChange("CONNECT", serverData.portData, remoteEndPoint);
+                        LogHelper.LogToConsole($"{LogHelper.Tag("TCP Server", serverData.portData)} Connected: {remoteEndPoint} (waiting for device id)");
+                        // CONNECT notification is deferred until first message identifies the device (see NetworkMessageRouter.ProcessAndForward).
                         _dispatcher.Enqueue(() => SafeExecution.Safe(() => serverData.portData.OnUpdate?.Invoke(serverData.portData)));
                     });
 
@@ -335,12 +335,12 @@ public class TCPServerConnector : NetworkConnectorBase
         }
     }
 
-    private void NotifyForwardTargetStatusChange(string status, PortData sourcePortData, IPEndPoint? endpoint = null, string deviceId = "")
+    public static void NotifyForwardTargetStatusChange(string status, PortData sourcePortData, IPEndPoint? endpoint = null, string deviceId = "")
     {
         _ = NotifyAsync(status, sourcePortData, endpoint, deviceId);
     }
 
-    private async Task NotifyAsync(string status, PortData sourcePortData, IPEndPoint? endpoint = null, string deviceId = "")
+    private static async Task NotifyAsync(string status, PortData sourcePortData, IPEndPoint? endpoint = null, string deviceId = "")
     {
         string edgeStatus    = status == "CONNECT" ? "CONNECTED" : "DISCONNECTED";
         string endpointStr   = endpoint?.Address?.ToString() ?? "";
@@ -434,15 +434,16 @@ public class TCPServerConnector : NetworkConnectorBase
     public List<TcpClientInfo> GetConnectedClients(string portKey)
     {
         if (!_tcpServers.TryGetValue(portKey, out var s)) return new List<TcpClientInfo>();
-        return s.ConnectedClients.Values.Select(m => new TcpClientInfo
+        return s.ConnectedClients.Select(kv => new TcpClientInfo
         {
-            endpoint         = m.EndPoint?.ToString() ?? "",
-            connectedSeconds = (float)m.GetConnectedSeconds(),
-            lastActivitySec  = (float)m.GetLastActivitySeconds(),
-            messageCount     = m.GetMessageCount(),
-            totalBytes       = m.GetTotalBytes(),
-            rateBytesPerSec  = (float)m.GetRateBytesPerSec(),
-            rttMs            = (float)m.GetLastRttMs()
+            endpoint         = kv.Value.EndPoint?.ToString() ?? "",
+            deviceId         = s.ClientDeviceIds.TryGetValue(kv.Key, out var did) ? did : "",
+            connectedSeconds = (float)kv.Value.GetConnectedSeconds(),
+            lastActivitySec  = (float)kv.Value.GetLastActivitySeconds(),
+            messageCount     = kv.Value.GetMessageCount(),
+            totalBytes       = kv.Value.GetTotalBytes(),
+            rateBytesPerSec  = (float)kv.Value.GetRateBytesPerSec(),
+            rttMs            = (float)kv.Value.GetLastRttMs()
         }).ToList();
     }
 

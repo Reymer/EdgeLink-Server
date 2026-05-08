@@ -63,10 +63,21 @@ public class NetworkMessageRouter
             return;
         }
 
-        // Track device ID for disconnect notifications
+        // Track device ID for disconnect notifications. First time we identify a device,
+        // emit the deferred CONNECT notification so forward targets see EDGELINK_STATUS:CONNECTED with deviceId.
         var fields = ExtractFields(def, parsedMessage);
         if (fields.TryGetValue("id", out var devId) && !string.IsNullOrEmpty(devId))
-            serverData.ClientDeviceIds[clientKey] = devId;
+        {
+            if (serverData.ClientDeviceIds.TryAdd(clientKey, devId))
+            {
+                var ep = serverData.ConnectedClients.TryGetValue(clientKey, out var m) ? m.EndPoint : null;
+                TCPServerConnector.NotifyForwardTargetStatusChange("CONNECT", serverData.portData, ep, devId);
+            }
+            else
+            {
+                serverData.ClientDeviceIds[clientKey] = devId;
+            }
+        }
 
         bool isConcurrent = string.Equals(client.portData?.RequestMode, "concurrent", StringComparison.OrdinalIgnoreCase);
         bool isPolling    = string.Equals(client.portData?.RequestMode, "polling",    StringComparison.OrdinalIgnoreCase);

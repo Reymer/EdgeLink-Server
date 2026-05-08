@@ -29,6 +29,7 @@ public class PortDto
     public int currentConnections;
     public int totalConnections;
     public long totalReceivedBytes;
+    public List<string> connectedDeviceIds = new();
 }
 
 public class AddPortReq

@@ -29,6 +29,11 @@ public class PortApiHandler
                 currentConnections = p.CurrentConnections,
                 totalConnections   = p.TotalConnections,
                 totalReceivedBytes = p.TotalReceivedBytes,
+                connectedDeviceIds = p.NetProtocol.Contains("TCP SERVER", StringComparison.OrdinalIgnoreCase)
+                    ? PortManager.Instance.ConnectorCore.GetTcpServerClients(p.Key)
+                        .Where(c => !string.IsNullOrEmpty(c.deviceId))
+                        .Select(c => c.deviceId).ToList()
+                    : new List<string>(),
             }).ToList();
         HttpApiServer.WriteJson(ctx, 200, Json.ToJson(new PortListResponse { ports = list }));
         return Task.CompletedTask;

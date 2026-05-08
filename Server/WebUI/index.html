@@ -365,7 +365,7 @@
       display:flex;gap:24px;font-size:12px;color:var(--text-2);flex-shrink:0"></div>
     <!-- Search -->
     <div style="padding:8px 20px;border-bottom:1px solid var(--border);flex-shrink:0">
-      <input id="clients-search" oninput="_onClientsSearch()" placeholder="🔍 IP filter..."
+      <input id="clients-search" oninput="_onClientsSearch()" placeholder="🔍 IP / Device ID filter..."
         style="width:100%;box-sizing:border-box;background:var(--bg);border:1px solid var(--border);
           border-radius:4px;padding:5px 10px;font-size:13px;color:var(--text-1);outline:none"/>
     </div>
@@ -1061,6 +1061,8 @@ const LANGS = {
     clients:         '連線裝置',
     noClients:       '目前無連線裝置',
     filtered:        '篩選結果',
+    deviceId:        'Device ID',
+    pendingId:       '尚未識別',
     connectedFor:    '連線時長',
     lastActivity:    '最後活動',
     messages:        '訊息數',
@@ -1204,6 +1206,8 @@ const LANGS = {
     clients:         'Clients',
     noClients:       'No connected clients',
     filtered:        'Filtered',
+    deviceId:        'Device ID',
+    pendingId:       'pending',
     connectedFor:    'Connected for',
     lastActivity:    'Last activity',
     messages:        'Messages',
@@ -1347,6 +1351,8 @@ const LANGS = {
     clients:         '接続デバイス',
     noClients:       '接続デバイスなし',
     filtered:        'フィルター結果',
+    deviceId:        'デバイス ID',
+    pendingId:       '未識別',
     connectedFor:    '接続時間',
     lastActivity:    '最終活動',
     messages:        'メッセージ数',
@@ -1805,6 +1811,9 @@ async function loadPorts() {
       <td>
         <span class="badge ${p.isConnected?'b-on':'b-off'}">${p.isConnected ? t('connected') : t('disconnected')}</span>
         ${p.netProtocol === 'TCP Server' && p.isEnabled ? `<br><small style="color:var(--text-3);font-size:10px">${t('connCount').replace('{n}', p.currentConnections)} / ${fmtBytes(p.totalReceivedBytes)}</small>` : ''}
+        ${p.netProtocol === 'TCP Server' && p.isEnabled && (p.connectedDeviceIds || []).length > 0
+          ? `<br><small title="${esc((p.connectedDeviceIds || []).join(', '))}" style="color:var(--pri);font-size:10px;font-family:Consolas,monospace">${esc((p.connectedDeviceIds || []).slice(0, 5).join(', '))}${(p.connectedDeviceIds || []).length > 5 ? ` +${(p.connectedDeviceIds || []).length - 5}` : ''}</small>`
+          : ''}
         ${!p.isEnabled ? `<br><small style="color:var(--danger);font-size:10px">${t('disablePort')}</small>` : ''}
       </td>
       <td>${maskCell}</td>
@@ -1907,7 +1916,8 @@ function _onClientsSearch() {
 
 function _renderClients() {
   const filtered = _clientsFilter
-    ? _clientsData.filter(c => c.endpoint.toLowerCase().includes(_clientsFilter))
+    ? _clientsData.filter(c => c.endpoint.toLowerCase().includes(_clientsFilter)
+        || (c.deviceId || '').toLowerCase().includes(_clientsFilter))
     : _clientsData;
 
   // Summary
@@ -1932,7 +1942,7 @@ function _renderClients() {
   } else {
     list.innerHTML = `<table style='width:100%;border-collapse:collapse;font-size:12px'>`
       + `<thead><tr>`
-      + `<th ${TH}>IP : Port</th><th ${TH}>${t('connectedFor')}</th>`
+      + `<th ${TH}>IP : Port</th><th ${TH}>${t('deviceId')}</th><th ${TH}>${t('connectedFor')}</th>`
       + `<th ${TH}>${t('lastActivity')}</th><th ${TH}>${t('messages')}</th>`
       + `<th ${TH}>${t('totalBytes')}</th><th ${TH}>${t('rate')}</th><th ${TH}>${t('rtt')}</th>`
       + `</tr></thead><tbody>`
@@ -1942,8 +1952,12 @@ function _renderClients() {
           const act      = c.lastActivitySec < 2 ? t('justNow') : c.lastActivitySec.toFixed(0) + ' ' + t('ago');
           const bg = i % 2 === 1 ? 'background:var(--bg)' : '';
           const TD = `style='padding:6px 10px;${bg}'`;
+          const didCell = c.deviceId
+            ? `<span style='font-family:Consolas,monospace;color:var(--pri)'>${esc(c.deviceId)}</span>`
+            : `<span style='color:var(--text-3);font-style:italic'>${t('pendingId')}</span>`;
           return `<tr>`
             + `<td ${TD} style='padding:6px 10px;${bg};font-family:Consolas,monospace'>${esc(c.endpoint)}</td>`
+            + `<td ${TD}>${didCell}</td>`
             + `<td ${TD}>${_fmtDur(c.connectedSeconds)}</td>`
             + `<td ${TD}>${act}</td>`
             + `<td ${TD}>${c.messageCount}</td>`
