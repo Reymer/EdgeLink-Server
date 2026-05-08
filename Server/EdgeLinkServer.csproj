@@ -19,9 +19,12 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Content Include="..\IOT-Server\WebUI\**\*"
+    <Content Include="WebUI\**\*"
              CopyToOutputDirectory="PreserveNewest"
              Link="WebUI\%(RecursiveDir)%(Filename)%(Extension)" />
+    <Content Include="..\Setting\**\*"
+             CopyToOutputDirectory="PreserveNewest"
+             Link="Setting\%(RecursiveDir)%(Filename)%(Extension)" />
   </ItemGroup>
 
 </Project>
