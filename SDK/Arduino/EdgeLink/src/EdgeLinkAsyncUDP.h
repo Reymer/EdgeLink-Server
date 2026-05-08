@@ -15,7 +15,10 @@
 
 class EdgeLinkAsyncUDP {
 public:
-    using MessageCallback = void (*)(const String& message, IPAddress remoteIP, uint16_t remotePort);
+    using MessageCallback      = void (*)(const String& message, IPAddress remoteIP, uint16_t remotePort);
+    // EDGELINK_STATUS event from EdgeLink Server (timeout-based for UDP).
+    // Parameters: isConnected, endpoint (e.g. "UDPPort@192.168.1.50"), deviceId.
+    using DeviceStatusCallback = void (*)(bool connected, const String& endpoint, const String& deviceId);
 
     explicit EdgeLinkAsyncUDP(AsyncUDP& udp);
 
@@ -27,14 +30,19 @@ public:
     size_t send(const char* host, uint16_t port, const String& message);
     size_t send(IPAddress  ip,    uint16_t port, const String& message);
 
-    // Callback runs in AsyncUDP's task (not loop()) — keep handler short, no Serial.print spam.
+    // Callbacks run in AsyncUDP's task (not loop()) — keep handlers short, no Serial.print spam.
+    // EDGELINK_* control messages are filtered out of onMessage.
     void onMessage(MessageCallback cb);
+    void onDeviceStatus(DeviceStatusCallback cb);
 
     void close();
 
 private:
-    AsyncUDP&       _udp;
-    MessageCallback _onMsg = nullptr;
+    AsyncUDP&            _udp;
+    MessageCallback      _onMsg    = nullptr;
+    DeviceStatusCallback _onStatus = nullptr;
+
+    void _dispatchStatus(const String& line);
 };
 
 #endif // AsyncUDP available

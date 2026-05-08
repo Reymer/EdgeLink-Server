@@ -7,8 +7,10 @@ const EventEmitter = require("events");
  * UDP receiver — binds to a local port and emits "message" for each packet.
  *
  * Events:
- *   "message" (string)
- *   "error"   (Error)
+ *   "message"      (string)
+ *   "deviceStatus" (connected: boolean, endpoint: string, deviceId: string)
+ *                  Fired when an upstream device starts/stops sending packets to EdgeLink Server (timeout-based).
+ *   "error"        (Error)
  */
 class EdgeLinkUdpClient extends EventEmitter {
     /**
@@ -26,7 +28,24 @@ class EdgeLinkUdpClient extends EventEmitter {
 
         this._socket.on("message", (buf) => {
             const msg = buf.toString("utf8").trim();
-            if (msg) this.emit("message", msg);
+            if (!msg) return;
+
+            if (msg.startsWith("EDGELINK_STATUS:")) {
+                // body: "STATUS:protocol@ip" or "STATUS:protocol@ip:deviceId"
+                const body      = msg.slice(16);
+                const sep       = body.indexOf(":");
+                const status    = sep >= 0 ? body.slice(0, sep) : body;
+                const rest      = sep >= 0 ? body.slice(sep + 1) : "";
+                const connected = status.toUpperCase() === "CONNECTED";
+                const devSep    = rest.lastIndexOf(":");
+                const endpoint  = devSep >= 0 ? rest.slice(0, devSep)  : rest;
+                const deviceId  = devSep >= 0 ? rest.slice(devSep + 1) : "";
+                this.emit("deviceStatus", connected, endpoint, deviceId);
+                return;
+            }
+            if (msg.startsWith("EDGELINK_")) return;
+
+            this.emit("message", msg);
         });
 
         this._socket.on("error", (err) => this.emit("error", err));

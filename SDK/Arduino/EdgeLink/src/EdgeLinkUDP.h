@@ -4,7 +4,10 @@
 
 class EdgeLinkUDP {
 public:
-    using MessageCallback = void (*)(const String& message, IPAddress remoteIP, uint16_t remotePort);
+    using MessageCallback      = void (*)(const String& message, IPAddress remoteIP, uint16_t remotePort);
+    // EDGELINK_STATUS event from EdgeLink Server (timeout-based for UDP).
+    // Parameters: isConnected, endpoint (e.g. "UDPPort@192.168.1.50"), deviceId.
+    using DeviceStatusCallback = void (*)(bool connected, const String& endpoint, const String& deviceId);
 
     explicit EdgeLinkUDP(UDP& udp);
 
@@ -18,10 +21,14 @@ public:
     bool send(const char* host, uint16_t port, const String& message);
     bool send(IPAddress ip,     uint16_t port, const String& message);
 
-    // Callback for incoming messages
+    // Callbacks (EDGELINK_* control messages are filtered out of onMessage)
     void onMessage(MessageCallback cb);
+    void onDeviceStatus(DeviceStatusCallback cb);
 
 private:
-    UDP&            _udp;
-    MessageCallback _onMsg = nullptr;
+    UDP&                 _udp;
+    MessageCallback      _onMsg    = nullptr;
+    DeviceStatusCallback _onStatus = nullptr;
+
+    void _dispatchStatus(const String& line);
 };

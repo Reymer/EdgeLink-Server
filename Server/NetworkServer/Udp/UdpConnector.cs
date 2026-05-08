@@ -315,16 +315,21 @@ public class UdpConnector : NetworkConnectorBase
         var fields = NetworkMessageRouter.ExtractFields(def, line);
         if (!fields.TryGetValue("id", out var devId) || string.IsNullOrEmpty(devId)) return;
 
-        var now = DateTime.UtcNow;
+        var  now      = DateTime.UtcNow;
+        bool wasAdded = false;
         udpData.Devices.AddOrUpdate(devId,
-            _ => new UdpDeviceState
+            _ =>
             {
-                DeviceId     = devId,
-                Endpoint     = sourceEndpoint,
-                FirstSeenUtc = now,
-                LastSeenUtc  = now,
-                MessageCount = 1,
-                TotalBytes   = byteCount,
+                wasAdded = true;
+                return new UdpDeviceState
+                {
+                    DeviceId     = devId,
+                    Endpoint     = sourceEndpoint,
+                    FirstSeenUtc = now,
+                    LastSeenUtc  = now,
+                    MessageCount = 1,
+                    TotalBytes   = byteCount,
+                };
             },
             (_, existing) =>
             {
@@ -334,6 +339,8 @@ public class UdpConnector : NetworkConnectorBase
                 existing.TotalBytes  += byteCount;
                 return existing;
             });
+
+        if (wasAdded) EmitDeviceStatus(udpData, "CONNECTED", sourceEndpoint, devId);
     }
 
     private async Task SweepStaleDevices(UdpData udpData)
@@ -349,13 +356,40 @@ public class UdpConnector : NetworkConnectorBase
             foreach (var kv in udpData.Devices)
             {
                 if (now - kv.Value.LastSeenUtc > udpData.DeviceTimeout
-                    && udpData.Devices.TryRemove(kv.Key, out _))
+                    && udpData.Devices.TryRemove(kv.Key, out var removedState))
+                {
                     removed++;
+                    EmitDeviceStatus(udpData, "DISCONNECTED", removedState.Endpoint, removedState.DeviceId);
+                }
             }
             if (removed > 0)
                 _dispatcher.Enqueue(() => SafeExecution.Safe(
                     () => udpData.portData.OnUpdate?.Invoke(udpData.portData),
                     "UdpConnector.SweepOnUpdate"));
+        }
+    }
+
+    // Send EDGELINK_STATUS:CONNECTED/DISCONNECTED:protocol@deviceIp:deviceId\n
+    // to the configured forward target (TargetIP:LocalPort). No-op if no forward target.
+    private static void EmitDeviceStatus(UdpData udpData, string status, IPEndPoint? deviceEndpoint, string deviceId)
+    {
+        var portData = udpData.portData;
+        if (string.IsNullOrEmpty(portData.TargetIP)) return;
+        if (!int.TryParse(portData.LocalPortDetails?.Port, out int targetPort)) return;
+        if (!IPAddress.TryParse(portData.TargetIP, out var targetIp)) return;
+
+        string ipStr = deviceEndpoint?.Address?.ToString() ?? "";
+        string body  = $"EDGELINK_STATUS:{status}:{portData.ProtocolName}@{ipStr}:{deviceId}\n";
+        byte[] bytes = Encoding.UTF8.GetBytes(body);
+
+        try
+        {
+            using var client = new UdpClient();
+            client.Send(bytes, bytes.Length, new IPEndPoint(targetIp, targetPort));
+        }
+        catch (Exception ex)
+        {
+            LogHelper.LogToConsole($"{LogHelper.Tag("UDP", portData)} EmitDeviceStatus failed: {ex.Message}", isError: true);
         }
     }
 

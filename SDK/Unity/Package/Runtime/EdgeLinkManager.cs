@@ -156,7 +156,8 @@ public class EdgeLinkManager : MonoBehaviour
 
             case Protocol.UDP:
                 _udp = new EdgeLinkUdpClient(udpLocalPort);
-                _udp.OnError += ex => Debug.LogWarning($"[EdgeLink UDP] {ex.Message}");
+                _udp.OnError        += ex => Debug.LogWarning($"[EdgeLink UDP] {ex.Message}");
+                _udp.OnDeviceStatus += (c, ep, id) => _deviceStatusQ.Enqueue((c, ep, id));
                 _udp.Start();
                 Debug.Log($"[EdgeLink UDP] Listening on port {udpLocalPort}");
                 break;

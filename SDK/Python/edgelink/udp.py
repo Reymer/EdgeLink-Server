@@ -20,8 +20,9 @@ class EdgeLinkUdpClient:
 
     def __init__(self, local_port: int) -> None:
         self.local_port   = local_port
-        self._on_message: list[Callable[[str], None]] = []
-        self._on_error:   list[Callable[[Exception], None]] = []
+        self._on_message:       list[Callable[[str], None]] = []
+        self._on_error:         list[Callable[[Exception], None]] = []
+        self._on_device_status: list[Callable[[bool, str, str], None]] = []
         self._queue:      deque[str] = deque()
         self._transport:  asyncio.BaseTransport | None = None
         self.is_running   = False
@@ -31,6 +32,10 @@ class EdgeLinkUdpClient:
 
     def on_error(self, cb: Callable[[Exception], None]) -> None:
         self._on_error.append(cb)
+
+    def on_device_status(self, cb: Callable[[bool, str, str], None]) -> None:
+        """cb(is_connected: bool, endpoint: str, device_id: str) — fired when an upstream device starts/stops sending packets (timeout-based)."""
+        self._on_device_status.append(cb)
 
     async def start(self) -> None:
         loop = asyncio.get_running_loop()
@@ -52,6 +57,23 @@ class EdgeLinkUdpClient:
         msg = data.decode(errors="replace").strip()
         if not msg:
             return
+
+        if msg.startswith("EDGELINK_STATUS:"):
+            # body: "STATUS:protocol@ip" or "STATUS:protocol@ip:deviceId"
+            body      = msg[16:]
+            sep       = body.find(":")
+            status    = body[:sep] if sep >= 0 else body
+            rest      = body[sep + 1:] if sep >= 0 else ""
+            connected = status.upper() == "CONNECTED"
+            dev_sep   = rest.rfind(":")
+            endpoint  = rest[:dev_sep]      if dev_sep >= 0 else rest
+            device_id = rest[dev_sep + 1:]  if dev_sep >= 0 else ""
+            for cb in self._on_device_status:
+                cb(connected, endpoint, device_id)
+            return
+        if msg.startswith("EDGELINK_"):
+            return
+
         self._queue.append(msg)
         for cb in self._on_message:
             cb(msg)

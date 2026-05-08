@@ -11,6 +11,9 @@ namespace EdgeLink
     {
         public event Action<string>?    OnMessage;
         public event Action<Exception>? OnError;
+        /// <summary>Fired when an upstream device starts/stops sending packets to EdgeLink Server (timeout-based).
+        /// Parameters: isConnected, endpoint (e.g. "UDPPort@192.168.1.50"), deviceId (parsed from message id field).</summary>
+        public event Action<bool, string, string>? OnDeviceStatus;
 
         public int  LocalPort  { get; }
         public bool IsRunning  => !disposed && cts != null && !cts.IsCancellationRequested;
@@ -42,6 +45,22 @@ namespace EdgeLink
                     var result = await udp!.ReceiveAsync();
                     string msg = Encoding.UTF8.GetString(result.Buffer).Trim();
                     if (string.IsNullOrEmpty(msg)) continue;
+
+                    if (msg.StartsWith("EDGELINK_STATUS:", StringComparison.Ordinal))
+                    {
+                        // body: "STATUS:protocol@ip" or "STATUS:protocol@ip:deviceId"
+                        string body      = msg.Substring(16);
+                        int    sep       = body.IndexOf(':');
+                        string statusStr = sep >= 0 ? body.Substring(0, sep) : body;
+                        string rest      = sep >= 0 ? body.Substring(sep + 1) : "";
+                        bool   connected = statusStr.Equals("CONNECTED", StringComparison.OrdinalIgnoreCase);
+                        int    devSep    = rest.LastIndexOf(':');
+                        string endpoint  = devSep >= 0 ? rest.Substring(0, devSep)  : rest;
+                        string deviceId  = devSep >= 0 ? rest.Substring(devSep + 1) : "";
+                        OnDeviceStatus?.Invoke(connected, endpoint, deviceId);
+                        continue;
+                    }
+                    if (msg.StartsWith("EDGELINK_", StringComparison.Ordinal)) continue;
 
                     queue.Enqueue(msg);
                 }
