@@ -6,6 +6,7 @@ using EdgeLink.Mask;
 using EdgeLink.NetworkServer.Base;
 using EdgeLink.NetworkServer.Base.Models;
 using EdgeLink.NetworkServer.Logging;
+using EdgeLink.NetworkServer.Router;
 
 namespace EdgeLink.NetworkServer.Udp;
 
@@ -96,6 +97,7 @@ public class UdpConnector : NetworkConnectorBase
         {
             if (t.IsFaulted) LogHelper.LogToConsole($"{LogHelper.Tag("UDP", portData)} Receive error: {t.Exception}", isError: true);
         });
+        _ = SweepStaleDevices(udpData);
 
         _dispatcher.Enqueue(() => SafeExecution.Safe(() => portData.OnUpdate?.Invoke(portData), "UdpConnector.OnUpdate"));
     }
@@ -127,6 +129,7 @@ public class UdpConnector : NetworkConnectorBase
                 {
                     if (t.IsFaulted) LogHelper.LogToConsole($"{LogHelper.Tag("UDP", portData)} Receive error: {t.Exception}", isError: true);
                 });
+                _ = SweepStaleDevices(udpData);
                 LogHelper.LogToConsole($"{LogHelper.Tag("UDP", portData)} Reconnected → {portData.RemotePortDetails.Port}");
                 _dispatcher.Enqueue(() => SafeExecution.Safe(() => portData.OnUpdate?.Invoke(portData), "UdpConnector.OnUpdate"));
             }
@@ -277,7 +280,9 @@ public class UdpConnector : NetworkConnectorBase
                     RouterLogHelper.LogReceive(udpData.portData, MonitorTargetType.UDP, line);
 
                     byte[] lineBytes = Encoding.UTF8.GetBytes(line);
-                    string? output   = def != null ? MaskProcessor.Process(def, lineBytes, line) : line;
+                    if (def != null) TrackDevice(udpData, def, line, lineBytes.Length, result.RemoteEndPoint);
+
+                    string? output = def != null ? MaskProcessor.Process(def, lineBytes, line) : line;
                     if (string.IsNullOrEmpty(output)) continue;
 
                     var outBytes = Encoding.UTF8.GetBytes(output.EndsWith("\n") ? output : output + "\n");
@@ -303,5 +308,75 @@ public class UdpConnector : NetworkConnectorBase
         {
             LogHelper.LogToConsole($"{LogHelper.Tag("UDP", udpData.portData)} Receive error: {ex.Message}", isError: true);
         }
+    }
+
+    private static void TrackDevice(UdpData udpData, MaskDefinition def, string line, int byteCount, IPEndPoint? sourceEndpoint)
+    {
+        var fields = NetworkMessageRouter.ExtractFields(def, line);
+        if (!fields.TryGetValue("id", out var devId) || string.IsNullOrEmpty(devId)) return;
+
+        var now = DateTime.UtcNow;
+        udpData.Devices.AddOrUpdate(devId,
+            _ => new UdpDeviceState
+            {
+                DeviceId     = devId,
+                Endpoint     = sourceEndpoint,
+                FirstSeenUtc = now,
+                LastSeenUtc  = now,
+                MessageCount = 1,
+                TotalBytes   = byteCount,
+            },
+            (_, existing) =>
+            {
+                existing.Endpoint     = sourceEndpoint;
+                existing.LastSeenUtc  = now;
+                existing.MessageCount++;
+                existing.TotalBytes  += byteCount;
+                return existing;
+            });
+    }
+
+    private async Task SweepStaleDevices(UdpData udpData)
+    {
+        var token = udpData.CancellationTokenSource.Token;
+        while (!token.IsCancellationRequested)
+        {
+            try { await Task.Delay(5000, token); }
+            catch (OperationCanceledException) { return; }
+
+            var now = DateTime.UtcNow;
+            int removed = 0;
+            foreach (var kv in udpData.Devices)
+            {
+                if (now - kv.Value.LastSeenUtc > udpData.DeviceTimeout
+                    && udpData.Devices.TryRemove(kv.Key, out _))
+                    removed++;
+            }
+            if (removed > 0)
+                _dispatcher.Enqueue(() => SafeExecution.Safe(
+                    () => udpData.portData.OnUpdate?.Invoke(udpData.portData),
+                    "UdpConnector.SweepOnUpdate"));
+        }
+    }
+
+    public List<TcpClientInfo> GetConnectedDevices(string portKey)
+    {
+        if (!_udpClients.TryGetValue(portKey, out var udpData)) return new List<TcpClientInfo>();
+        var now = DateTime.UtcNow;
+        return udpData.Devices.Values.Select(d =>
+        {
+            double connectedSec = Math.Max((now - d.FirstSeenUtc).TotalSeconds, 0.001);
+            return new TcpClientInfo
+            {
+                endpoint         = d.Endpoint?.ToString() ?? "",
+                deviceId         = d.DeviceId,
+                connectedSeconds = (float)connectedSec,
+                lastActivitySec  = (float)(now - d.LastSeenUtc).TotalSeconds,
+                messageCount     = d.MessageCount,
+                totalBytes       = d.TotalBytes,
+                rateBytesPerSec  = (float)(d.TotalBytes / connectedSec),
+                rttMs            = -1f,   // UDP has no RTT — WebUI displays N/A
+            };
+        }).ToList();
     }
 }

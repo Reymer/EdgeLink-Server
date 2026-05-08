@@ -10,13 +10,15 @@ public class NetworkConnectorCore
 {
     private readonly Dictionary<string, NetworkConnectorBase> _connectors;
     private readonly TCPServerConnector _tcpServerConnector;
+    private readonly UdpConnector       _udpConnector;
 
     public NetworkConnectorCore(IMainThreadDispatcher? dispatcher = null)
     {
         _tcpServerConnector = new TCPServerConnector(dispatcher);
+        _udpConnector       = new UdpConnector(dispatcher);
         _connectors = new Dictionary<string, NetworkConnectorBase>
         {
-            { "UDP",        new UdpConnector(dispatcher) },
+            { "UDP",        _udpConnector },
             { "TCP SERVER", _tcpServerConnector },
             { "TCP CLIENT", new TCPClientConnector(dispatcher) }
         };
@@ -82,6 +84,9 @@ public class NetworkConnectorCore
 
     public List<TcpClientInfo> GetTcpServerClients(string portKey) =>
         _tcpServerConnector.GetConnectedClients(portKey);
+
+    public List<TcpClientInfo> GetUdpDevices(string portKey) =>
+        _udpConnector.GetConnectedDevices(portKey);
 
     public async Task UnInit()
     {

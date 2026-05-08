@@ -29,11 +29,7 @@ public class PortApiHandler
                 currentConnections = p.CurrentConnections,
                 totalConnections   = p.TotalConnections,
                 totalReceivedBytes = p.TotalReceivedBytes,
-                connectedDeviceIds = p.NetProtocol.Contains("TCP SERVER", StringComparison.OrdinalIgnoreCase)
-                    ? PortManager.Instance.ConnectorCore.GetTcpServerClients(p.Key)
-                        .Where(c => !string.IsNullOrEmpty(c.deviceId))
-                        .Select(c => c.deviceId).ToList()
-                    : new List<string>(),
+                connectedDeviceIds = GetDeviceIds(p),
             }).ToList();
         HttpApiServer.WriteJson(ctx, 200, Json.ToJson(new PortListResponse { ports = list }));
         return Task.CompletedTask;
@@ -196,14 +192,32 @@ public class PortApiHandler
     {
         var port = PortManager.Instance.GetAllPortDatas().FirstOrDefault(p => p.Id == id);
         if (port == null) { HttpApiServer.WriteError(ctx, 404, "Port not found"); return Task.CompletedTask; }
-        if (!port.NetProtocol.Contains("TCP SERVER", StringComparison.OrdinalIgnoreCase))
+
+        List<TcpClientInfo> clients;
+        if (port.NetProtocol.Contains("TCP SERVER", StringComparison.OrdinalIgnoreCase))
+            clients = PortManager.Instance.ConnectorCore.GetTcpServerClients(port.Key);
+        else if (port.NetProtocol.Contains("UDP", StringComparison.OrdinalIgnoreCase))
+            clients = PortManager.Instance.ConnectorCore.GetUdpDevices(port.Key);
+        else
         {
-            HttpApiServer.WriteError(ctx, 400, "Only TCP Server supports client listing");
+            HttpApiServer.WriteError(ctx, 400, "Only TCP Server and UDP support client listing");
             return Task.CompletedTask;
         }
-        var clients = PortManager.Instance.ConnectorCore.GetTcpServerClients(port.Key);
         HttpApiServer.WriteJson(ctx, 200, Json.ToJson(new ClientDetailListResponse { clients = clients }));
         return Task.CompletedTask;
+    }
+
+    private static List<string> GetDeviceIds(PortData port)
+    {
+        if (port.NetProtocol.Contains("TCP SERVER", StringComparison.OrdinalIgnoreCase))
+            return PortManager.Instance.ConnectorCore.GetTcpServerClients(port.Key)
+                .Where(c => !string.IsNullOrEmpty(c.deviceId))
+                .Select(c => c.deviceId).ToList();
+        if (port.NetProtocol.Contains("UDP", StringComparison.OrdinalIgnoreCase))
+            return PortManager.Instance.ConnectorCore.GetUdpDevices(port.Key)
+                .Where(c => !string.IsNullOrEmpty(c.deviceId))
+                .Select(c => c.deviceId).ToList();
+        return new List<string>();
     }
 
     public async Task ToggleEnabledAsync(HttpListenerContext ctx, string id)

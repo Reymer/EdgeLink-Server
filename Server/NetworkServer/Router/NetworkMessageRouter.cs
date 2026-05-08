@@ -262,7 +262,7 @@ public class NetworkMessageRouter
         }
     }
 
-    private static Dictionary<string, string> ExtractFields(MaskDefinition def, string text)
+    public static Dictionary<string, string> ExtractFields(MaskDefinition def, string text)
     {
         var result    = new Dictionary<string, string>(StringComparer.Ordinal);
         if (string.IsNullOrEmpty(text)) return result;
