@@ -3,7 +3,8 @@
  *
  * 功能：
  *   - 每 3 秒以 UDP 傳送感測資料到 EdgeLink Server
- *   - 同時監聽 EdgeLink 發回的 UDP 封包
+ *   - 預設純送（LOCAL_PORT = 0），如需接收 EdgeLink 推回來的封包，
+ *     把 LOCAL_PORT 改成非 0 值（例如 4210）即可
  *
  * 注意：UDP 無連線狀態，EdgeLink 不會對 UDP 裝置發送 PING/PONG。
  *
@@ -12,7 +13,7 @@
 
 #include <WiFi.h>
 #include <WiFiUdp.h>
-#include <EdgeLink.h>
+#include <EdgeLinkUDP.h>
 
 // ── 設定 ──────────────────────────────────
 const char* WIFI_SSID     = "your-ssid";
@@ -20,12 +21,14 @@ const char* WIFI_PASSWORD = "your-password";
 
 const char*    EDGELINK_HOST  = "192.168.1.100";  // EdgeLink Server IP
 const uint16_t EDGELINK_PORT  = 9002;             // UDP Port (EdgeLink 監聽的 UDP Port)
-const uint16_t LOCAL_PORT     = 4210;             // 本機接收 Port
+// 純送 sensor 資料就保留 0；要接收 EdgeLink 推回來的封包再改成例如 4210
+const uint16_t LOCAL_PORT     = 0;
 // ─────────────────────────────────────────
 
 WiFiUDP     wifiUdp;
 EdgeLinkUDP edgelink(wifiUdp);
 
+// LOCAL_PORT > 0 才會觸發。
 void onMessage(const String& msg, IPAddress remoteIP, uint16_t remotePort) {
     Serial.print("[EdgeLink UDP] From ");
     Serial.print(remoteIP);

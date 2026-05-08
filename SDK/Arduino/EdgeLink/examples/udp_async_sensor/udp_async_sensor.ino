@@ -5,12 +5,15 @@
  *   - 使用 ESP32 內建的 AsyncUDP（callback driven），不需在 loop() 裡呼叫 edgelink.loop()
  *   - 收封包是中斷式的，loop() 可以全心處理感測 / 業務邏輯
  *
+ * 預設純送（LOCAL_PORT = 0），如需接收 EdgeLink 推回來的封包，
+ * 把 LOCAL_PORT 改成非 0 值（例如 4210）即可。
+ *
  * 適用：ESP32（內建 AsyncUDP）。ESP8266 需安裝 ESPAsyncUDP library。
  */
 
 #include <WiFi.h>
 #include <AsyncUDP.h>
-#include <EdgeLink.h>
+#include <EdgeLinkAsyncUDP.h>
 
 // ── 設定 ──────────────────────────────────
 const char* WIFI_SSID     = "your-ssid";
@@ -18,14 +21,15 @@ const char* WIFI_PASSWORD = "your-password";
 
 const char*    EDGELINK_HOST = "192.168.1.100";   // EdgeLink Server IP
 const uint16_t EDGELINK_PORT = 9002;              // EdgeLink 監聽的 UDP Port
-const uint16_t LOCAL_PORT    = 4210;              // 本機接收 Port（0 = send-only）
+// 純送 sensor 資料就保留 0；要接收 EdgeLink 推回來的封包再改成例如 4210
+const uint16_t LOCAL_PORT    = 0;
 // ─────────────────────────────────────────
 
 AsyncUDP         asyncUdp;
 EdgeLinkAsyncUDP edgelink(asyncUdp);
 
-// 注意：此 callback 會在 AsyncUDP 的 task 內執行（非 loop() 主執行緒），
-//       盡量短、不要呼叫 Serial.print 大量輸出，必要時用 queue 傳回主執行緒處理。
+// LOCAL_PORT > 0 時才會觸發。callback 在 AsyncUDP task 內執行（非 loop()），
+// 盡量短、不要呼叫 Serial.print 大量輸出，必要時用 queue 傳回主執行緒處理。
 void onMessage(const String& msg, IPAddress remoteIP, uint16_t remotePort) {
     Serial.print("[EdgeLink AsyncUDP] From ");
     Serial.print(remoteIP);
