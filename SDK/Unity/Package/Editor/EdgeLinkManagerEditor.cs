@@ -129,7 +129,7 @@ public class EdgeLinkManagerEditor : Editor
         {
             CookieContainer = new CookieContainer(),
             UseCookies      = true,
-            ServerCertificateCustomValidationCallback = (_, _, _, _) => true,
+            ServerCertificateCustomValidationCallback = (msg, cert, chain, errors) => true,
         };
         return new HttpClient(handler);
     }
