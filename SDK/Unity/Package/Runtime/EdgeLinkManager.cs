@@ -200,11 +200,11 @@ public class EdgeLinkManager : MonoBehaviour
             result["raw"] = msg;
             return result;
         }
-        foreach (var part in msg.Split(fieldDelimiter, StringSplitOptions.RemoveEmptyEntries))
+        foreach (var part in msg.Split(new[] { fieldDelimiter }, StringSplitOptions.RemoveEmptyEntries))
         {
             int i = part.IndexOf(kvSeparator, StringComparison.Ordinal);
             if (i < 0) continue;
-            result[part[..i].Trim()] = part[(i + kvSeparator.Length)..].Trim();
+            result[part.Substring(0, i).Trim()] = part.Substring(i + kvSeparator.Length).Trim();
         }
         return result;
     }
