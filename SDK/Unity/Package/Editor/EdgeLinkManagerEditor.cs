@@ -129,8 +129,14 @@ public class EdgeLinkManagerEditor : Editor
         {
             CookieContainer = new CookieContainer(),
             UseCookies      = true,
-            ServerCertificateCustomValidationCallback = (msg, cert, chain, errors) => true,
         };
+        // Unity Mono 的 HttpClientHandler.ServerCertificateCustomValidationCallback setter
+        // 會丟 NotImplementedException；用全域 ServicePointManager 當 fallback。
+        try { handler.ServerCertificateCustomValidationCallback = (msg, cert, chain, errors) => true; }
+        catch (NotImplementedException)
+        {
+            System.Net.ServicePointManager.ServerCertificateValidationCallback = (s, c, ch, e) => true;
+        }
         return new HttpClient(handler);
     }
 
