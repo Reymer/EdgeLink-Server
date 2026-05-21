@@ -22,8 +22,8 @@ namespace EdgeLink
         public bool IsRunning  { get; private set; }
 
         private TcpListener?            listener;
-        private CancellationTokenSource cts = new();
-        private readonly ConcurrentQueue<string> queue = new();
+        private CancellationTokenSource cts = new CancellationTokenSource();
+        private readonly ConcurrentQueue<string> queue = new ConcurrentQueue<string>();
         private bool disposed;
 
         public EdgeLinkTcpListener(int localPort)

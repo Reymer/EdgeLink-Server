@@ -23,8 +23,8 @@ namespace EdgeLink
 
         private TcpClient?              tcpClient;
         private NetworkStream?          stream;
-        private CancellationTokenSource cts = new();
-        private readonly ConcurrentQueue<string> queue = new();
+        private CancellationTokenSource cts = new CancellationTokenSource();
+        private readonly ConcurrentQueue<string> queue = new ConcurrentQueue<string>();
         private bool disposed;
         private bool autoReconnect    = true;
         private int  reconnectDelayMs = 5000;

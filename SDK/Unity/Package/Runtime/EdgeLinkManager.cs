@@ -51,10 +51,10 @@ public class EdgeLinkManager : MonoBehaviour
     private EdgeLinkTcpListener _tcpListener;
     private EdgeLinkUdpClient   _udp;
 
-    private readonly Dictionary<string, string>      _latest        = new();
-    private readonly Dictionary<string, float>       _lastSeenTime  = new();
-    private readonly HashSet<string>                 _timedOut      = new();
-    private readonly ConcurrentQueue<(bool, string, string)> _deviceStatusQ = new();
+    private readonly Dictionary<string, string>      _latest        = new Dictionary<string, string>();
+    private readonly Dictionary<string, float>       _lastSeenTime  = new Dictionary<string, float>();
+    private readonly HashSet<string>                 _timedOut      = new HashSet<string>();
+    private readonly ConcurrentQueue<(bool, string, string)> _deviceStatusQ = new ConcurrentQueue<(bool, string, string)>();
 
     // ── 生命週期 ─────────────────────────────────────────────
 

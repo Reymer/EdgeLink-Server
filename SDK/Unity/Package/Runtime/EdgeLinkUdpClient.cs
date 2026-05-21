@@ -19,8 +19,8 @@ namespace EdgeLink
         public bool IsRunning  => !disposed && cts != null && !cts.IsCancellationRequested;
 
         private UdpClient?              udp;
-        private CancellationTokenSource cts = new();
-        private readonly ConcurrentQueue<string> queue = new();
+        private CancellationTokenSource cts = new CancellationTokenSource();
+        private readonly ConcurrentQueue<string> queue = new ConcurrentQueue<string>();
         private bool disposed;
 
         public EdgeLinkUdpClient(int localPort)
