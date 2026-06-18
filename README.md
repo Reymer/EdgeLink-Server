@@ -1,3 +1,15 @@
+> ## 📦 This repository has moved
+>
+> EdgeLink Server is now maintained at **[github.com/extrakyo-io/EdgeLink-Server](https://github.com/extrakyo-io/EdgeLink-Server)**.
+>
+> Please update your bookmarks, UPM git URLs, and clone URLs. This repository is archived and no longer receives updates.
+>
+> - **New repo**: https://github.com/extrakyo-io/EdgeLink-Server
+> - **Latest release**: https://github.com/extrakyo-io/EdgeLink-Server/releases/latest
+> - **Unity UPM**: `https://github.com/extrakyo-io/EdgeLink-Server.git?path=SDK/Unity/Package`
+
+---
+
 <div align="center">
 
 # EdgeLink Server
