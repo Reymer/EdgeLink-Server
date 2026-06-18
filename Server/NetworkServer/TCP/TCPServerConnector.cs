@@ -314,6 +314,8 @@ public class TCPServerConnector : NetworkConnectorBase
             }
         }
         catch (OperationCanceledException) { }
+        catch (ObjectDisposedException)    { }
+        catch (IOException)                { }
         finally
         {
             client.Close();
@@ -337,7 +339,8 @@ public class TCPServerConnector : NetworkConnectorBase
 
     public static void NotifyForwardTargetStatusChange(string status, PortData sourcePortData, IPEndPoint? endpoint = null, string deviceId = "")
     {
-        _ = NotifyAsync(status, sourcePortData, endpoint, deviceId);
+        _ = NotifyAsync(status, sourcePortData, endpoint, deviceId)
+            .ContinueWith(t => { _ = t.Exception; });
     }
 
     private static async Task NotifyAsync(string status, PortData sourcePortData, IPEndPoint? endpoint = null, string deviceId = "")

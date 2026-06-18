@@ -30,6 +30,7 @@ public class PortApiHandler
                 totalConnections   = p.TotalConnections,
                 totalReceivedBytes = p.TotalReceivedBytes,
                 connectedDeviceIds = GetDeviceIds(p),
+                modbus             = p.Modbus,
             }).ToList();
         HttpApiServer.WriteJson(ctx, 200, Json.ToJson(new PortListResponse { ports = list }));
         return Task.CompletedTask;
@@ -74,6 +75,7 @@ public class PortApiHandler
                 SourceProtocolName = srcName,
                 SourceProtocolId   = srcId,
                 IsConnected        = false,
+                Modbus             = req.modbus,
             };
 
             if (!PortManager.Instance.IsPortUnique(portData))
@@ -149,6 +151,7 @@ public class PortApiHandler
                 RequestMode        = string.IsNullOrEmpty(req.requestMode) ? "serial" : req.requestMode,
                 SourceProtocolName = srcName,
                 SourceProtocolId   = srcId,
+                Modbus             = req.modbus,
             };
 
             await PortManager.Instance.UpdatePortData(old, updated);

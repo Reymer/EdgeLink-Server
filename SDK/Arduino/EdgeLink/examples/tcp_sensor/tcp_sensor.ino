@@ -11,7 +11,7 @@
  */
 
 #include <WiFi.h>
-#include <EdgeLink.h>
+#include <EdgeLinkTCP.h>
 
 // ── 設定 ──────────────────────────────────
 const char* WIFI_SSID     = "your-ssid";

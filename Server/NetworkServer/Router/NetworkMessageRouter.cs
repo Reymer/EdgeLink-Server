@@ -31,6 +31,33 @@ public class NetworkMessageRouter
         return RouteAndForwardAsync(serverData.portData, rawBytes, parsedMessage, clientKey, serverData);
     }
 
+    // 給 Modbus poller / 其他內部產生器把已組好的訊息打進 forward pipeline。
+    // 不走 TCPServerData (沒有 socket writeback)，只跑 mask + forward。
+    public async Task InjectSynthesizedMessageAsync(PortData sourcePortData, string parsedMessage)
+    {
+        RouterLogHelper.LogReceive(sourcePortData, MonitorTargetType.UDP, parsedMessage, null);
+
+        var targets = GetTargetClients(sourcePortData.Id, sourcePortData.ProtocolName);
+        if (targets.Count == 0) return;
+
+        byte[] rawBytes = Encoding.UTF8.GetBytes(parsedMessage);
+        await Task.WhenAll(targets.Select(t => ForwardSynthesized(t, sourcePortData.ProtocolName, rawBytes, parsedMessage)));
+    }
+
+    private async Task ForwardSynthesized(TCPClientData client, string protocolName, byte[] rawBytes, string parsedMessage)
+    {
+        string maskId = client.portData?.MaskType?.Trim() ?? "OriginalData";
+        var def = MaskDefinitionManager.Instance.GetDefinition(maskId)
+               ?? MaskDefinitionManager.Instance.GetDefinition("OriginalData");
+        if (def == null) { LogHelper.LogToConsole($"[Router] Mask not found: '{maskId}'", isError: true); return; }
+
+        string? output = MaskProcessor.Process(def, rawBytes, parsedMessage);
+        if (string.IsNullOrEmpty(output)) return;
+
+        var bytes = Encoding.UTF8.GetBytes(output.EndsWith("\n") ? output : output + "\n");
+        await TrySendToClient(client, protocolName, bytes);
+    }
+
     // Extract deviceId from incoming message using source port's mask, regardless of forward target setup.
     // First identification triggers the deferred CONNECT notification with deviceId.
     private static void TryIdentifyDevice(TCPServerData serverData, string clientKey, string parsedMessage)
@@ -41,7 +68,17 @@ public class NetworkMessageRouter
         if (def == null) return;
 
         var fields = ExtractFields(def, parsedMessage);
-        if (!fields.TryGetValue("id", out var devId) || string.IsNullOrEmpty(devId)) return;
+        // 韌體可能送 "id" 或 "ID"（甚至 "Id"），不分大小寫找第一個 match
+        string? devId = null;
+        foreach (var kv in fields)
+        {
+            if (kv.Key.Equals("id", StringComparison.OrdinalIgnoreCase))
+            {
+                devId = kv.Value;
+                break;
+            }
+        }
+        if (string.IsNullOrEmpty(devId)) return;
 
         if (serverData.ClientDeviceIds.TryAdd(clientKey, devId))
         {

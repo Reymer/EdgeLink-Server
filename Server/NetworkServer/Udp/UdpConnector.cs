@@ -97,7 +97,7 @@ public class UdpConnector : NetworkConnectorBase
         {
             if (t.IsFaulted) LogHelper.LogToConsole($"{LogHelper.Tag("UDP", portData)} Receive error: {t.Exception}", isError: true);
         });
-        _ = SweepStaleDevices(udpData);
+        _ = SweepStaleDevices(udpData).ContinueWith(t => { _ = t.Exception; });
 
         _dispatcher.Enqueue(() => SafeExecution.Safe(() => portData.OnUpdate?.Invoke(portData), "UdpConnector.OnUpdate"));
     }
@@ -129,7 +129,7 @@ public class UdpConnector : NetworkConnectorBase
                 {
                     if (t.IsFaulted) LogHelper.LogToConsole($"{LogHelper.Tag("UDP", portData)} Receive error: {t.Exception}", isError: true);
                 });
-                _ = SweepStaleDevices(udpData);
+                _ = SweepStaleDevices(udpData).ContinueWith(t => { _ = t.Exception; });
                 LogHelper.LogToConsole($"{LogHelper.Tag("UDP", portData)} Reconnected → {portData.RemotePortDetails.Port}");
                 _dispatcher.Enqueue(() => SafeExecution.Safe(() => portData.OnUpdate?.Invoke(portData), "UdpConnector.OnUpdate"));
             }
@@ -286,7 +286,8 @@ public class UdpConnector : NetworkConnectorBase
                     if (string.IsNullOrEmpty(output)) continue;
 
                     var outBytes = Encoding.UTF8.GetBytes(output.EndsWith("\n") ? output : output + "\n");
-                    _ = sendClient.SendAsync(outBytes, outBytes.Length, sendEndPoint);
+                    _ = sendClient.SendAsync(outBytes, outBytes.Length, sendEndPoint)
+                        .ContinueWith(t => { _ = t.Exception; });
                     udpData.portData.NetReceived += outBytes.Length;
                     RouterLogHelper.LogSend(udpData.portData, MonitorTargetType.UDP, output);
                     anyOutput = true;
@@ -313,7 +314,16 @@ public class UdpConnector : NetworkConnectorBase
     private static void TrackDevice(UdpData udpData, MaskDefinition def, string line, int byteCount, IPEndPoint? sourceEndpoint)
     {
         var fields = NetworkMessageRouter.ExtractFields(def, line);
-        if (!fields.TryGetValue("id", out var devId) || string.IsNullOrEmpty(devId)) return;
+        string? devId = null;
+        foreach (var kv in fields)
+        {
+            if (kv.Key.Equals("id", StringComparison.OrdinalIgnoreCase))
+            {
+                devId = kv.Value;
+                break;
+            }
+        }
+        if (string.IsNullOrEmpty(devId)) return;
 
         var  now      = DateTime.UtcNow;
         bool wasAdded = false;

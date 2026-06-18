@@ -30,6 +30,7 @@ public class PortDto
     public int totalConnections;
     public long totalReceivedBytes;
     public List<string> connectedDeviceIds = new();
+    public ModbusConfig? modbus;
 }
 
 public class AddPortReq
@@ -44,6 +45,7 @@ public class AddPortReq
     public string? requestMode;
     public string? sourceProtocolName;
     public string? sourceProtocolId;
+    public ModbusConfig? modbus;
 }
 
 public class UpdatePortReq : AddPortReq { }
@@ -81,4 +83,5 @@ public class PortExportDto
     public string sourceProtocolName = "";
     public string sourceProtocolId = "";
     public bool isEnabled = true;
+    public ModbusConfig? modbus;
 }

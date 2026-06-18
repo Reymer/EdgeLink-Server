@@ -1,6 +1,7 @@
 using EdgeLink.NetworkServer.Base;
 using EdgeLink.NetworkServer.Base.Models;
 using EdgeLink.NetworkServer.Logging;
+using EdgeLink.NetworkServer.Modbus;
 using EdgeLink.NetworkServer.TCP;
 using EdgeLink.NetworkServer.Udp;
 
@@ -18,9 +19,10 @@ public class NetworkConnectorCore
         _udpConnector       = new UdpConnector(dispatcher);
         _connectors = new Dictionary<string, NetworkConnectorBase>
         {
-            { "UDP",        _udpConnector },
-            { "TCP SERVER", _tcpServerConnector },
-            { "TCP CLIENT", new TCPClientConnector(dispatcher) }
+            { "UDP",                _udpConnector },
+            { "TCP SERVER",         _tcpServerConnector },
+            { "TCP CLIENT",         new TCPClientConnector(dispatcher) },
+            { "MODBUS TCP MASTER",  new ModbusTcpMasterConnector() }
         };
     }
 

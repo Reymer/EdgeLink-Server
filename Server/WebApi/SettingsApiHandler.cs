@@ -28,6 +28,7 @@ public class SettingsApiHandler
                 sourceProtocolName = p.SourceProtocolName ?? "",
                 sourceProtocolId   = p.SourceProtocolId ?? "",
                 isEnabled          = p.IsEnabled,
+                modbus             = p.Modbus,
             });
         }
 
@@ -103,6 +104,7 @@ public class SettingsApiHandler
                     SourceProtocolId   = p.sourceProtocolId ?? "",
                     IsEnabled          = p.isEnabled,
                     IsConnected        = false,
+                    Modbus             = p.modbus,
                 };
                 if (PortManager.Instance.IsPortUnique(portData))
                     PortManager.Instance.AddPortData(portData);
