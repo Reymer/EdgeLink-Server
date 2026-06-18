@@ -249,13 +249,17 @@ public class PortTests(ServerFixture fixture) : IAsyncLifetime
     }
 
     [Fact]
-    public async Task GetClients_ForNonTcpServerPort_Returns400()
+    public async Task GetClients_ForTcpClientPort_Returns400()
     {
+        // /clients 只開放給能列舉「裝置」的 port (TCP Server / UDP)。
+        // TCP Client 自己就是 client，沒有可列舉的 sub-client，應回 400。
         var addResp = await _client.PostJsonAsync("/api/ports", new
         {
-            protocolName = "UdpClients19019",
-            netProtocol  = "UDP",
-            localPort    = "19019",
+            protocolName = "TcpClients19019",
+            netProtocol  = "TCP CLIENT",
+            localPort    = "--",
+            targetIp     = "127.0.0.1",
+            remotePort   = "19019",
         });
         using var addDoc = await addResp.ReadDocAsync();
         string id = addDoc.RootElement.GetProperty("id").GetString()!;
