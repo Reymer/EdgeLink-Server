@@ -1,12 +1,13 @@
 using System;
 using System.Collections;
-using System.Collections.Concurrent;
-using System.Collections.Generic;
-using System.Text;
 using UnityEngine;
-using UnityEngine.Networking;
 using EdgeLink;
 
+/// <summary>
+/// EdgeLinkManager — MonoBehaviour 薄殼，內部 delegate 給 <see cref="EdgeLinkBridge"/>。
+/// 想用程式碼動態調整 (URL / 參數) 改用 EdgeLinkBridge 建構子；
+/// 想拖到 GameObject 上靠 Inspector 設定，繼續用本元件即可。
+/// </summary>
 public class EdgeLinkManager : MonoBehaviour
 {
     public enum Protocol { TCP, TCPListener, UDP }
@@ -32,197 +33,56 @@ public class EdgeLinkManager : MonoBehaviour
     [HideInInspector] public string fieldDelimiter = ";";
     [HideInInspector] public string kvSeparator    = ":";
 
-    // ── 狀態 ────────────────────────────────────────────────
-    public string Raw { get; private set; }
-    public string Get(string key) => _latest.TryGetValue(key, out var v) ? v : null;
+    // ── 狀態 ──────────────────────────────────────────────
+    public string Raw            => _bridge?.Raw;
+    public string Get(string key) => _bridge?.Get(key);
 
-    // ── 事件（Unity 主執行緒觸發）────────────────────────────
-    /// <summary>每筆新訊息到達時觸發。用 Get(key) 取解析後的欄位值。</summary>
-    public event Action<string>       OnMessage;
-    /// <summary>上游裝置 TCP 連線 / 斷線時觸發。bool = 是否連線，string = endpoint，string = deviceId（有資料後才有值）。</summary>
-    public event Action<bool, string, string> OnDeviceStatus;
-    /// <summary>裝置超過 deviceTimeoutSeconds 沒有傳資料時觸發。</summary>
-    public event Action<string>       OnDeviceTimeout;
-    /// <summary>逾時的裝置重新送資料時觸發。</summary>
-    public event Action<string>       OnDeviceReconnected;
+    /// <summary>底層 bridge — 想取得更細部控制權時用。</summary>
+    public EdgeLinkBridge Bridge => _bridge;
 
-    // ── 內部 ────────────────────────────────────────────────
-    private EdgeLinkClient      _tcp;
-    private EdgeLinkTcpListener _tcpListener;
-    private EdgeLinkUdpClient   _udp;
+    // ── 事件 ──────────────────────────────────────────────
+    public event Action<string>                OnMessage;
+    public event Action<bool, string, string>  OnDeviceStatus;
+    public event Action<string>                OnDeviceTimeout;
+    public event Action<string>                OnDeviceReconnected;
 
-    private readonly Dictionary<string, string>      _latest        = new Dictionary<string, string>();
-    private readonly Dictionary<string, float>       _lastSeenTime  = new Dictionary<string, float>();
-    private readonly HashSet<string>                 _timedOut      = new HashSet<string>();
-    private readonly ConcurrentQueue<(bool, string, string)> _deviceStatusQ = new ConcurrentQueue<(bool, string, string)>();
+    private EdgeLinkBridge _bridge;
 
-    // ── 生命週期 ─────────────────────────────────────────────
-
+    // ── 生命週期 ───────────────────────────────────────────
     private IEnumerator Start()
     {
-        yield return FetchMaskCoroutine();
-        Connect();
+        _bridge = new EdgeLinkBridge(BuildConfig());
+
+        _bridge.OnMessage           += m => OnMessage?.Invoke(m);
+        _bridge.OnDeviceStatus      += (c, ep, id) => OnDeviceStatus?.Invoke(c, ep, id);
+        _bridge.OnDeviceTimeout     += id => OnDeviceTimeout?.Invoke(id);
+        _bridge.OnDeviceReconnected += id => OnDeviceReconnected?.Invoke(id);
+
+        yield return _bridge.InitializeCoroutine();
     }
 
-    private void Update()
-    {
-        if (_tcp         != null) while (_tcp.TryDequeue(out var m))         Handle(m);
-        if (_tcpListener != null) while (_tcpListener.TryDequeue(out var m)) Handle(m);
-        if (_udp         != null) while (_udp.TryDequeue(out var m))         Handle(m);
-
-        while (_deviceStatusQ.TryDequeue(out var ds))
-        {
-            bool connected = ds.Item1;
-            string endpoint = ds.Item2;
-            string deviceId = ds.Item3;
-            if (!connected && !string.IsNullOrEmpty(deviceId))
-            {
-                _lastSeenTime.Remove(deviceId);
-                _timedOut.Remove(deviceId);
-            }
-            OnDeviceStatus?.Invoke(connected, endpoint, deviceId);
-        }
-
-        CheckTimeouts();
-    }
+    private void Update() => _bridge?.Tick();
 
     private void OnDestroy()
     {
-        _tcp?.Dispose();
-        _tcpListener?.Dispose();
-        _udp?.Dispose();
+        _bridge?.Dispose();
+        _bridge = null;
     }
 
-    // ── Mask 拉取 ────────────────────────────────────────────
-
-    private IEnumerator FetchMaskCoroutine()
+    private EdgeLinkBridge.Config BuildConfig() => new EdgeLinkBridge.Config
     {
-        if (string.IsNullOrEmpty(serverUrl) || string.IsNullOrEmpty(maskId)) yield break;
-
-        string baseUrl = serverUrl.TrimEnd('/');
-
-        byte[] body = Encoding.UTF8.GetBytes($"{{\"password\":\"{EscapeJson(password)}\"}}");
-        using var loginReq = new UnityWebRequest($"{baseUrl}/api/auth/login", "POST");
-        loginReq.uploadHandler   = new UploadHandlerRaw(body);
-        loginReq.downloadHandler = new DownloadHandlerBuffer();
-        loginReq.SetRequestHeader("Content-Type", "application/json");
-        loginReq.certificateHandler = new BypassCertificate();
-        yield return loginReq.SendWebRequest();
-        if (loginReq.result != UnityWebRequest.Result.Success) yield break;
-
-        string cookie = loginReq.GetResponseHeader("Set-Cookie")?.Split(';')[0] ?? "";
-
-        using var maskReq = UnityWebRequest.Get($"{baseUrl}/api/masks/{Uri.EscapeDataString(maskId)}");
-        maskReq.SetRequestHeader("Cookie", cookie);
-        maskReq.certificateHandler = new BypassCertificate();
-        yield return maskReq.SendWebRequest();
-        if (maskReq.result != UnityWebRequest.Result.Success) yield break;
-
-        var def = JsonUtility.FromJson<MaskDefResponse>(maskReq.downloadHandler.text);
-        if (def != null)
-        {
-            if (!string.IsNullOrEmpty(def.fieldDelimiter)) fieldDelimiter = def.fieldDelimiter;
-            if (!string.IsNullOrEmpty(def.kvSeparator))    kvSeparator    = def.kvSeparator;
-            Debug.Log($"[EdgeLink] 遮罩已套用: {maskId}");
-        }
-    }
-
-    // ── 建立連線 ─────────────────────────────────────────────
-
-    private async void Connect()
-    {
-        switch (protocol)
-        {
-            case Protocol.TCP:
-                _tcp = new EdgeLinkClient(tcpHost, tcpPort);
-                _tcp.OnConnected    += () => Debug.Log("[EdgeLink TCP] Connected");
-                _tcp.OnDisconnected += () => Debug.Log("[EdgeLink TCP] Disconnected");
-                _tcp.OnError        += ex => Debug.LogWarning($"[EdgeLink TCP] {ex.Message}");
-                _tcp.OnDeviceStatus += (c, ep, id) => _deviceStatusQ.Enqueue((c, ep, id));
-                _tcp.SetAutoReconnect(true, 5000);
-                try   { await _tcp.ConnectAsync(); }
-                catch { Debug.LogWarning("[EdgeLink TCP] 初始連線失敗，將自動重試"); }
-                break;
-
-            case Protocol.TCPListener:
-                _tcpListener = new EdgeLinkTcpListener(tcpListenPort);
-                _tcpListener.OnConnected    += () => Debug.Log("[EdgeLink TCPListener] EdgeLink connected");
-                _tcpListener.OnDisconnected += () => Debug.Log("[EdgeLink TCPListener] EdgeLink disconnected");
-                _tcpListener.OnError        += ex => Debug.LogWarning($"[EdgeLink TCPListener] {ex.Message}");
-                _tcpListener.OnDeviceStatus += (c, ep, id) => _deviceStatusQ.Enqueue((c, ep, id));
-                _tcpListener.Start();
-                Debug.Log($"[EdgeLink TCPListener] Listening on port {tcpListenPort}");
-                break;
-
-            case Protocol.UDP:
-                _udp = new EdgeLinkUdpClient(udpLocalPort);
-                _udp.OnError        += ex => Debug.LogWarning($"[EdgeLink UDP] {ex.Message}");
-                _udp.OnDeviceStatus += (c, ep, id) => _deviceStatusQ.Enqueue((c, ep, id));
-                _udp.Start();
-                Debug.Log($"[EdgeLink UDP] Listening on port {udpLocalPort}");
-                break;
-        }
-    }
-
-    // ── 訊息處理 ─────────────────────────────────────────────
-
-    private void Handle(string msg)
-    {
-        Raw = msg;
-        var parsed = Parse(msg);
-        foreach (var kv in parsed) _latest[kv.Key] = kv.Value;
-        OnMessage?.Invoke(msg);
-
-        if (!string.IsNullOrEmpty(deviceIdKey) &&
-            parsed.TryGetValue(deviceIdKey, out var deviceId))
-        {
-            _lastSeenTime[deviceId] = Time.time;
-            if (_timedOut.Remove(deviceId))
-                OnDeviceReconnected?.Invoke(deviceId);
-        }
-    }
-
-    private void CheckTimeouts()
-    {
-        if (deviceTimeoutSeconds <= 0 || string.IsNullOrEmpty(deviceIdKey)) return;
-        foreach (var kv in _lastSeenTime)
-        {
-            if (Time.time - kv.Value > deviceTimeoutSeconds && _timedOut.Add(kv.Key))
-                OnDeviceTimeout?.Invoke(kv.Key);
-        }
-    }
-
-    private Dictionary<string, string> Parse(string msg)
-    {
-        var result = new Dictionary<string, string>();
-        if (string.IsNullOrEmpty(fieldDelimiter) || string.IsNullOrEmpty(kvSeparator))
-        {
-            result["raw"] = msg;
-            return result;
-        }
-        foreach (var part in msg.Split(new[] { fieldDelimiter }, StringSplitOptions.RemoveEmptyEntries))
-        {
-            int i = part.IndexOf(kvSeparator, StringComparison.Ordinal);
-            if (i < 0) continue;
-            result[part.Substring(0, i).Trim()] = part.Substring(i + kvSeparator.Length).Trim();
-        }
-        return result;
-    }
-
-    private static string EscapeJson(string s) =>
-        s?.Replace("\\", "\\\\").Replace("\"", "\\\"") ?? "";
-
-    private class BypassCertificate : CertificateHandler
-    {
-        protected override bool ValidateCertificate(byte[] certificateData) => true;
-    }
-
-    [Serializable]
-    private class MaskDefResponse
-    {
-        public string maskId;
-        public string outputTemplate;
-        public string fieldDelimiter;
-        public string kvSeparator;
-    }
+        ServerUrl            = serverUrl,
+        Password             = password,
+        MaskId               = maskId,
+        Protocol             = (EdgeLinkBridge.Protocol)protocol,
+        TcpHost              = tcpHost,
+        TcpPort              = tcpPort,
+        TcpListenPort        = tcpListenPort,
+        UdpLocalPort         = udpLocalPort,
+        DeviceIdKey          = deviceIdKey,
+        DeviceTimeoutSeconds = deviceTimeoutSeconds,
+        FieldDelimiter       = fieldDelimiter,
+        KvSeparator          = kvSeparator,
+        FetchMaskOnStart     = true,
+    };
 }
