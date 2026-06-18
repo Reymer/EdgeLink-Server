@@ -7,7 +7,7 @@
 [![.NET](https://img.shields.io/badge/.NET-8.0-512BD4?logo=dotnet)](https://dotnet.microsoft.com)
 [![Platform](https://img.shields.io/badge/Platform-Windows-0078D4?logo=windows)](https://github.com/Reymer/EdgeLink-Server/releases)
 [![License](https://img.shields.io/badge/License-GPL_3.0-blue)](LICENSE)
-[![Version](https://img.shields.io/badge/Version-1.0.0-informational)](https://github.com/Reymer/EdgeLink-Server/releases/tag/v1.0.0)
+[![Version](https://img.shields.io/badge/Version-2.1.0-informational)](https://github.com/Reymer/EdgeLink-Server/releases/tag/v2.1.0)
 
 A lightweight .NET 8 server that bridges IoT devices over TCP/UDP, transforms protocol data via custom Mask definitions, and provides a browser-based management interface.
 
@@ -19,15 +19,17 @@ A lightweight .NET 8 server that bridges IoT devices over TCP/UDP, transforms pr
 
 | Feature | Description |
 |---------|-------------|
-| **Multi-protocol** | TCP Server, TCP Client, UDP — each port configured independently |
+| **Multi-protocol** | TCP Server, TCP Client, UDP, **Modbus TCP Master** — each port configured independently |
+| **Modbus polling** | Built-in FluentModbus master — poll ICP DAS / generic Modbus slaves at configurable intervals, results enter the routing pipeline as native EdgeLink messages |
 | **Message Routing** | Automatically bridges ports via `SourceProtocolId` |
 | **Mask System** | Custom protocol parsing and transformation rules for IoT firmware output |
 | **Real-time Monitor** | Per-port SSE-streamed log with keyword search |
-| **Web UI** | Browser-based management — no frontend setup required |
+| **Web UI** | Browser-based management — card-grid port view, no frontend setup required |
+| **Device Identification** | Per-connection device ID tracking on TCP Server and UDP, exposed in WebUI and SDKs |
 | **HTTPS** | Auto-generated self-signed certificate with SAN for all local IPs |
 | **Security** | PBKDF2 password hashing, session persistence, HttpOnly cookies |
 | **File Logging** | Daily rolling log files with 7-day retention |
-| **Client SDKs** | Unity (UPM), Arduino, C# (.NET 6), Python (asyncio), JavaScript (Node.js) |
+| **Client SDKs** | Unity (UPM, POCO + MonoBehaviour), Arduino, C# (.NET 6), Python (asyncio), JavaScript (Node.js) |
 
 ---
 
@@ -40,7 +42,7 @@ A lightweight .NET 8 server that bridges IoT devices over TCP/UDP, transforms pr
 
 ## Installation
 
-1. Download `EdgeLink-Server-v1.0.0-win-x64.zip` from [Releases](https://github.com/Reymer/EdgeLink-Server/releases)
+1. Download `EdgeLink-Server-v2.1.0-win-x64.zip` from [Releases](https://github.com/Reymer/EdgeLink-Server/releases)
 2. Extract the zip
 3. Run `EdgeLinkServer.exe`
 4. Open your browser at `https://localhost:8443`
@@ -75,6 +77,73 @@ Environment variables:
 ```
 
 Priority: CLI args > environment variables > defaults
+
+---
+
+## Modbus TCP Master
+
+Built-in Modbus TCP master can poll any Modbus slave (ICP DAS ET-7xxx, generic PLC, simulators like ModRSsim2) and inject results into the EdgeLink routing pipeline as standard messages — downstream consumers (Unity / dashboards / TCP Clients) don't know or care whether the source is Modbus or raw TCP.
+
+### Quick example
+
+Add a port via WebUI → **+ Add Port** → select `Modbus TCP Master`:
+
+| Field | Value |
+|-------|-------|
+| Slave IP | `192.168.1.10` (or `127.0.0.1` for local simulator) |
+| Modbus Port | `502` (default) |
+| Slave ID | `1` |
+| Polling Interval (ms) | `100` (10 Hz) |
+| Device ID | `WaterCannon01` — becomes the `id:` field in synthesized messages |
+| Registers | JSON array (see below) |
+
+Register mapping JSON:
+
+```json
+[
+  { "name": "yaw",   "functionCode": 2, "startAddress": 0, "quantity": 8, "dataType": "bits" },
+  { "name": "pitch", "functionCode": 2, "startAddress": 8, "quantity": 8, "dataType": "bits" },
+  { "name": "joyx",  "functionCode": 4, "startAddress": 0, "quantity": 1, "dataType": "uint16", "scale": 0.001 },
+  { "name": "joyy",  "functionCode": 4, "startAddress": 1, "quantity": 1, "dataType": "uint16", "scale": 0.001 }
+]
+```
+
+Every poll interval, EdgeLink emits a synthesized message like:
+
+```
+id:WaterCannon01;yaw:128;pitch:64;joyx:2.5;joyy:1.802
+```
+
+### Function codes
+
+| FunctionCode | Modbus operation | Use |
+|:-:|---|---|
+| `1` | Read Coils | Output bits (relay state, LED) |
+| `2` | Read Discrete Inputs | Switches, buttons, GrayCode encoder bits |
+| `3` | Read Holding Registers | Generic 16-bit, read/write |
+| `4` | Read Input Registers | Analog input (joystick, sensor voltage) |
+
+### Data types
+
+| dataType | Bytes | Notes |
+|---|:-:|---|
+| `bit` | 1 bit | Single Coil / DI (`quantity` must be 1) |
+| `bits` | N bits | Packs `quantity` bits into an unsigned int (LSB first) |
+| `uint16` / `int16` | 2 | One register |
+| `uint32` / `int32` | 4 | Two registers, big-endian |
+| `float32` | 4 | Two registers, IEEE 754 big-endian |
+
+Optional `scale` and `offset` apply to register reads: `output = raw * scale + offset`.
+
+### Test simulator
+
+For development without real hardware, [`modbus_slave_sim.py`](modbus_slave_sim.py) provides a `pymodbus`-based Modbus TCP slave that generates synthetic GrayCode + sine wave data:
+
+```bash
+pip install pymodbus==3.6.6
+python modbus_slave_sim.py
+# Listens on 127.0.0.1:5020
+```
 
 ---
 
@@ -123,7 +192,16 @@ https://github.com/Reymer/EdgeLink-Server.git?path=SDK/Unity/Package#feature/dot
 
 Then import the **Basic Example** sample via Package Manager → EdgeLink SDK → Samples.
 
-### Usage
+### Usage — two flavors
+
+| Style | Class | Setup |
+|---|---|---|
+| **MonoBehaviour** (drag onto GameObject, Inspector-configured) | `EdgeLinkManager` | Drop on any GameObject, fill in Inspector fields |
+| **POCO** (constructor-configured, runtime URL/Host/Port) | `EdgeLinkBridge` | `new EdgeLinkBridge(...)` — drives lifecycle manually |
+
+Use `EdgeLinkManager` for the common case (static settings). Use `EdgeLinkBridge` when URL / Host / Port must be decided at runtime (lobby-assigned IP, config file, multi-instance scenarios).
+
+### Usage — MonoBehaviour (`EdgeLinkManager`)
 
 Add `EdgeLinkManager` to any GameObject and configure in the Inspector:
 
@@ -138,6 +216,46 @@ Add `EdgeLinkManager` to any GameObject and configure in the Inspector:
 | UDP Local Port | (UDP mode) Local UDP port |
 | Device Id Key | Field name in the message that identifies the device (e.g. `id`). Leave empty to disable timeout tracking. |
 | Device Timeout (s) | Seconds without a message before a device is considered offline (`0` = disabled) |
+
+### Usage — POCO (`EdgeLinkBridge`)
+
+Pure C# class — construct with parameters, drive the lifecycle from your own MonoBehaviour:
+
+```csharp
+using System.Collections;
+using UnityEngine;
+using EdgeLink;
+
+public class RuntimeConfigured : MonoBehaviour
+{
+    EdgeLinkBridge _bridge;
+
+    IEnumerator Start()
+    {
+        // URL / Host / Port from anywhere — lobby, config.json, PlayerPrefs ...
+        _bridge = new EdgeLinkBridge(
+            serverUrl: PlayerPrefs.GetString("edgelink.url"),
+            tcpHost:   PlayerPrefs.GetString("edgelink.host"),
+            tcpPort:   PlayerPrefs.GetInt   ("edgelink.port", 9001));
+
+        // Or with full Config (TCPListener / UDP / device timeout / custom mask …):
+        // _bridge = new EdgeLinkBridge(new EdgeLinkBridge.Config {
+        //     ServerUrl = "...", Protocol = EdgeLinkBridge.Protocol.TCPListener,
+        //     TcpListenPort = 9001, DeviceTimeoutSeconds = 15,
+        // });
+
+        _bridge.OnMessage      += msg => Debug.Log(msg);
+        _bridge.OnDeviceStatus += (online, ep, id) => Debug.Log($"{id}@{ep} {online}");
+
+        yield return _bridge.InitializeCoroutine();
+    }
+
+    void Update()    => _bridge?.Tick();
+    void OnDestroy() => _bridge?.Dispose();
+}
+```
+
+Both `EdgeLinkManager` and `EdgeLinkBridge` expose the same event surface and `Raw` / `Get(key)` accessors.
 
 ### Reading Data
 
@@ -489,6 +607,9 @@ EdgeLink-Server/
 
 | Version | Changes |
 |---------|---------|
+| v2.1.0 | **Modbus TCP Master** port type (FluentModbus, FC 01/02/03/04, scale/offset); WebUI card-grid overhaul; Unity SDK refactored — added `EdgeLinkBridge` POCO with constructor-injected URL/Host/Port (MonoBehaviour wrapper still works); 4× fire-and-forget tasks suppressed; UDP port-list polling preserves user selection |
+| v2.0.1 | Unity SDK: `OnDeviceStatus` adds device-ID parameter; Arduino AsyncUDP example; HttpClientHandler cert fallback to `ServicePointManager` on Mono |
+| v2.0.0 | Per-connection device-identification on TCP Server / UDP; PING/PONG TCP keepalive; `EDGELINK_STATUS:CONNECTED/DISCONNECTED` events forwarded with device IDs; WebUI shows identified devices per port |
 | v1.1.0 | Unity SDK — device connect/disconnect detection (`OnDeviceStatus`, `OnDeviceTimeout`, `OnDeviceReconnected`); fix STATUS endpoint to use stable IP; C#, Python, JavaScript SDKs added |
 | v1.0.0 | Initial release — .NET 8, HTTPS by default, PBKDF2, session persistence, rolling logger, CORS, Unity SDK |
 
