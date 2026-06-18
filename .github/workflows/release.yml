@@ -50,7 +50,7 @@ jobs:
             EdgeLink-Server-${{ github.ref_name }}-win-x64.zip
             SDK/Arduino/EdgeLink.zip
             com.extrakyo.edgelink-${{ github.ref_name }}.tgz
-          generate_release_notes: false
+          generate_release_notes: true
           body: |
             ## EdgeLink Server ${{ github.ref_name }}
 
