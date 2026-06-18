@@ -7,7 +7,7 @@
 [![.NET](https://img.shields.io/badge/.NET-8.0-512BD4?logo=dotnet)](https://dotnet.microsoft.com)
 [![Platform](https://img.shields.io/badge/Platform-Windows-0078D4?logo=windows)](https://github.com/Reymer/EdgeLink-Server/releases)
 [![License](https://img.shields.io/badge/License-GPL_3.0-blue)](LICENSE)
-[![Version](https://img.shields.io/badge/Version-2.1.0-informational)](https://github.com/Reymer/EdgeLink-Server/releases/tag/v2.1.0)
+[![Version](https://img.shields.io/badge/Version-2.1.1-informational)](https://github.com/Reymer/EdgeLink-Server/releases/tag/v2.1.1)
 
 A lightweight .NET 8 server that bridges IoT devices over TCP/UDP, transforms protocol data via custom Mask definitions, and provides a browser-based management interface.
 
@@ -42,7 +42,7 @@ A lightweight .NET 8 server that bridges IoT devices over TCP/UDP, transforms pr
 
 ## Installation
 
-1. Download `EdgeLink-Server-v2.1.0-win-x64.zip` from [Releases](https://github.com/Reymer/EdgeLink-Server/releases)
+1. Download `EdgeLink-Server-v2.1.1-win-x64.zip` from [Releases](https://github.com/Reymer/EdgeLink-Server/releases)
 2. Extract the zip
 3. Run `EdgeLinkServer.exe`
 4. Open your browser at `https://localhost:8443`
@@ -607,7 +607,8 @@ EdgeLink-Server/
 
 | Version | Changes |
 |---------|---------|
-| v2.1.0 | **Modbus TCP Master** port type (FluentModbus, FC 01/02/03/04, scale/offset); WebUI card-grid overhaul; Unity SDK refactored — added `EdgeLinkBridge` POCO with constructor-injected URL/Host/Port (MonoBehaviour wrapper still works); 4× fire-and-forget tasks suppressed; UDP port-list polling preserves user selection |
+| v2.1.1 | Unity SDK: extracted `EdgeLinkBridge` POCO with constructor-injected URL/Host/Port (MonoBehaviour `EdgeLinkManager` still works as a thin wrapper); README updated with Modbus + POCO docs |
+| v2.1.0 | **Modbus TCP Master** port type (FluentModbus, FC 01/02/03/04, scale/offset); WebUI card-grid overhaul; 4× fire-and-forget tasks suppressed; UDP port-list polling preserves user selection |
 | v2.0.1 | Unity SDK: `OnDeviceStatus` adds device-ID parameter; Arduino AsyncUDP example; HttpClientHandler cert fallback to `ServicePointManager` on Mono |
 | v2.0.0 | Per-connection device-identification on TCP Server / UDP; PING/PONG TCP keepalive; `EDGELINK_STATUS:CONNECTED/DISCONNECTED` events forwarded with device IDs; WebUI shows identified devices per port |
 | v1.1.0 | Unity SDK — device connect/disconnect detection (`OnDeviceStatus`, `OnDeviceTimeout`, `OnDeviceReconnected`); fix STATUS endpoint to use stable IP; C#, Python, JavaScript SDKs added |
